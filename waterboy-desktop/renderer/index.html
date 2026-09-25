@@ -14,7 +14,6 @@
         <nav class="nav" id="nav"></nav>
         <div class="sidebar-foot" id="sidebar-foot"></div>
       </aside>
-      <button class="icon-btn sidebar-toggle" id="sidebar-toggle" title="Toggle sidebar" aria-label="Toggle sidebar"></button>
       <main class="main" id="main">
         <header class="toolbar">
           <h1 id="page-title"></h1>
@@ -23,6 +22,9 @@
         </header>
         <div class="content" id="content"></div>
       </main>
+      <!-- After <main>: Electron applies drag regions in document order, so the toolbar (a drag region)
+           would swallow clicks on the toggle if it came later. -->
+      <button class="icon-btn sidebar-toggle" id="sidebar-toggle" title="Toggle sidebar" aria-label="Toggle sidebar"></button>
     </div>
     <div class="toast-wrap" id="toasts"></div>
     <script src="icons.js"></script>
