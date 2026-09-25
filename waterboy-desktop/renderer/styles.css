@@ -100,7 +100,8 @@ input, textarea, select, button { font: inherit; color: inherit; }
   padding: 0 14px 0 16px; -webkit-app-region: drag; border-bottom: 1px solid transparent;
 }
 .main.scrolled .toolbar { border-bottom-color: var(--divider); }
-.toolbar h1 { font-size: 15px; font-weight: 600; margin: 0; }
+.toolbar h1 { font-size: 15px; font-weight: 600; margin: 0; opacity: 0; transition: opacity 0.15s ease; }
+.main.titled .toolbar h1 { opacity: 1; }
 .toolbar .spacer { flex: 1; }
 .toolbar button { -webkit-app-region: no-drag; }
 .app.collapsed .toolbar { padding-left: 120px; } /* clear the traffic lights and the sidebar toggle (80–108px) */

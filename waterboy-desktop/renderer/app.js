@@ -129,7 +129,7 @@
       if (localStorage.getItem("collapsed")) $("#app").classList.add("collapsed");
     } catch {}
     $("#refresh").addEventListener("click", () => render(true));
-    $("#content").addEventListener("scroll", () => $("#main").classList.toggle("scrolled", $("#content").scrollTop > 4));
+    $("#content").addEventListener("scroll", syncScroll);
     window.addEventListener("hashchange", () => {
       $("#content").scrollTop = 0;
       render();
@@ -155,6 +155,14 @@
     if (o?.summary.errorsToday) logsLink.append(h("span", { class: "badge" }, o.summary.errorsToday));
   }
 
+  // The toolbar border shows once the page scrolls; the toolbar title only once the page's own
+  // heading has scrolled out of view, so the title never appears twice.
+  function syncScroll() {
+    const top = $("#content").scrollTop;
+    $("#main").classList.toggle("scrolled", top > 4);
+    $("#main").classList.toggle("titled", top > 56);
+  }
+
   let renderSeq = 0;
   async function render(spinning = false) {
     const page = current();
@@ -172,6 +180,7 @@
       if (seq !== renderSeq) return;
       content.dataset.page = page.id;
       content.replaceChildren(el);
+      syncScroll();
     } catch (e) {
       if (seq !== renderSeq) return;
       content.replaceChildren(h("div", { class: "page" }, card(h("div", { class: "empty" }, icon("alert", 18), e.message))));
@@ -1008,7 +1017,7 @@
       pageHead("About"),
       card(
         h("div", { class: "about-hero" }, h("img", { class: "app-icon", src: "brand.png", alt: "" }), h("div", {}, h("h3", { style: "margin:0;font-size:17px" }, "Waterboy"), h("div", { class: "desc", style: "margin:2px 0 0" }, `Version ${v.app} · Electron ${v.electron}`))),
-        h("p", { style: "margin:14px 0 0" }, `A control panel for ${o?.agentName ?? "your agent"}, the Claude agent that answers iMessages on this Mac. The agent itself runs as a background service, so it keeps working when this window is closed.`),
+        h("p", { style: "margin:14px 0 0" }, `A control panel for ${o?.agentName ?? "your agent"}, the assistant that answers iMessages on this Mac. The agent itself runs as a background service, so it keeps working when this window is closed.`),
       ),
       v.coffee
         ? card(
