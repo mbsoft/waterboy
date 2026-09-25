@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { Config } from "../src/config.ts";
-import type { AgentRequest } from "../src/assistants/claude.ts";
+import type { AgentRequest } from "../src/assistants/types.ts";
 import { turnSetup, turnInput, unreviewedFeatures, codexMcpServer, chatgptAccount, REVIEWED_DEFAULT_ON, type ToolServerLaunch } from "../src/assistants/codex.ts";
 
 const cfg = (o: Partial<Config> = {}) =>

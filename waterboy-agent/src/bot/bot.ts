@@ -4,7 +4,7 @@ import type { Config } from "../config.ts";
 import { log, normalizeHandle } from "../config.ts";
 import type { IncomingMessage } from "../messages/messagesDb.ts";
 import type { State, ScheduledTask } from "./state.ts";
-import type { AgentRunner } from "../assistants/claude.ts";
+import type { AgentRunner } from "../assistants/types.ts";
 import type { ChatTarget, Sender } from "../messages/sender.ts";
 import { chunk, toPlainText } from "./format.ts";
 import { importAttachment, isAudio, transcribe } from "../messages/media.ts";

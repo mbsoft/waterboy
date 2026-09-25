@@ -98,3 +98,19 @@ test("matchup preview: Vegas implied points and bad weather", async () => {
   assert.doesNotMatch(text, /O\. Qb .*· V/); // already played
   assert.doesNotMatch(text, /B\. Guy .*· V/); // bye
 });
+
+test("findRosteredPlayer: names, last names, partials and defenses", async () => {
+  const { findRosteredPlayer } = await import("../src/fantasy/matchup.ts");
+  const withDst = structuredClone(league);
+  withDst.teams[0].roster.entries.push(player(99, "49ers D/ST", 16, 30, 16, 7));
+  const find = (q: string) => findRosteredPlayer(withDst, pro, 3, q)?.line.fullName ?? null;
+  assert.equal(find("Joe Starter"), "Joe Starter");
+  assert.equal(find("starter"), "Joe Starter"); // last name
+  assert.equal(find("Bench"), "Bench Stud"); // partial
+  assert.equal(find("49ers D/ST"), "49ers D/ST");
+  assert.equal(find("PIT defense"), "49ers D/ST"); // its NFL team (fixture: pro team 30 is PIT)
+  assert.equal(find("pit"), "49ers D/ST"); // a bare team abbreviation
+  assert.equal(find("49ers"), null); // no "defense": only players match
+  assert.equal(find("Nobody"), null);
+  assert.equal(findRosteredPlayer(withDst, pro, 3, "Other Qb")?.team, "Bravo");
+});

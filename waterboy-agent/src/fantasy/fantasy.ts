@@ -5,9 +5,11 @@
 import { z } from "zod";
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { log } from "../config.ts";
+import { myTeam, type FantasyConfig } from "./config.ts";
 import { fetchWeek, buildPreview, formatPreview, formatSlate, findTeam } from "./matchup.ts";
 import { waiverReport } from "./waivers.ts";
-import { fmtCount, nameKey, scoringFromEspn, sleeperProjector, sleeperTeam, sleeperTrending } from "./data/sleeper.ts";
+import { nameKey } from "./names.ts";
+import { fmtCount, scoringFromEspn, sleeperProjector, sleeperTeam, sleeperTrending } from "./data/sleeper.ts";
 import { dataAge, findPlayers, formatUsage, loadIndex, syncNflverse } from "./data/nflverse.ts";
 import { formatGameLines, weekLines } from "./data/vegas.ts";
 import { SOURCE, sourceLine } from "./sources.ts";
@@ -15,55 +17,12 @@ import { buildStartSit, ordinal } from "./startSit/startSit.ts";
 import { renderStartSitCard } from "./startSit/card.ts";
 import { RANK_POSITIONS, formatPlayerRanks, formatTopRanks, loadRankings } from "./data/rankings.ts";
 import { evaluateTrade, formatTrade, formatValues, tradeValues, type TradeFormat, type Valued } from "./data/tradeValues.ts";
+import { FANTASY_BASE, espnGet, NFL_SCOREBOARD } from "./espn.ts";
 
-export interface FantasyConfig {
-  espnLeagueId: string;
-  season?: number; // default: current year
-  espnS2?: string;
-  swid?: string;
-  /** Your team id, used to highlight "you" in on-demand answers. */
-  myTeamId?: number;
-  /**
-   * Who owns which team: phone number / email → team name (or ESPN team id), e.g.
-   * { "+16145551234": "Brownie Poos" }. "me"/"my team" then means the asker's team.
-   */
-  teams?: Record<string, string | number>;
-  /**
-   * Set per turn (not in config.json): the asker's team, or null when it's unknown or ambiguous.
-   * Undefined falls back to myTeamId.
-   */
-  me?: string | number | null;
-  /**
-   * Replace owner labels in the roundup. Key: ESPN team id ("13") or the default
-   * label ("Kathy L."); value: what to show ("Kathy & Lee L.").
-   */
-  ownerNames?: Record<string, string>;
-  /** Use Sleeper's public API for second-opinion projections and trending players (default true). */
-  sleeper?: boolean;
-  /** Download nflverse usage stats (snaps, targets, expected points, injury reports) daily (default true). */
-  nflverse?: boolean;
-  /** Betting lines, implied team totals and game weather from ESPN's scoreboard (default true). */
-  vegas?: boolean;
-  /** FantasyPros expert consensus rankings via DynastyProcess's daily data (default true). */
-  rankings?: boolean;
-  /** FantasyCalc trade values (default true). */
-  tradeValues?: boolean;
-  /** Dynasty league: trade values count future seasons (default false = redraft). */
-  dynasty?: boolean;
-  /** Send a comparison card image with start/sit answers (default true). */
-  startSitCards?: boolean;
-}
 
-const FANTASY_BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons";
-
-/** The team "me" refers to this turn (see FantasyConfig.me). */
-export function myTeam(cfg: FantasyConfig): string | number | undefined {
-  return cfg.me === undefined ? cfg.myTeamId : (cfg.me ?? undefined);
-}
 
 const ME_UNKNOWN = `I don't know which team is yours. Ask again with your team name, or have the admin add your number under fantasy.teams in config.json.`;
 const isMe = (q: string) => ["me", "my", "mine", "my team"].includes(q.trim().toLowerCase());
-const NFL_SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard";
 
 // ---------- raw API types (just what we use) ----------
 
@@ -102,22 +61,10 @@ interface RawLeague {
   schedule: RawMatchup[];
 }
 
-async function getJson<T>(url: string, cfg?: FantasyConfig): Promise<T> {
-  // ESPN rejects Node's default "node" user agent with a 403.
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) waterboy/0.1",
-  };
-  if (cfg?.espnS2 && cfg?.swid) headers.Cookie = `espn_s2=${cfg.espnS2}; SWID=${cfg.swid}`;
-  const res = await fetch(url, { headers, signal: AbortSignal.timeout(20_000) });
-  if (!res.ok) throw new Error(`ESPN ${res.status} for ${url.split("?")[0]}`);
-  return (await res.json()) as T;
-}
-
 export async function fetchLeague(cfg: FantasyConfig): Promise<RawLeague> {
   const season = cfg.season ?? new Date().getFullYear();
   const views = ["mTeam", "mMatchupScore", "mSettings", "mStatus"].map((v) => `view=${v}`).join("&");
-  return getJson<RawLeague>(`${FANTASY_BASE}/${season}/segments/0/leagues/${cfg.espnLeagueId}?${views}`, cfg);
+  return espnGet<RawLeague>(`${FANTASY_BASE}/${season}/segments/0/leagues/${cfg.espnLeagueId}?${views}`, cfg);
 }
 
 /**
@@ -127,14 +74,14 @@ export async function fetchLeague(cfg: FantasyConfig): Promise<RawLeague> {
  */
 export async function nflWeekComplete(week: number, season = new Date().getFullYear(), seasonType = 2): Promise<boolean> {
   try {
-    const d = await getJson<{ events: { status: { type: { completed: boolean } } }[] }>(
+    const d = await espnGet<{ events: { status: { type: { completed: boolean } } }[] }>(
       `${NFL_SCOREBOARD}?seasontype=${seasonType}&week=${week}&dates=${season}`,
     );
     if (d.events.length) return d.events.every((e) => e.status.type.completed);
   } catch (e) {
     log("[fantasy] NFL scoreboard unavailable, using pro schedule:", (e as Error).message);
   }
-  const d = await getJson<{
+  const d = await espnGet<{
     settings: { proTeams: { proGamesByScoringPeriod?: Record<string, { id: number; date: number; statsOfficial?: boolean }[]> }[] };
   }>(`${FANTASY_BASE}/${season}?view=proTeamSchedules_wl`);
   const games = new Map<number, { date: number; statsOfficial?: boolean }>();

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildIndex, toSleeperId, scoringFromEspn, fmtCount, sleeperTeam, nameKey } from "../src/fantasy/data/sleeper.ts";
+import { buildIndex, toSleeperId, scoringFromEspn, fmtCount, sleeperTeam } from "../src/fantasy/data/sleeper.ts";
+import { nameKey } from "../src/fantasy/names.ts";
 
 test("sleeper index maps ESPN ids and defenses", () => {
   const idx = buildIndex({

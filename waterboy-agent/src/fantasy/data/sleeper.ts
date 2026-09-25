@@ -5,6 +5,7 @@
  * Every call is best-effort: callers get null/[] if Sleeper is unreachable.
  */
 import { log } from "../../config.ts";
+import { nameKey } from "../names.ts";
 
 const API = "https://api.sleeper.app/v1";
 const PROJ_API = "https://api.sleeper.com/projections/nfl";
@@ -35,17 +36,6 @@ export const sleeperTeam = (espnAbbrev: string) => {
   const t = espnAbbrev.toUpperCase();
   return TEAM_ALIAS[t] ?? t;
 };
-
-/** "Kenneth Walker III" / "D.J. Moore" → "kennethwalker|RB" / "djmoore|WR", comparable across ESPN and Sleeper. */
-export function nameKey(name: string, pos: string): string {
-  const n = name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\b(jr|sr|ii|iii|iv|v)\b\.?/g, "")
-    .replace(/[^a-z]/g, "");
-  return `${n}|${pos === "D/ST" ? "DEF" : pos}`;
-}
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(30_000) });

@@ -6,8 +6,8 @@
  */
 import { log } from "../../config.ts";
 import { SOURCE, sourceLine } from "../sources.ts";
+import { NFL_SCOREBOARD, espnGet } from "../espn.ts";
 
-const SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard";
 
 export interface TeamLine {
   team: string; // ESPN abbreviation, same as the fantasy API's pro teams ("BUF", "WSH")
@@ -92,9 +92,7 @@ export async function weekLines(season: number, nflWeek: number, seasonType = 2)
   const key = `${season}:${seasonType}:${nflWeek}`;
   if (cache?.key === key && Date.now() - cache.at < 30 * 60_000) return cache.lines;
   try {
-    const res = await fetch(`${SCOREBOARD}?seasontype=${seasonType}&week=${nflWeek}&dates=${season}`, { signal: AbortSignal.timeout(20_000) });
-    if (!res.ok) throw new Error(`ESPN scoreboard ${res.status}`);
-    const lines = linesFromScoreboard((await res.json()) as RawScoreboard);
+    const lines = linesFromScoreboard(await espnGet<RawScoreboard>(`${NFL_SCOREBOARD}?seasontype=${seasonType}&week=${nflWeek}&dates=${season}`));
     cache = { key, at: Date.now(), lines };
     return lines;
   } catch (e) {

@@ -10,7 +10,7 @@ import os from "node:os";
 import path from "node:path";
 import { log } from "../../config.ts";
 import { parseCsv } from "./nflverse.ts";
-import { nameKey } from "./sleeper.ts";
+import { nameKey } from "../names.ts";
 import { SOURCE, sourceLine } from "../sources.ts";
 
 const URL = "https://github.com/dynastyprocess/data/raw/master/files/db_fpecr_latest.csv";

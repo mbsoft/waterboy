@@ -8,7 +8,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { log } from "../../config.ts";
-import { nameKey } from "./sleeper.ts";
+import { nameKey } from "../names.ts";
 
 const NFLVERSE = "https://github.com/nflverse/nflverse-data/releases/download";
 const FFVERSE = "https://github.com/ffverse/ffopportunity/releases/download/latest-data";

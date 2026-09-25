@@ -10,7 +10,7 @@ import { computeNextRun } from "../src/bot/scheduler.ts";
 import { State } from "../src/bot/state.ts";
 import { Bot } from "../src/bot/bot.ts";
 import { ConsoleSender, type ChatTarget } from "../src/messages/sender.ts";
-import type { AgentRequest, AgentRunner } from "../src/assistants/claude.ts";
+import type { AgentRequest, AgentRunner } from "../src/assistants/types.ts";
 import type { Config } from "../src/config.ts";
 import { addChat, addHandle, addMessage, makeFakeChatDb } from "./helpers.ts";
 

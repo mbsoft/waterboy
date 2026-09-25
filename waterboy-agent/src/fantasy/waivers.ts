@@ -4,14 +4,15 @@
  * waiver/free-agent moves. Formatting is pure (buildWaiverReport/formatWaiverReport)
  * so it can be tested without ESPN.
  */
-import type { FantasyConfig } from "./fantasy.ts";
-import { myTeam, nflWeekComplete } from "./fantasy.ts";
+import { myTeam, type FantasyConfig } from "./config.ts";
+import { nflWeekComplete } from "./fantasy.ts";
 import { fetchWeek, findTeam, type RawWeekLeague } from "./matchup.ts";
-import { fmtCount, nameKey, scoringFromEspn, sleeperProjections, sleeperProjector, sleeperTrending, sleeperTeam } from "./data/sleeper.ts";
+import { nameKey } from "./names.ts";
+import { fmtCount, scoringFromEspn, sleeperProjections, sleeperProjector, sleeperTrending, sleeperTeam } from "./data/sleeper.ts";
 import { log } from "../config.ts";
 import { SOURCE, sourceLine } from "./sources.ts";
+import { FANTASY_BASE, espnGet } from "./espn.ts";
 
-const FANTASY_BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons";
 const POS: Record<number, string> = { 1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "D/ST" };
 const POS_ORDER = ["QB", "RB", "WR", "TE", "D/ST", "K"];
 const INJ: Record<string, string> = { QUESTIONABLE: "Q", DOUBTFUL: "D", OUT: "O", INJURY_RESERVE: "IR", SUSPENSION: "SSPD" };
@@ -28,18 +29,6 @@ interface RawPoolPlayer {
 }
 export interface RawPoolEntry { id: number; status: string; onTeamId: number; player: RawPoolPlayer }
 interface RawTx { teamId: number; type: string; status: string; scoringPeriodId: number; proposedDate?: number; bidAmount?: number; items: { type: string; playerId: number }[] }
-
-async function getJson<T>(url: string, cfg: FantasyConfig, filter?: object): Promise<T> {
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) waterboy/0.1",
-  };
-  if (filter) headers["x-fantasy-filter"] = JSON.stringify(filter);
-  if (cfg.espnS2 && cfg.swid) headers.Cookie = `espn_s2=${cfg.espnS2}; SWID=${cfg.swid}`;
-  const res = await fetch(url, { headers, signal: AbortSignal.timeout(20_000) });
-  if (!res.ok) throw new Error(`ESPN ${res.status}`);
-  return (await res.json()) as T;
-}
 
 // ---------- model ----------
 
@@ -292,19 +281,19 @@ export async function waiverReport(cfg: FantasyConfig, opts: { team?: string; we
       filterRanksForScoringPeriodIds: { value: [nflWeek] },
     },
   };
-  const poolRes = await getJson<{ players: RawPoolEntry[] }>(`${base}?view=kona_player_info&scoringPeriodId=${nflWeek}`, cfg, filter);
+  const poolRes = await espnGet<{ players: RawPoolEntry[] }>(`${base}?view=kona_player_info&scoringPeriodId=${nflWeek}`, cfg, filter);
   const proTeams = new Map(pro.map((t) => [t.id, t.abbrev]));
 
   // Transactions from the week that just finished and the current one; the report keeps the last 7 days.
   const txs: RawTx[] = [];
   for (const sp of new Set([Math.max(1, nflWeek - 1), nflWeek])) {
-    const r = await getJson<{ transactions?: RawTx[] }>(`${base}?view=mTransactions2&scoringPeriodId=${sp}`, cfg).catch(() => ({ transactions: [] }));
+    const r = await espnGet<{ transactions?: RawTx[] }>(`${base}?view=mTransactions2&scoringPeriodId=${sp}`, cfg).catch(() => ({ transactions: [] }));
     txs.push(...(r.transactions ?? []).filter((x) => x.scoringPeriodId === sp));
   }
   const ids = [...new Set(txs.flatMap((x) => x.items.filter((i) => i.type === "ADD" || i.type === "DROP").map((i) => i.playerId)))];
   const names = new Map<number, string>();
   if (ids.length) {
-    const players = await getJson<RawPoolPlayer[]>(`${FANTASY_BASE}/${league.seasonId}/players?view=players_wl`, cfg, {
+    const players = await espnGet<RawPoolPlayer[]>(`${FANTASY_BASE}/${league.seasonId}/players?view=players_wl`, cfg, {
       filterIds: { value: ids },
     }).catch(() => [] as RawPoolPlayer[]);
     for (const p of players) names.set(p.id, short(p.fullName, POS[p.defaultPositionId] ?? ""));

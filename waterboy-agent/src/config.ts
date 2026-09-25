@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { FantasyConfig } from "./fantasy/fantasy.ts";
+import type { FantasyConfig } from "./fantasy/config.ts";
 
 export interface VoiceConfig {
   enabled: boolean;

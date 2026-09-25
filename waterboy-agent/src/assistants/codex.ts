@@ -8,7 +8,7 @@ import { promisify } from "node:util";
 import { Codex, type ThreadOptions, type Input, type Usage } from "@openai/codex-sdk";
 import type { Config } from "../config.ts";
 import { log } from "../config.ts";
-import type { AgentRequest, AgentResponse, AgentRunner } from "./claude.ts";
+import type { AgentRequest, AgentResponse, AgentRunner } from "./types.ts";
 import { toolServerEntry } from "../paths.ts";
 
 const run = promisify(execFile);

@@ -3,11 +3,12 @@
  * injuries, byes, and start/sit flags. Pure formatting lives in buildPreview/formatPreview
  * so it can be tested without ESPN.
  */
-import type { FantasyConfig } from "./fantasy.ts";
+import type { FantasyConfig } from "./config.ts";
 import type { TeamLine } from "./data/vegas.ts";
+import { nameOnly } from "./names.ts";
 import { SOURCE, sourceLine } from "./sources.ts";
+import { FANTASY_BASE, espnGet } from "./espn.ts";
 
-const FANTASY_BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons";
 
 // ESPN ids → labels
 const POS: Record<number, string> = { 1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "D/ST" };
@@ -41,21 +42,10 @@ export interface RawWeekLeague {
 }
 export interface ProTeam { id: number; abbrev: string; proGamesByScoringPeriod?: Record<string, { homeProTeamId: number; awayProTeamId: number; date: number }[]> }
 
-async function getJson<T>(url: string, cfg: FantasyConfig): Promise<T> {
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) waterboy/0.1",
-  };
-  if (cfg.espnS2 && cfg.swid) headers.Cookie = `espn_s2=${cfg.espnS2}; SWID=${cfg.swid}`;
-  const res = await fetch(url, { headers, signal: AbortSignal.timeout(20_000) });
-  if (!res.ok) throw new Error(`ESPN ${res.status}`);
-  return (await res.json()) as T;
-}
-
 let proCache: { at: number; season: number; teams: ProTeam[] } | null = null;
 async function proTeams(cfg: FantasyConfig, season: number): Promise<ProTeam[]> {
   if (proCache && proCache.season === season && Date.now() - proCache.at < 6 * 3600_000) return proCache.teams;
-  const d = await getJson<{ settings: { proTeams: ProTeam[] } }>(`${FANTASY_BASE}/${season}?view=proTeamSchedules_wl`, cfg);
+  const d = await espnGet<{ settings: { proTeams: ProTeam[] } }>(`${FANTASY_BASE}/${season}?view=proTeamSchedules_wl`, cfg);
   proCache = { at: Date.now(), season, teams: d.settings.proTeams };
   return proCache.teams;
 }
@@ -64,11 +54,11 @@ async function proTeams(cfg: FantasyConfig, season: number): Promise<ProTeam[]> 
 export async function fetchWeek(cfg: FantasyConfig, week?: number): Promise<{ league: RawWeekLeague; pro: ProTeam[]; week: number; nflWeek: number }> {
   const season = cfg.season ?? new Date().getFullYear();
   const base = `${FANTASY_BASE}/${season}/segments/0/leagues/${cfg.espnLeagueId}`;
-  const status = await getJson<RawWeekLeague>(`${base}?view=mSettings&view=mStatus`, cfg);
+  const status = await espnGet<RawWeekLeague>(`${base}?view=mSettings&view=mStatus`, cfg);
   const w = week ?? status.status.currentMatchupPeriod;
   const nflWeek = Math.min(...(status.settings.scheduleSettings.matchupPeriods[String(w)] ?? [w]));
   const views = ["mTeam", "mRoster", "mMatchupScore", "mSettings", "mStatus"].map((v) => `view=${v}`).join("&");
-  const league = await getJson<RawWeekLeague>(`${base}?${views}&scoringPeriodId=${nflWeek}`, cfg);
+  const league = await espnGet<RawWeekLeague>(`${base}?${views}&scoringPeriodId=${nflWeek}`, cfg);
   return { league, pro: await proTeams(cfg, league.seasonId), week: w, nflWeek };
 }
 
@@ -240,22 +230,29 @@ function sheet(
 export function findRosteredPlayer(
   league: RawWeekLeague, pro: ProTeam[], nflWeek: number, query: string, alt?: AltProjector, lines?: Map<string, TeamLine>,
 ): { line: PlayerLine; team: string } | null {
-  const q = query.trim().toLowerCase();
-  const isDef = /\b(d\/?st|def|defense|defence)\b/.test(q);
-  const bare = q.replace(/\b(d\/?st|def|defense|defence)\b/g, "").trim();
-  const key = (n: string) => n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\b(jr|sr|ii|iii|iv|v)\b\.?/g, "").replace(/[^a-z]/g, "");
+  const DEF_WORDS = /\b(d\/?st|def|defense|defence)\b/i;
+  const saysDefense = DEF_WORDS.test(query);
+  const bare = query.replace(DEF_WORDS, "").trim().toLowerCase(); // "49ers", "sf", "ja'marr chase"
+  const want = nameOnly(bare);
+  // How well a rostered player matches: 3 exact name, 2 last name or team (for a D/ST), 1 partial, 0 no.
+  const score = (fullName: string, isDst: boolean, abbrev: string) => {
+    if (isDst) {
+      if (!saysDefense && abbrev !== bare) return 0; // a defense only when asked for one, or by its abbreviation
+      return nameOnly(fullName) === want ? 3 : abbrev === bare || nameOnly(fullName).includes(want) ? 2 : 0;
+    }
+    if (saysDefense) return 0;
+    const full = nameOnly(fullName);
+    if (full === want) return 3;
+    if (nameOnly(fullName.split(" ").slice(1).join(" ")) === want) return 2;
+    return want.length >= 3 && full.includes(want) ? 1 : 0;
+  };
   let best: { line: PlayerLine; team: string; score: number } | null = null;
   for (const t of league.teams)
     for (const e of t.roster?.entries ?? []) {
       const p = e.playerPoolEntry.player;
-      const dst = p.defaultPositionId === 16;
-      if (isDef !== dst && !(dst && bare && pro.find((x) => x.id === p.proTeamId)?.abbrev.toLowerCase() === bare)) continue;
-      const full = key(p.fullName);
-      const last = key(p.fullName.split(" ").slice(1).join(" "));
-      const abbrev = pro.find((x) => x.id === p.proTeamId)?.abbrev.toLowerCase();
-      const k = key(bare);
-      const score = full === k ? 3 : (dst && (abbrev === bare || full.includes(k))) || last === k ? 2 : k.length >= 3 && full.includes(k) ? 1 : 0;
-      if (score && (!best || score > best.score)) best = { line: playerLine(e, league.seasonId, nflWeek, pro, alt, lines), team: (t.name ?? t.abbrev).trim(), score };
+      const abbrev = pro.find((x) => x.id === p.proTeamId)?.abbrev.toLowerCase() ?? "";
+      const s = score(p.fullName, p.defaultPositionId === 16, abbrev);
+      if (s && (!best || s > best.score)) best = { line: playerLine(e, league.seasonId, nflWeek, pro, alt, lines), team: (t.name ?? t.abbrev).trim(), score: s };
     }
   return best && { line: best.line, team: best.team };
 }

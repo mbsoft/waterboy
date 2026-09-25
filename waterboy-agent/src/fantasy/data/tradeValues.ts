@@ -5,7 +5,7 @@
  * exactly. Cached 6 hours per format; a failed refresh keeps the previous values.
  */
 import { log } from "../../config.ts";
-import { nameKey } from "./sleeper.ts";
+import { nameKey } from "../names.ts";
 import { SOURCE, sourceLine } from "../sources.ts";
 
 const API = "https://api.fantasycalc.com/values/current";
