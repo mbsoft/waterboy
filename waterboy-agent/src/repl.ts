@@ -12,13 +12,13 @@
  */
 import readline from "node:readline";
 import { loadConfig } from "./config.ts";
-import { State } from "./state.ts";
-import { Bot } from "./bot.ts";
-import { ClaudeAgentRunner } from "./agent.ts";
-import { ConsoleSender } from "./sender.ts";
-import { startScheduler } from "./scheduler.ts";
-import { makeConditions } from "./conditions.ts";
-import type { IncomingMessage } from "./messagesDb.ts";
+import { State } from "./bot/state.ts";
+import { Bot } from "./bot/bot.ts";
+import { ClaudeAgentRunner } from "./assistants/claude.ts";
+import { ConsoleSender } from "./messages/sender.ts";
+import { startScheduler } from "./bot/scheduler.ts";
+import { makeConditions } from "./bot/conditions.ts";
+import type { IncomingMessage } from "./messages/messagesDb.ts";
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(name);

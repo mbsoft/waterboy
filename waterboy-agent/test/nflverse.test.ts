@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseCsv, buildIndex, findPlayers, formatUsage } from "../src/nflverse.ts";
+import { parseCsv, buildIndex, findPlayers, formatUsage } from "../src/fantasy/data/nflverse.ts";
 
 test("csv: quoted fields with commas, escaped quotes and CRLF", () => {
   const rows = parseCsv('a,b,c\r\n1,"x, y",3\r\n2,"say ""hi""",\n', ["c", "b"]);

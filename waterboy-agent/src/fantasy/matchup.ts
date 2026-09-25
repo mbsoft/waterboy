@@ -4,7 +4,7 @@
  * so it can be tested without ESPN.
  */
 import type { FantasyConfig } from "./fantasy.ts";
-import type { TeamLine } from "./vegas.ts";
+import type { TeamLine } from "./data/vegas.ts";
 import { SOURCE, sourceLine } from "./sources.ts";
 
 const FANTASY_BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons";

@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { loadConfig } from "../src/config.ts";
-import { CodexAgentRunner } from "../src/codex.ts";
+import { CodexAgentRunner } from "../src/assistants/codex.ts";
 
 const data = process.env.WB_E2E_DATA!;
 // A scratch config (real fantasy league, scratch data folder) that the tool servers read too.

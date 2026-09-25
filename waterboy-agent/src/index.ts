@@ -1,17 +1,17 @@
 import fs from "node:fs";
 import path from "node:path";
 import { loadConfig, log } from "./config.ts";
-import { MessagesDb } from "./messagesDb.ts";
-import { State } from "./state.ts";
-import { Bot } from "./bot.ts";
-import { ClaudeAgentRunner } from "./agent.ts";
-import { CodexAgentRunner, chatgptAccount, verifyLockdown } from "./codex.ts";
-import { AppleScriptSender, ConsoleSender } from "./sender.ts";
-import { startScheduler } from "./scheduler.ts";
-import { makeConditions } from "./conditions.ts";
-import { startNflverseSync } from "./nflverse.ts";
-import { setRankingsDataDir } from "./rankings.ts";
-import { startIMessageHelper } from "./imessage.ts";
+import { MessagesDb } from "./messages/messagesDb.ts";
+import { State } from "./bot/state.ts";
+import { Bot } from "./bot/bot.ts";
+import { ClaudeAgentRunner } from "./assistants/claude.ts";
+import { CodexAgentRunner, chatgptAccount, verifyLockdown } from "./assistants/codex.ts";
+import { AppleScriptSender, ConsoleSender } from "./messages/sender.ts";
+import { startScheduler } from "./bot/scheduler.ts";
+import { makeConditions } from "./bot/conditions.ts";
+import { startNflverseSync } from "./fantasy/data/nflverse.ts";
+import { setRankingsDataDir } from "./fantasy/data/rankings.ts";
+import { startIMessageHelper } from "./messages/helper.ts";
 
 const cfg = loadConfig();
 if (process.argv.includes("--dry-run")) cfg.dryRun = true;

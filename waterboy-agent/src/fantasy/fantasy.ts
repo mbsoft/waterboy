@@ -4,17 +4,17 @@
  */
 import { z } from "zod";
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
-import { log } from "./config.ts";
-import { fetchWeek, buildPreview, formatPreview, formatSlate, findTeam } from "./fantasyMatchup.ts";
-import { waiverReport } from "./fantasyWaivers.ts";
-import { fmtCount, nameKey, scoringFromEspn, sleeperProjector, sleeperTeam, sleeperTrending } from "./sleeper.ts";
-import { dataAge, findPlayers, formatUsage, loadIndex, syncNflverse } from "./nflverse.ts";
-import { formatGameLines, weekLines } from "./vegas.ts";
+import { log } from "../config.ts";
+import { fetchWeek, buildPreview, formatPreview, formatSlate, findTeam } from "./matchup.ts";
+import { waiverReport } from "./waivers.ts";
+import { fmtCount, nameKey, scoringFromEspn, sleeperProjector, sleeperTeam, sleeperTrending } from "./data/sleeper.ts";
+import { dataAge, findPlayers, formatUsage, loadIndex, syncNflverse } from "./data/nflverse.ts";
+import { formatGameLines, weekLines } from "./data/vegas.ts";
 import { SOURCE, sourceLine } from "./sources.ts";
-import { buildStartSit, ordinal } from "./startSit.ts";
-import { renderStartSitCard } from "./startSitCard.ts";
-import { RANK_POSITIONS, formatPlayerRanks, formatTopRanks, loadRankings } from "./rankings.ts";
-import { evaluateTrade, formatTrade, formatValues, tradeValues, type TradeFormat, type Valued } from "./tradeValues.ts";
+import { buildStartSit, ordinal } from "./startSit/startSit.ts";
+import { renderStartSitCard } from "./startSit/card.ts";
+import { RANK_POSITIONS, formatPlayerRanks, formatTopRanks, loadRankings } from "./data/rankings.ts";
+import { evaluateTrade, formatTrade, formatValues, tradeValues, type TradeFormat, type Valued } from "./data/tradeValues.ts";
 
 export interface FantasyConfig {
   espnLeagueId: string;

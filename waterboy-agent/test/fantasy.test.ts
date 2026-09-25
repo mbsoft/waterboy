@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildRoundup, finalizedPeriods } from "../src/fantasy.ts";
+import { buildRoundup, finalizedPeriods } from "../src/fantasy/fantasy.ts";
 
 function league(week2Winner: "HOME" | "UNDECIDED") {
   const team = (id: number, name: string) => ({

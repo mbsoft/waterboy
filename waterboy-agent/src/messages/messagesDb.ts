@@ -1,7 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import { decodeAttributedBody } from "./attributedBody.ts";
-import { expandHome } from "./config.ts";
+import { expandHome } from "../config.ts";
 
 export interface Attachment {
   path: string; // absolute path on disk

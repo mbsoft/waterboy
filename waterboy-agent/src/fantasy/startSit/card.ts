@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { Resvg } from "@resvg/resvg-js";
 import { lognormalPdf, ordinal, type Contender, type StartSit } from "./startSit.ts";
-import { sourceLine } from "./sources.ts";
+import { sourceLine } from "../sources.ts";
 
 const W = 1080;
 const FONT = "Avenir Next";

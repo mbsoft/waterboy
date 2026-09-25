@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildWaiverReport } from "../src/fantasyWaivers.ts";
+import { buildWaiverReport } from "../src/fantasy/waivers.ts";
 
 const stat = (wk: number, src: number, split: number, pts: number) => ({ seasonId: 2026, scoringPeriodId: wk, statSourceId: src, statSplitTypeId: split, appliedTotal: pts });
 const fa = (id: number, name: string, pos: number, proj: number, extra: any = {}) => ({

@@ -3,13 +3,13 @@ import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { Codex, type ThreadOptions, type Input, type Usage } from "@openai/codex-sdk";
-import type { Config } from "./config.ts";
-import { log } from "./config.ts";
-import type { AgentRequest, AgentResponse, AgentRunner } from "./agent.ts";
+import type { Config } from "../config.ts";
+import { log } from "../config.ts";
+import type { AgentRequest, AgentResponse, AgentRunner } from "./claude.ts";
+import { toolServerEntry } from "../paths.ts";
 
 const run = promisify(execFile);
 
@@ -83,13 +83,11 @@ export interface ToolServerLaunch {
   env: Record<string, string>;
 }
 export function toolServerLaunch(): ToolServerLaunch {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  const bundled = fs.existsSync(path.join(here, "mcpServer.mjs"));
-  const flags = ["--disable-warning=ExperimentalWarning"];
+  const entry = toolServerEntry();
   return {
     command: process.execPath,
-    args: bundled ? [...flags, path.join(here, "mcpServer.mjs")] : [...flags, "--import", "tsx", path.join(here, "mcpServer.ts")],
-    cwd: bundled ? here : path.resolve(here, ".."),
+    args: ["--disable-warning=ExperimentalWarning", ...entry.args],
+    cwd: entry.cwd,
     // Inside Waterboy.app, process.execPath is the app itself; this makes it run as plain Node.
     env: process.versions.electron ? { ELECTRON_RUN_AS_NODE: "1" } : {},
   };

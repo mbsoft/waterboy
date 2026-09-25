@@ -4,8 +4,8 @@
  * total (points the market expects it to score), a strong start/sit signal. Best-effort: callers
  * get an empty map if ESPN is unreachable, and games already played have no lines.
  */
-import { log } from "./config.ts";
-import { SOURCE, sourceLine } from "./sources.ts";
+import { log } from "../../config.ts";
+import { SOURCE, sourceLine } from "../sources.ts";
 
 const SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard";
 

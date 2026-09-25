@@ -6,9 +6,9 @@
  */
 import type { FantasyConfig } from "./fantasy.ts";
 import { myTeam, nflWeekComplete } from "./fantasy.ts";
-import { fetchWeek, findTeam, type RawWeekLeague } from "./fantasyMatchup.ts";
-import { fmtCount, nameKey, scoringFromEspn, sleeperProjections, sleeperProjector, sleeperTrending, sleeperTeam } from "./sleeper.ts";
-import { log } from "./config.ts";
+import { fetchWeek, findTeam, type RawWeekLeague } from "./matchup.ts";
+import { fmtCount, nameKey, scoringFromEspn, sleeperProjections, sleeperProjector, sleeperTrending, sleeperTeam } from "./data/sleeper.ts";
+import { log } from "../config.ts";
 import { SOURCE, sourceLine } from "./sources.ts";
 
 const FANTASY_BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons";

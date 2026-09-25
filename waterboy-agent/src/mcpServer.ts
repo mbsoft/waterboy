@@ -14,12 +14,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig } from "./config.ts";
-import { State } from "./state.ts";
-import { fantasyMcpServer } from "./fantasy.ts";
-import { schedulerMcpServer } from "./scheduler.ts";
-import { makeConditions } from "./conditions.ts";
-import { setNflverseDataDir } from "./nflverse.ts";
-import { setRankingsDataDir } from "./rankings.ts";
+import { State } from "./bot/state.ts";
+import { fantasyMcpServer } from "./fantasy/fantasy.ts";
+import { schedulerMcpServer } from "./bot/scheduler.ts";
+import { makeConditions } from "./bot/conditions.ts";
+import { setNflverseDataDir } from "./fantasy/data/nflverse.ts";
+import { setRankingsDataDir } from "./fantasy/data/rankings.ts";
 
 // stdout is the MCP channel, so everything else logs to stderr.
 console.log = (...a: unknown[]) => console.error(...a);

@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
-import { log } from "./config.ts";
+import { log } from "../config.ts";
 
 const run = promisify(execFile);
 

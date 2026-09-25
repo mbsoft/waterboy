@@ -3,14 +3,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { decodeAttributedBody, encodeAttributedBodyForTest } from "../src/attributedBody.ts";
-import { MessagesDb } from "../src/messagesDb.ts";
-import { chunk, toPlainText } from "../src/format.ts";
-import { computeNextRun } from "../src/scheduler.ts";
-import { State } from "../src/state.ts";
-import { Bot } from "../src/bot.ts";
-import { ConsoleSender, type ChatTarget } from "../src/sender.ts";
-import type { AgentRequest, AgentRunner } from "../src/agent.ts";
+import { decodeAttributedBody, encodeAttributedBodyForTest } from "../src/messages/attributedBody.ts";
+import { MessagesDb } from "../src/messages/messagesDb.ts";
+import { chunk, toPlainText } from "../src/bot/format.ts";
+import { computeNextRun } from "../src/bot/scheduler.ts";
+import { State } from "../src/bot/state.ts";
+import { Bot } from "../src/bot/bot.ts";
+import { ConsoleSender, type ChatTarget } from "../src/messages/sender.ts";
+import type { AgentRequest, AgentRunner } from "../src/assistants/claude.ts";
 import type { Config } from "../src/config.ts";
 import { addChat, addHandle, addMessage, makeFakeChatDb } from "./helpers.ts";
 
@@ -126,7 +126,7 @@ function setup(overrides: Partial<Config> = {}) {
   return { cfg, state, agent, sender, bot: new Bot(cfg, state, agent, sender) };
 }
 
-const msg = (o: Partial<import("../src/messagesDb.ts").IncomingMessage>) => ({
+const msg = (o: Partial<import("../src/messages/messagesDb.ts").IncomingMessage>) => ({
   rowid: 1,
   guid: "g",
   text: "",

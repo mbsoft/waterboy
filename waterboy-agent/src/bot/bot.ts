@@ -1,15 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { Config } from "./config.ts";
-import { log, normalizeHandle } from "./config.ts";
-import type { IncomingMessage } from "./messagesDb.ts";
+import type { Config } from "../config.ts";
+import { log, normalizeHandle } from "../config.ts";
+import type { IncomingMessage } from "../messages/messagesDb.ts";
 import type { State, ScheduledTask } from "./state.ts";
-import type { AgentRunner } from "./agent.ts";
-import type { ChatTarget, Sender } from "./sender.ts";
+import type { AgentRunner } from "../assistants/claude.ts";
+import type { ChatTarget, Sender } from "../messages/sender.ts";
 import { chunk, toPlainText } from "./format.ts";
-import { importAttachment, isAudio, transcribe } from "./media.ts";
+import { importAttachment, isAudio, transcribe } from "../messages/media.ts";
 import { describeTask } from "./scheduler.ts";
-import { parseReaction, type MessageActions, type TypingIndicators } from "./imessage.ts";
+import { parseReaction, type MessageActions, type TypingIndicators } from "../messages/helper.ts";
 
 type Job = { kind: "messages"; msgs: IncomingMessage[] } | { kind: "task"; task: ScheduledTask; context?: string };
 

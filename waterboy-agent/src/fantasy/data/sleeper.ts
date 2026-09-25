@@ -4,7 +4,7 @@
  * in Sleeper's player database; team defenses by NFL team abbreviation.
  * Every call is best-effort: callers get null/[] if Sleeper is unreachable.
  */
-import { log } from "./config.ts";
+import { log } from "../../config.ts";
 
 const API = "https://api.sleeper.app/v1";
 const PROJ_API = "https://api.sleeper.com/projections/nfl";

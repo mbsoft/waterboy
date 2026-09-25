@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { linesFromScoreboard, parseLine, formatGameLines, type RawScoreboard } from "../src/vegas.ts";
-import { parseRankings, findRanked, formatPlayerRanks, formatTopRanks } from "../src/rankings.ts";
-import { toValued, evaluateTrade, findValued, formatTrade } from "../src/tradeValues.ts";
+import { linesFromScoreboard, parseLine, formatGameLines, type RawScoreboard } from "../src/fantasy/data/vegas.ts";
+import { parseRankings, findRanked, formatPlayerRanks, formatTopRanks } from "../src/fantasy/data/rankings.ts";
+import { toValued, evaluateTrade, findValued, formatTrade } from "../src/fantasy/data/tradeValues.ts";
 
 const game = (home: string, away: string, details: string | null, ou: number | null, extra: Partial<RawScoreboard["events"][0]> = {}, indoor = false) => ({
   date: "2026-09-27T17:00Z",

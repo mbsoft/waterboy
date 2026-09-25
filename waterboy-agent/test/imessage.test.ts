@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { TypingIndicators } from "../src/imessage.ts";
+import { TypingIndicators } from "../src/messages/helper.ts";
 
 function fake() {
   const calls: string[] = [];
@@ -47,7 +47,7 @@ test("a failing helper never throws into the bot", async () => {
 });
 
 test("REACT answers become reaction keys", async () => {
-  const { parseReaction } = await import("../src/imessage.ts");
+  const { parseReaction } = await import("../src/messages/helper.ts");
   assert.equal(parseReaction("REACT like"), "like");
   assert.equal(parseReaction("react: Heart"), "heart");
   assert.equal(parseReaction("  REACT 🏈 "), "🏈");

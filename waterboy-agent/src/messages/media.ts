@@ -3,8 +3,8 @@ import { promisify } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
 import type { Attachment } from "./messagesDb.ts";
-import type { VoiceConfig } from "./config.ts";
-import { log } from "./config.ts";
+import type { VoiceConfig } from "../config.ts";
+import { log } from "../config.ts";
 
 const run = promisify(execFile);
 

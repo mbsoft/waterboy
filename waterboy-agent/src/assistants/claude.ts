@@ -1,11 +1,11 @@
 import path from "node:path";
 import { query, type Options, type McpSdkServerConfigWithInstance } from "@anthropic-ai/claude-agent-sdk";
-import type { Config } from "./config.ts";
-import { log } from "./config.ts";
-import type { State } from "./state.ts";
-import { schedulerMcpServer, SCHEDULER_TOOLS } from "./scheduler.ts";
-import { fantasyMcpServer, FANTASY_TOOLS } from "./fantasy.ts";
-import type { Conditions } from "./conditions.ts";
+import type { Config } from "../config.ts";
+import { log } from "../config.ts";
+import type { State } from "../bot/state.ts";
+import { schedulerMcpServer, SCHEDULER_TOOLS } from "../bot/scheduler.ts";
+import { fantasyMcpServer, FANTASY_TOOLS } from "../fantasy/fantasy.ts";
+import type { Conditions } from "../bot/conditions.ts";
 
 export interface AgentRequest {
   chatGuid: string;

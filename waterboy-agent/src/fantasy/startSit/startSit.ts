@@ -9,13 +9,13 @@
  * spread starts from a typical spread for the position and moves toward the player's own weekly
  * scoring once he has a few games this season.
  */
-import type { FantasyConfig } from "./fantasy.ts";
-import { fetchWeek, findRosteredPlayer, type PlayerLine } from "./fantasyMatchup.ts";
-import { scoringFromEspn, sleeperProjector } from "./sleeper.ts";
-import { weekLines, type TeamLine } from "./vegas.ts";
-import { loadRankings, findRanked, type Ranked } from "./rankings.ts";
-import { loadIndex, syncNflverse, type PlayerUsage } from "./nflverse.ts";
-import { SOURCE } from "./sources.ts";
+import type { FantasyConfig } from "../fantasy.ts";
+import { fetchWeek, findRosteredPlayer, type PlayerLine } from "../matchup.ts";
+import { scoringFromEspn, sleeperProjector } from "../data/sleeper.ts";
+import { weekLines, type TeamLine } from "../data/vegas.ts";
+import { loadRankings, findRanked, type Ranked } from "../data/rankings.ts";
+import { loadIndex, syncNflverse, type PlayerUsage } from "../data/nflverse.ts";
+import { SOURCE } from "../sources.ts";
 
 export interface Distribution {
   mean: number;

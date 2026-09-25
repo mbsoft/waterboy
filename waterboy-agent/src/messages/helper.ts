@@ -11,17 +11,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
-import { fileURLToPath } from "node:url";
-import { log } from "./config.ts";
+import { log } from "../config.ts";
+import { helperCandidates } from "../paths.ts";
 
 /** The helper binary: WATERBOY_IMESSAGE_HELPER, next to the bundled service (bin/), or the dev build. */
 export function findHelper(): string | null {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    process.env.WATERBOY_IMESSAGE_HELPER,
-    path.join(here, "bin", "waterboy-imessage"), // bundled: Contents/Resources/agent/bin
-    path.resolve(here, "../../waterboy-imessage/dist/waterboy-imessage"), // source checkout
-  ];
+  const candidates = [process.env.WATERBOY_IMESSAGE_HELPER, ...helperCandidates()];
   return candidates.find((p): p is string => !!p && fs.existsSync(p)) ?? null;
 }
 

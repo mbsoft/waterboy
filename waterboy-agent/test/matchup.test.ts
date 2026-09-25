@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildPreview, formatPreview, findTeam } from "../src/fantasyMatchup.ts";
+import { buildPreview, formatPreview, findTeam } from "../src/fantasy/matchup.ts";
 
 const stat = (wk: number, src: number, pts: number) => ({ seasonId: 2026, scoringPeriodId: wk, statSourceId: src, statSplitTypeId: 1, appliedTotal: pts });
 const player = (id: number, name: string, pos: number, pro: number, slot: number, proj: number, extra: any = {}) => ({
@@ -77,7 +77,7 @@ test("findTeam by owner, partial name, id and 'me'", () => {
 });
 
 test("matchup preview: Vegas implied points and bad weather", async () => {
-  const { linesFromScoreboard } = await import("../src/vegas.ts");
+  const { linesFromScoreboard } = await import("../src/fantasy/data/vegas.ts");
   const lines = linesFromScoreboard({
     events: [{
       date: "2026-09-27T17:00Z",

@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normCdf, distribution, pointsAllowed, choose, ordinal, nflverseTeam, type Contender } from "../src/startSit.ts";
-import { startSitSvg } from "../src/startSitCard.ts";
-import type { PlayerUsage } from "../src/nflverse.ts";
+import { normCdf, distribution, pointsAllowed, choose, ordinal, nflverseTeam, type Contender } from "../src/fantasy/startSit/startSit.ts";
+import { startSitSvg } from "../src/fantasy/startSit/card.ts";
+import type { PlayerUsage } from "../src/fantasy/data/nflverse.ts";
 
 test("normal CDF and ordinals", () => {
   assert.ok(Math.abs(normCdf(0) - 0.5) < 1e-7);

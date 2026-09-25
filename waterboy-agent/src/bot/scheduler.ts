@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import type { State, ScheduledTask } from "./state.ts";
 import type { Conditions } from "./conditions.ts";
-import { log } from "./config.ts";
+import { log } from "../config.ts";
 
 const ISO_LIKE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 

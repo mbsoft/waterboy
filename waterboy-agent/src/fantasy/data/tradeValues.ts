@@ -4,9 +4,9 @@
  * "is this trade fair?" and "what's X worth?". Players carry ESPN ids, so league rosters match
  * exactly. Cached 6 hours per format; a failed refresh keeps the previous values.
  */
-import { log } from "./config.ts";
+import { log } from "../../config.ts";
 import { nameKey } from "./sleeper.ts";
-import { SOURCE, sourceLine } from "./sources.ts";
+import { SOURCE, sourceLine } from "../sources.ts";
 
 const API = "https://api.fantasycalc.com/values/current";
 

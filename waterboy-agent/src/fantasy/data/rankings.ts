@@ -8,10 +8,10 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { log } from "./config.ts";
+import { log } from "../../config.ts";
 import { parseCsv } from "./nflverse.ts";
 import { nameKey } from "./sleeper.ts";
-import { SOURCE, sourceLine } from "./sources.ts";
+import { SOURCE, sourceLine } from "../sources.ts";
 
 const URL = "https://github.com/dynastyprocess/data/raw/master/files/db_fpecr_latest.csv";
 const MAX_AGE_MS = 12 * 3600_000;
