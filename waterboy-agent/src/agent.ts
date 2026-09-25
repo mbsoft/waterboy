@@ -1,0 +1,146 @@
+import { query, type Options, type McpSdkServerConfigWithInstance } from "@anthropic-ai/claude-agent-sdk";
+import type { Config } from "./config.ts";
+import { log } from "./config.ts";
+import type { State } from "./state.ts";
+import { schedulerMcpServer, SCHEDULER_TOOLS } from "./scheduler.ts";
+import { fantasyMcpServer, FANTASY_TOOLS } from "./fantasy.ts";
+import type { Conditions } from "./conditions.ts";
+
+export interface AgentRequest {
+  chatGuid: string;
+  cwd: string; // per-chat working directory
+  prompt: string;
+  sessionId: string | null;
+  systemAppend: string;
+  /** Send text to the chat immediately and verbatim (used by tools like the fantasy roundup). */
+  post?: (text: string) => Promise<void>;
+  /**
+   * "full": 1:1 chats — all configured tools.
+   * "group": group chats, and "fantasy": 1:1 chats limited to fantasy football — fantasy tools
+   * (+ scheduler) only; no built-in tools, no file, web or shell access, no user MCP servers,
+   * and a fantasy-only system prompt.
+   */
+  profile?: "full" | "group" | "fantasy";
+  /** Group/fantasy profiles: whether the requester may create/cancel scheduled tasks. */
+  canManageTasks?: boolean;
+  /** True when a scheduled task (not a chat message) started this turn: fantasy reports post by default. */
+  scheduled?: boolean;
+  /** The asker's fantasy team ("me" in the fantasy tools); null = unknown. Undefined = config default. */
+  fantasyMe?: string | number | null;
+}
+
+export interface AgentResponse {
+  text: string;
+  sessionId: string | null;
+  costUsd?: number;
+  denied?: string[];
+}
+
+export interface AgentRunner {
+  run(req: AgentRequest): Promise<AgentResponse>;
+}
+
+const BASE_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", "TodoWrite"];
+
+export function allowedTools(cfg: Config): string[] {
+  const tools = [...BASE_TOOLS, ...SCHEDULER_TOOLS, ...cfg.extraAllowedTools];
+  if (cfg.allowBash) tools.push("Bash");
+  if (cfg.fantasy) tools.push(...FANTASY_TOOLS);
+  // Allow every tool of any MCP server configured for the agent.
+  for (const name of Object.keys(cfg.mcpServers)) tools.push(`mcp__${name}`);
+  return tools;
+}
+
+/**
+ * Runs one turn through the Claude Agent SDK (which drives the bundled Claude Code).
+ * Auth comes from Claude Code's own login on this Mac (`claude` → /login with your
+ * Pro/Max account) or a CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token`.
+ */
+export class ClaudeAgentRunner implements AgentRunner {
+  constructor(private cfg: Config, private state: State, private conditions: Conditions = {}) {}
+
+  async run(req: AgentRequest): Promise<AgentResponse> {
+    try {
+      return await this.once(req, req.sessionId);
+    } catch (err) {
+      if (req.sessionId) {
+        // Most often the session transcript is gone or corrupt — start fresh once.
+        log(`[agent] resume of ${req.sessionId} failed (${(err as Error).message}); starting a new session`);
+        return await this.once(req, null);
+      }
+      throw err;
+    }
+  }
+
+  private async once(req: AgentRequest, resume: string | null): Promise<AgentResponse> {
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), this.cfg.turnTimeoutMs);
+    const group = req.profile === "group" || req.profile === "fantasy"; // locked down
+    const fantasy: Record<string, McpSdkServerConfigWithInstance> = this.cfg.fantasy
+      ? { fantasy: fantasyMcpServer({ ...this.cfg.fantasy, me: req.fantasyMe }, req.post, { scheduled: req.scheduled }) }
+      : {};
+    const scheduler = schedulerMcpServer(this.state, req.chatGuid, this.conditions, {
+      canManage: group ? !!req.canManageTasks : true,
+    });
+    const options: Options = group
+      ? {
+          // Locked down: no built-in tools at all (no files, web, shell, subagents),
+          // only the in-process fantasy + scheduler servers, no user settings/MCP servers.
+          cwd: req.cwd,
+          abortController: abort,
+          permissionMode: "dontAsk",
+          tools: [],
+          allowedTools: [...(this.cfg.fantasy ? FANTASY_TOOLS : []), ...SCHEDULER_TOOLS],
+          maxTurns: Math.min(this.cfg.maxTurns, 12),
+          // Never record/reuse an old prompt for group sessions: the policy must always be current.
+          systemPrompt: { type: "custom", prompt: req.systemAppend, snapshot: false },
+          settingSources: [],
+          mcpServers: { scheduler, ...fantasy },
+          ...(this.cfg.model ? { model: this.cfg.model } : {}),
+          ...(resume ? { resume } : {}),
+        }
+      : {
+          cwd: req.cwd,
+          abortController: abort,
+          permissionMode: "dontAsk", // nothing interactive: anything not pre-approved is denied
+          allowedTools: allowedTools(this.cfg),
+          disallowedTools: this.cfg.allowBash ? [] : ["Bash"],
+          maxTurns: this.cfg.maxTurns,
+          systemPrompt: { type: "preset", preset: "claude_code", append: req.systemAppend },
+          settingSources: this.cfg.loadUserClaudeSettings ? ["user"] : [],
+          mcpServers: {
+            ...(this.cfg.mcpServers as Options["mcpServers"]),
+            scheduler,
+            ...fantasy,
+          },
+          ...(this.cfg.model ? { model: this.cfg.model } : {}),
+          ...(resume ? { resume } : {}),
+        };
+
+    let sessionId: string | null = resume;
+    let text = "";
+    let costUsd: number | undefined;
+    let denied: string[] = [];
+    try {
+      for await (const msg of query({ prompt: req.prompt, options })) {
+        if (msg.type === "system" && msg.subtype === "init") {
+          sessionId = msg.session_id;
+          log(`[agent] session ${sessionId} (auth: ${msg.apiKeySource}, model: ${msg.model})`);
+        } else if (msg.type === "result") {
+          sessionId = msg.session_id ?? sessionId;
+          costUsd = msg.total_cost_usd;
+          denied = (msg.permission_denials ?? []).map((d) => d.tool_name);
+          if (msg.subtype === "success") text = msg.result;
+          else {
+            const detail = "errors" in msg && Array.isArray(msg.errors) ? msg.errors.join("; ") : "";
+            throw new Error(`agent ended with ${msg.subtype}${detail ? `: ${detail}` : ""}`);
+          }
+        }
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+    if (denied.length) log(`[agent] tools denied this turn: ${[...new Set(denied)].join(", ")}`);
+    return { text, sessionId, costUsd, denied };
+  }
+}

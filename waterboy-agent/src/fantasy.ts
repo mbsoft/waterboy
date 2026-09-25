@@ -1,0 +1,621 @@
+/**
+ * ESPN fantasy football: league data + a deterministic weekly roundup.
+ * Public leagues need no auth; private leagues need espnS2 + swid cookies.
+ */
+import { z } from "zod";
+import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
+import { log } from "./config.ts";
+import { fetchWeek, buildPreview, formatPreview, formatSlate, findTeam } from "./fantasyMatchup.ts";
+import { waiverReport } from "./fantasyWaivers.ts";
+import { fmtCount, nameKey, scoringFromEspn, sleeperProjector, sleeperTeam, sleeperTrending } from "./sleeper.ts";
+import { dataAge, findPlayers, formatUsage, loadIndex, syncNflverse } from "./nflverse.ts";
+
+export interface FantasyConfig {
+  espnLeagueId: string;
+  season?: number; // default: current year
+  espnS2?: string;
+  swid?: string;
+  /** Your team id, used to highlight "you" in on-demand answers. */
+  myTeamId?: number;
+  /**
+   * Who owns which team: phone number / email → team name (or ESPN team id), e.g.
+   * { "+16145551234": "Brownie Poos" }. "me"/"my team" then means the asker's team.
+   */
+  teams?: Record<string, string | number>;
+  /**
+   * Set per turn (not in config.json): the asker's team, or null when it's unknown or ambiguous.
+   * Undefined falls back to myTeamId.
+   */
+  me?: string | number | null;
+  /**
+   * Replace owner labels in the roundup. Key: ESPN team id ("13") or the default
+   * label ("Kathy L."); value: what to show ("Kathy & Lee L.").
+   */
+  ownerNames?: Record<string, string>;
+  /** Use Sleeper's public API for second-opinion projections and trending players (default true). */
+  sleeper?: boolean;
+  /** Download nflverse usage stats (snaps, targets, expected points, injury reports) daily (default true). */
+  nflverse?: boolean;
+}
+
+const FANTASY_BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons";
+
+/** The team "me" refers to this turn (see FantasyConfig.me). */
+export function myTeam(cfg: FantasyConfig): string | number | undefined {
+  return cfg.me === undefined ? cfg.myTeamId : (cfg.me ?? undefined);
+}
+
+const ME_UNKNOWN = `I don't know which team is yours. Ask again with your team name, or have the admin add your number under fantasy.teams in config.json.`;
+const isMe = (q: string) => ["me", "my", "mine", "my team"].includes(q.trim().toLowerCase());
+const NFL_SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard";
+
+// ---------- raw API types (just what we use) ----------
+
+interface Side {
+  teamId: number;
+  totalPoints: number;
+}
+interface RawMatchup {
+  matchupPeriodId: number;
+  home: Side;
+  away?: Side; // absent on byes
+  winner: "HOME" | "AWAY" | "TIE" | "UNDECIDED";
+  playoffTierType: string;
+}
+interface RawTeam {
+  id: number;
+  name?: string;
+  location?: string;
+  nickname?: string;
+  abbrev: string;
+  primaryOwner?: string;
+  playoffSeed: number;
+  record: {
+    overall: { wins: number; losses: number; ties: number; pointsFor: number; pointsAgainst: number; streakLength: number; streakType: string };
+  };
+}
+interface RawLeague {
+  seasonId: number;
+  settings: {
+    name: string;
+    scheduleSettings: { matchupPeriodCount: number; playoffTeamCount: number; matchupPeriods: Record<string, number[]> };
+  };
+  status: { currentMatchupPeriod: number; latestScoringPeriod: number; isActive: boolean };
+  teams: RawTeam[];
+  members?: { id: string; firstName?: string; lastName?: string; displayName?: string }[];
+  schedule: RawMatchup[];
+}
+
+async function getJson<T>(url: string, cfg?: FantasyConfig): Promise<T> {
+  // ESPN rejects Node's default "node" user agent with a 403.
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) waterboy/0.1",
+  };
+  if (cfg?.espnS2 && cfg?.swid) headers.Cookie = `espn_s2=${cfg.espnS2}; SWID=${cfg.swid}`;
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(20_000) });
+  if (!res.ok) throw new Error(`ESPN ${res.status} for ${url.split("?")[0]}`);
+  return (await res.json()) as T;
+}
+
+export async function fetchLeague(cfg: FantasyConfig): Promise<RawLeague> {
+  const season = cfg.season ?? new Date().getFullYear();
+  const views = ["mTeam", "mMatchupScore", "mSettings", "mStatus"].map((v) => `view=${v}`).join("&");
+  return getJson<RawLeague>(`${FANTASY_BASE}/${season}/segments/0/leagues/${cfg.espnLeagueId}?${views}`, cfg);
+}
+
+/**
+ * True when every NFL game of that week is final. Uses ESPN's NFL scoreboard; if that
+ * is unavailable (its CDN sometimes 403s scripted clients), falls back to the fantasy
+ * API's pro schedule: every game has official stats, or the last kickoff was 4h+ ago.
+ */
+export async function nflWeekComplete(week: number, season = new Date().getFullYear(), seasonType = 2): Promise<boolean> {
+  try {
+    const d = await getJson<{ events: { status: { type: { completed: boolean } } }[] }>(
+      `${NFL_SCOREBOARD}?seasontype=${seasonType}&week=${week}&dates=${season}`,
+    );
+    if (d.events.length) return d.events.every((e) => e.status.type.completed);
+  } catch (e) {
+    log("[fantasy] NFL scoreboard unavailable, using pro schedule:", (e as Error).message);
+  }
+  const d = await getJson<{
+    settings: { proTeams: { proGamesByScoringPeriod?: Record<string, { id: number; date: number; statsOfficial?: boolean }[]> }[] };
+  }>(`${FANTASY_BASE}/${season}?view=proTeamSchedules_wl`);
+  const games = new Map<number, { date: number; statsOfficial?: boolean }>();
+  for (const t of d.settings.proTeams) for (const g of t.proGamesByScoringPeriod?.[String(week)] ?? []) games.set(g.id, g);
+  if (!games.size) return false;
+  const all = [...games.values()];
+  if (all.every((g) => g.statsOfficial)) return true;
+  const lastKickoff = Math.max(...all.map((g) => g.date));
+  return Date.now() > lastKickoff + 4 * 3600_000;
+}
+
+// ---------- analysis ----------
+
+export interface TeamRow {
+  id: number;
+  name: string;
+  owner: string;
+  wins: number;
+  losses: number;
+  ties: number;
+  pf: number;
+  pa: number;
+  rank: number;
+  prevRank: number | null;
+  streak: string;
+}
+
+export interface GameResult {
+  winner: string;
+  loser: string;
+  winnerPts: number;
+  loserPts: number;
+  margin: number;
+  tie: boolean;
+}
+
+export interface Roundup {
+  league: string;
+  week: number;
+  final: boolean;
+  playoffTeams: number;
+  results: GameResult[];
+  standings: TeamRow[];
+  highlights: string[];
+  text: string;
+}
+
+const r1 = (n: number) => Math.round(n * 10) / 10;
+
+export function teamName(t: RawTeam): string {
+  return (t.name || [t.location, t.nickname].filter(Boolean).join(" ") || t.abbrev).replace(/\s+/g, " ").trim();
+}
+
+/** Owner as "First L." (e.g. "Susan W."), falling back to the ESPN display name. */
+export function ownerName(league: RawLeague, t: RawTeam): string {
+  const m = league.members?.find((x) => x.id === t.primaryOwner);
+  if (!m) return "";
+  const first = m.firstName?.trim();
+  const last = m.lastName?.trim();
+  if (first) return last ? `${first} ${last[0].toUpperCase()}.` : first;
+  return m.displayName?.trim() ?? "";
+}
+
+/** Matchup periods whose games all have a decided winner. */
+export function finalizedPeriods(league: RawLeague): number[] {
+  const byPeriod = new Map<number, RawMatchup[]>();
+  for (const m of league.schedule) {
+    if (!byPeriod.has(m.matchupPeriodId)) byPeriod.set(m.matchupPeriodId, []);
+    byPeriod.get(m.matchupPeriodId)!.push(m);
+  }
+  return [...byPeriod.entries()]
+    .filter(([, ms]) => ms.every((m) => m.winner !== "UNDECIDED"))
+    .map(([p]) => p)
+    .sort((a, b) => a - b);
+}
+
+/**
+ * ESPN only marks winners once it finalizes the week (usually overnight after MNF).
+ * For a week whose NFL games are all final ("settled"), decide by points instead.
+ */
+function effectiveWinner(m: RawMatchup, settled: Set<number>): RawMatchup["winner"] {
+  if (m.winner !== "UNDECIDED" || !settled.has(m.matchupPeriodId) || !m.away) return m.winner;
+  const d = m.home.totalPoints - m.away.totalPoints;
+  return d > 0 ? "HOME" : d < 0 ? "AWAY" : "TIE";
+}
+
+/** Standings computed from results through `week` (wins, then points for). */
+function standingsThrough(league: RawLeague, week: number, settled: Set<number> = new Set()): Map<number, { w: number; l: number; t: number; pf: number; pa: number; rank: number }> {
+  const s = new Map<number, { w: number; l: number; t: number; pf: number; pa: number; rank: number }>();
+  for (const t of league.teams) s.set(t.id, { w: 0, l: 0, t: 0, pf: 0, pa: 0, rank: 0 });
+  for (const m of league.schedule) {
+    if (m.matchupPeriodId > week || !m.away || m.playoffTierType !== "NONE") continue;
+    const winner = effectiveWinner(m, settled);
+    if (winner === "UNDECIDED") continue;
+    const h = s.get(m.home.teamId)!;
+    const a = s.get(m.away.teamId)!;
+    h.pf += m.home.totalPoints;
+    h.pa += m.away.totalPoints;
+    a.pf += m.away.totalPoints;
+    a.pa += m.home.totalPoints;
+    if (winner === "HOME") (h.w++, a.l++);
+    else if (winner === "AWAY") (a.w++, h.l++);
+    else (h.t++, a.t++);
+  }
+  [...s.entries()]
+    .sort(([, x], [, y]) => y.w + y.t / 2 - (x.w + x.t / 2) || y.pf - x.pf)
+    .forEach(([, v], i) => (v.rank = i + 1));
+  return s;
+}
+
+/**
+ * @param week      week to report
+ * @param nflDone   true when all NFL games of that week are final (scores settled even if
+ *                  ESPN hasn't finalized the matchups yet)
+ */
+export function buildRoundup(league: RawLeague, week: number, nflDone: boolean, ownerNames: Record<string, string> = {}): Roundup {
+  const finals = finalizedPeriods(league);
+  const lastFinal = finals.at(-1) ?? 0;
+  const settled = new Set(finals);
+  if (nflDone) settled.add(week);
+  const final = settled.has(week);
+  const teams = new Map(league.teams.map((t) => [t.id, t]));
+  const nm = (id: number) => teamName(teams.get(id)!);
+
+  // Results for the week
+  const games = league.schedule.filter((m) => m.matchupPeriodId === week && m.away);
+  const results: GameResult[] = games.map((m) => {
+    const h = m.home, a = m.away!;
+    const ew = effectiveWinner(m, settled);
+    const homeWon = ew === "HOME" || (ew !== "AWAY" && h.totalPoints >= a.totalPoints);
+    const [w, l] = homeWon ? [h, a] : [a, h];
+    return {
+      winner: nm(w.teamId),
+      loser: nm(l.teamId),
+      winnerPts: r1(w.totalPoints),
+      loserPts: r1(l.totalPoints),
+      margin: r1(w.totalPoints - l.totalPoints),
+      tie: ew === "TIE",
+    };
+  });
+  results.sort((x, y) => y.margin - x.margin);
+
+  // Standings: ESPN's own seeds when showing the latest final week, otherwise computed.
+  const now = standingsThrough(league, week, settled);
+  const prev = week > 1 ? standingsThrough(league, week - 1, settled) : null;
+  // ESPN's seeds/records include its tiebreakers, but only reflect finalized weeks.
+  const useEspn = week === lastFinal && week >= league.status.currentMatchupPeriod - 1 && league.teams.every((t) => t.playoffSeed > 0);
+  const standings: TeamRow[] = league.teams
+    .map((t) => {
+      const c = now.get(t.id)!;
+      const o = t.record.overall;
+      return {
+        id: t.id,
+        name: teamName(t),
+        owner: ownerNames[String(t.id)] ?? ownerNames[ownerName(league, t)] ?? ownerName(league, t),
+        wins: useEspn ? o.wins : c.w,
+        losses: useEspn ? o.losses : c.l,
+        ties: useEspn ? o.ties : c.t,
+        pf: r1(useEspn ? o.pointsFor : c.pf),
+        pa: r1(useEspn ? o.pointsAgainst : c.pa),
+        rank: useEspn ? t.playoffSeed : c.rank,
+        prevRank: prev ? prev.get(t.id)!.rank : null,
+        streak: useEspn && o.streakLength ? `${o.streakType === "WIN" ? "W" : o.streakType === "LOSS" ? "L" : "T"}${o.streakLength}` : "",
+      };
+    })
+    .sort((a, b) => a.rank - b.rank);
+
+  // Highlights
+  const scores = games.flatMap((m) => [
+    { id: m.home.teamId, pts: m.home.totalPoints, opp: m.away!.totalPoints },
+    { id: m.away!.teamId, pts: m.away!.totalPoints, opp: m.home.totalPoints },
+  ]);
+  const highlights: string[] = [];
+  if (scores.length) {
+    const byPts = [...scores].sort((a, b) => b.pts - a.pts);
+    const hi = byPts[0], lo = byPts.at(-1)!;
+    highlights.push(`High score: ${nm(hi.id)} with ${r1(hi.pts)}`);
+    highlights.push(`Low score: ${nm(lo.id)} with ${r1(lo.pts)}`);
+    const close = results.filter((r) => !r.tie).at(-1);
+    if (close) highlights.push(`Closest game: ${close.winner} over ${close.loser} by ${close.margin}`);
+    const blow = results[0];
+    if (blow && blow !== close) highlights.push(`Biggest blowout: ${blow.winner} over ${blow.loser} by ${blow.margin}`);
+    const unlucky = byPts.find((s) => s.pts < s.opp);
+    if (unlucky && byPts.indexOf(unlucky) < byPts.length / 2)
+      highlights.push(`Tough luck: ${nm(unlucky.id)} scored ${r1(unlucky.pts)} (#${byPts.indexOf(unlucky) + 1} of ${byPts.length}) and still lost`);
+    const lucky = [...byPts].reverse().find((s) => s.pts > s.opp);
+    if (lucky && byPts.indexOf(lucky) >= byPts.length / 2)
+      highlights.push(`Lucky win: ${nm(lucky.id)} won with just ${r1(lucky.pts)}`);
+  }
+  const movers = standings.filter((t) => t.prevRank !== null && t.prevRank !== t.rank);
+  if (movers.length) {
+    const up = [...movers].sort((a, b) => b.prevRank! - b.rank - (a.prevRank! - a.rank))[0];
+    const down = [...movers].sort((a, b) => a.prevRank! - a.rank - (b.prevRank! - b.rank))[0];
+    if (up.prevRank! > up.rank) highlights.push(`Biggest climb: ${up.name} up ${up.prevRank! - up.rank} to #${up.rank}`);
+    if (down.prevRank! < down.rank) highlights.push(`Biggest slide: ${down.name} down ${down.rank - down.prevRank!} to #${down.rank}`);
+  }
+
+  const playoffTeams = league.settings.scheduleSettings.playoffTeamCount;
+  const out: Roundup = {
+    league: league.settings.name,
+    week,
+    final,
+    playoffTeams,
+    results,
+    standings,
+    highlights,
+    text: "",
+  };
+  out.text = formatRoundup(out);
+  return out;
+}
+
+export function formatRoundup(r: Roundup): string {
+  const arrow = (t: TeamRow) =>
+    t.prevRank === null || t.prevRank === t.rank ? "" : t.prevRank > t.rank ? ` ▲${t.prevRank - t.rank}` : ` ▼${t.rank - t.prevRank}`;
+  const rec = (t: TeamRow) => `${t.wins}-${t.losses}${t.ties ? `-${t.ties}` : ""}`;
+  const lines = [`🏈 ${r.league}: Week ${r.week} Roundup${r.final ? "" : " (in progress)"}`, "", "RESULTS"];
+  for (const g of r.results)
+    lines.push(g.tie ? `• ${g.winner} ${g.winnerPts} tied ${g.loser} ${g.loserPts}` : `• ${g.winner} ${g.winnerPts} def. ${g.loser} ${g.loserPts} (+${g.margin})`);
+  lines.push("", `STANDINGS (top ${r.playoffTeams} make playoffs)`);
+  r.standings.forEach((t, i) => {
+    lines.push(`${t.rank}. ${t.name}${t.owner ? ` (${t.owner})` : ""} ${rec(t)}, ${t.pf} PF${t.streak ? `, ${t.streak}` : ""}${arrow(t)}`);
+    if (i === r.playoffTeams - 1) lines.push("— playoff line —");
+  });
+  if (r.highlights.length) lines.push("", "HIGHLIGHTS", ...r.highlights.map((h) => `• ${h}`));
+  return lines.join("\n");
+}
+
+// ---------- agent tools ----------
+
+/**
+ * @param post  sends text to the chat verbatim (bypassing the model), so standings are
+ *              never paraphrased or recalled from an older turn.
+ */
+export function fantasyMcpServer(cfg: FantasyConfig, post?: (text: string) => Promise<void>, opts: { scheduled?: boolean } = {}) {
+  // Reports are posted verbatim only when asked (post=true), or by default on a scheduled run
+  // ("send the weekly roundup"). A chat question gets the data back to answer in its own words.
+  const shouldSend = (requested: boolean | undefined) => !!post && (requested ?? !!opts.scheduled);
+  return createSdkMcpServer({
+    name: "fantasy",
+    version: "0.1.0",
+    tools: [
+      tool(
+        "league_roundup",
+        "ESPN fantasy football weekly roundup: results, standings (owner names, rank movement, playoff line) and highlights, " +
+          "fetched live from ESPN. ALWAYS call this for standings/roundup/record questions; never answer them from earlier turns. " +
+          "Omit `week` for the most recent completed week. By default the data comes back to you: use it to ANSWER specific " +
+          "questions yourself in a few short lines (e.g. 'who is in first?', 'what's my record?', 'who scored the most last week?', " +
+          "'am I in playoff position?'). Only when someone asks for the roundup/standings/results themselves ('send the roundup', " +
+          "'show the standings'), pass post=true: the roundup is sent to the chat exactly as formatted, so do NOT repeat or rewrite it; " +
+          "reply with at most one short line of commentary, or NO_REPLY. Scheduled runs post by default.",
+        { week: z.number().int().min(1).max(18).optional(), post: z.boolean().optional() },
+        async ({ week, post: shouldPost }) => {
+          try {
+            const league = await fetchLeague(cfg);
+            const w = week ?? (await resolveLatestWeek(league)).week ?? league.status.currentMatchupPeriod;
+            const r = buildRoundup(league, w, await periodNflComplete(league, w), cfg.ownerNames);
+            const me = myTeam(cfg);
+            const meName = typeof me === "string" ? me.trim().toLowerCase() : "";
+            const mine = typeof me === "number"
+              ? r.standings.find((t) => t.id === me)
+              : meName ? r.standings.find((t) => t.name.toLowerCase() === meName) ?? r.standings.find((t) => t.name.toLowerCase().includes(meName)) : undefined;
+            if (shouldSend(shouldPost) && post) {
+              await post(r.text);
+              return {
+                content: [
+                  { type: "text", text: `Posted the week ${r.week} roundup to the chat. Do not repeat it. Data for any commentary:` },
+                  { type: "text", text: JSON.stringify({ week: r.week, final: r.final, myTeam: mine ?? null, highlights: r.highlights }) },
+                ],
+              };
+            }
+            return {
+              content: [
+                { type: "text", text: r.text },
+                { type: "text", text: JSON.stringify({ week: r.week, final: r.final, myTeam: mine ?? null, standings: r.standings, results: r.results }) },
+              ],
+            };
+          } catch (e) {
+            log("[fantasy] roundup failed:", (e as Error).message);
+            return { content: [{ type: "text", text: `Couldn't reach ESPN: ${(e as Error).message}` }], isError: true };
+          }
+        },
+      ),
+      tool(
+        "matchup_preview",
+        "Matchup data from live ESPN: both lineups with each player's NFL opponent, projected (or live) points, " +
+          "injury tags, bench, byes/empty slots and start-sit suggestions; for a single team it also shows Sleeper's " +
+          "projection as a second opinion (\"S 12.3\"). Pass `team` (team name, owner first name, " +
+          "abbreviation, or 'me') for one full matchup; omit it for a one-line-per-game slate of the whole week. " +
+          "`week` defaults to the current week. By default (post=false) the text comes back to you: use it to ANSWER specific " +
+          "questions yourself in a few short lines, e.g. 'should I start Burrow or Stroud?', 'who's my flex?', 'am I winning?', " +
+          "'who does Suze play?' (give a clear call and why; mention Sleeper when it disagrees). Only when someone asks to see " +
+          "the preview/matchup itself ('preview my matchup', 'week 4 matchups') or a scheduled task says to post it, pass " +
+          "post=true: it is then sent to the chat verbatim, so do NOT repeat it; add at most one short line or reply NO_REPLY.",
+        {
+          team: z.string().optional(),
+          week: z.number().int().min(1).max(18).optional(),
+          post: z.boolean().optional(),
+        },
+        async ({ team, week, post: shouldPost }) => {
+          try {
+            const { league, pro, week: w, nflWeek } = await fetchWeek(cfg, week);
+            const alt = team && cfg.sleeper !== false
+              ? (await sleeperProjector(league.seasonId, nflWeek, scoringFromEspn(league.settings))) ?? undefined
+              : undefined;
+            let text: string;
+            if (team) {
+              const t = findTeam(league, team, myTeam(cfg));
+              if (!t && isMe(team) && myTeam(cfg) === undefined) return { content: [{ type: "text", text: ME_UNKNOWN }], isError: true };
+              if (!t) {
+                const names = league.teams.map((x) => x.name).join(", ");
+                return { content: [{ type: "text", text: `No team matches "${team}". Teams: ${names}` }], isError: true };
+              }
+              text = formatPreview(buildPreview(league, pro, w, nflWeek, t.id, cfg.ownerNames, alt));
+            } else {
+              text = formatSlate(league, pro, w, nflWeek, cfg.ownerNames);
+            }
+            if (shouldSend(shouldPost) && post) {
+              await post(text);
+              return { content: [{ type: "text", text: `Posted the week ${w} ${team ? "matchup preview" : "slate"} to the chat. Do not repeat it. Summary for any commentary:\n${text.slice(0, 1500)}` }] };
+            }
+            return { content: [{ type: "text", text }] };
+          } catch (e) {
+            log("[fantasy] preview failed:", (e as Error).message);
+            return { content: [{ type: "text", text: `Couldn't build the preview: ${(e as Error).message}` }], isError: true };
+          }
+        },
+      ),
+      tool(
+        "waiver_report",
+        "Waiver wire data from live ESPN (plus Sleeper) for the upcoming week. For a specific question, like " +
+          "'who should I pick up at QB?', 'need a backup TE' or 'best RB available?', pass `position` (and team 'me' " +
+          "when it's about the asker's team). That returns the asker's players at that position and the best available " +
+          "ones with ESPN and Sleeper projections, % rostered and trend; then ANSWER the question yourself in a few short lines " +
+          "with a clear pick and why. Only when someone asks for the whole waiver report / waiver wire rundown (or a " +
+          "scheduled task says to post it) pass post=true: the full report (best available at every position, trending adds, " +
+          "Sleeper's hot adds, personal add/drop ideas for `team`, league moves) is then sent to the chat verbatim, so do NOT " +
+          "repeat it; add at most one short line or reply NO_REPLY. Default is post=false (returns the text to you).",
+        {
+          team: z.string().optional(),
+          position: z.enum(["QB", "RB", "WR", "TE", "K", "D/ST"]).optional(),
+          week: z.number().int().min(1).max(18).optional(),
+          post: z.boolean().optional(),
+        },
+        async ({ team, position, week, post: shouldPost }) => {
+          try {
+            if (team && isMe(team) && myTeam(cfg) === undefined) return { content: [{ type: "text", text: ME_UNKNOWN }], isError: true };
+            const r = await waiverReport(cfg, { team, week, position });
+            if (shouldSend(shouldPost) && !position && post) {
+              await post(r.text);
+              return { content: [{ type: "text", text: `Posted the week ${r.week} waiver report to the chat. Do not repeat it.` }] };
+            }
+            return { content: [{ type: "text", text: r.text }] };
+          } catch (e) {
+            log("[fantasy] waiver report failed:", (e as Error).message);
+            return { content: [{ type: "text", text: `Couldn't build the waiver report: ${(e as Error).message}` }], isError: true };
+          }
+        },
+      ),
+      tool(
+        "trending_players",
+        "Players being added (or dropped) the most across all Sleeper fantasy leagues over the last `hours` " +
+          "(default 24), with each player's status in THIS ESPN league: available, or which team rosters him. " +
+          "Use for 'who's hot on the wire?', 'who is everyone dropping?' or to check buzz around a player. " +
+          "Returns data for you to summarise briefly; it does not post to the chat.",
+        {
+          type: z.enum(["add", "drop"]).optional(),
+          hours: z.number().int().min(1).max(168).optional(),
+          limit: z.number().int().min(1).max(25).optional(),
+        },
+        async ({ type = "add", hours = 24, limit = 10 }) => {
+          if (cfg.sleeper === false) return { content: [{ type: "text", text: "Sleeper data is turned off in the config." }], isError: true };
+          try {
+            const [trends, { league, pro }] = await Promise.all([sleeperTrending(type, hours, 50), fetchWeek(cfg)]);
+            const abbrev = new Map(pro.map((t) => [t.id, t.abbrev]));
+            // Rostered players keyed by ESPN id, name + position, and "DEF:<team>" → fantasy team.
+            const POS: Record<number, string> = { 1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K" };
+            const owner = new Map<string, string>();
+            for (const t of league.teams)
+              for (const e of t.roster?.entries ?? []) {
+                const p = e.playerPoolEntry.player;
+                const name = (t.name ?? t.abbrev).trim();
+                if (p.defaultPositionId === 16) owner.set(`DEF:${sleeperTeam(abbrev.get(p.proTeamId) ?? "")}`, name);
+                else {
+                  owner.set(`id:${p.id}`, name);
+                  owner.set(nameKey(p.fullName, POS[p.defaultPositionId] ?? "?"), name);
+                }
+              }
+            const rows = trends
+              .filter((t) => ["QB", "RB", "WR", "TE", "K", "DEF"].includes(t.player.pos))
+              .slice(0, limit)
+              .map((t) => {
+                const p = t.player;
+                const here = p.pos === "DEF"
+                  ? owner.get(`DEF:${p.id}`)
+                  : (p.espnId !== null ? owner.get(`id:${p.espnId}`) : undefined) ?? owner.get(nameKey(p.name, p.pos));
+                const name = p.pos === "DEF" ? `${p.id} D/ST` : p.name;
+                return `• ${name} ${p.pos} (${p.team ?? "FA"})${p.injury ? ` [${p.injury}]` : ""} — ${fmtCount(t.count)} ${type}s · ${here ? `on ${here}` : "available here"}`;
+              });
+            const head = `Sleeper most ${type === "add" ? "added" : "dropped"}, last ${hours}h (across all Sleeper leagues):`;
+            return { content: [{ type: "text", text: [head, ...rows].join("\n") }] };
+          } catch (e) {
+            log("[fantasy] trending failed:", (e as Error).message);
+            return { content: [{ type: "text", text: `Couldn't get trending players: ${(e as Error).message}` }], isError: true };
+          }
+        },
+      ),
+      tool(
+        "player_usage",
+        "How NFL players are actually being used, from nflverse data (refreshed daily): per week snap %, targets and " +
+          "target share, carries, receptions, yards, TDs, PPR points and EXPECTED PPR points (what their usage was worth), " +
+          "plus the latest official injury report / practice status. Use it for start/sit and pickup questions about " +
+          "specific players ('is X's role growing?', 'Burrow or Stroud?', 'is Y a real breakout?'), usually alongside " +
+          "matchup_preview or waiver_report. Pass 1-6 player names. Returns data for you; it does not post to the chat.",
+        {
+          players: z.array(z.string().min(2)).min(1).max(6),
+          weeks: z.number().int().min(1).max(8).optional(),
+        },
+        async ({ players, weeks = 3 }) => {
+          if (cfg.nflverse === false) return { content: [{ type: "text", text: "nflverse data is turned off in the config." }], isError: true };
+          const season = cfg.season ?? new Date().getFullYear();
+          try {
+            let ix = loadIndex(season);
+            if (!ix) {
+              await syncNflverse(season);
+              ix = loadIndex(season);
+            }
+            if (!ix) return { content: [{ type: "text", text: "nflverse data isn't available yet (download failed). Try again later." }], isError: true };
+            const out = players.map((q) => {
+              const found = findPlayers(ix!, q, 2);
+              if (!found.length) return `${q}: no NFL player found with that name.`;
+              const [best, other] = found;
+              const note = other && other.weeks.length && nameKey(other.name, "") !== nameKey(best.name, "") ? `\n  (also matched ${other.name} ${other.pos} ${other.team}; name them fully if you meant them)` : "";
+              return formatUsage(best, weeks, ix!.lastWeek) + note;
+            });
+            const head = `nflverse ${season}, through week ${ix.lastWeek} (${dataAge(season) ?? "age unknown"}). Expected PPR = what the player's opportunities were worth on average.`;
+            return { content: [{ type: "text", text: [head, ...out].join("\n\n") }] };
+          } catch (e) {
+            log("[fantasy] player usage failed:", (e as Error).message);
+            return { content: [{ type: "text", text: `Couldn't read nflverse data: ${(e as Error).message}` }], isError: true };
+          }
+        },
+      ),
+      tool(
+        "league_status",
+        "Current state of the ESPN league: current week, latest finalized week, and whether that NFL week is fully complete.",
+        {},
+        async () => {
+          const league = await fetchLeague(cfg);
+          const finals = finalizedPeriods(league);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  league: league.settings.name,
+                  season: league.seasonId,
+                  currentWeek: league.status.currentMatchupPeriod,
+                  latestFinalizedWeek: finals.at(-1) ?? null,
+                  regularSeasonWeeks: league.settings.scheduleSettings.matchupPeriodCount,
+                }),
+              },
+            ],
+          };
+        },
+      ),
+    ],
+  });
+}
+
+export const FANTASY_TOOLS = ["mcp__fantasy"];
+
+async function periodNflComplete(league: RawLeague, period: number): Promise<boolean> {
+  if (finalizedPeriods(league).includes(period)) return true;
+  const nflWeeks = league.settings.scheduleSettings.matchupPeriods[String(period)] ?? [period];
+  const last = Math.max(...nflWeeks);
+  if (last > 18) return false;
+  try {
+    return await nflWeekComplete(last, league.seasonId);
+  } catch (e) {
+    log("[fantasy] NFL scoreboard check failed:", (e as Error).message);
+    return false;
+  }
+}
+
+/** Most recent week whose games are over: the current week once MNF is final, else the last finalized week. */
+async function resolveLatestWeek(league: RawLeague): Promise<{ week: number | null; nflDone: boolean }> {
+  const cur = league.status.currentMatchupPeriod;
+  if (await periodNflComplete(league, cur)) return { week: cur, nflDone: true };
+  const last = finalizedPeriods(league).filter((p) => p < cur).at(-1) ?? null;
+  return { week: last, nflDone: last !== null };
+}
+
+/**
+ * Condition for the automatic roundup: returns the most recent fantasy week whose NFL games
+ * (through Monday Night Football) are all final, or null before week 1 is done.
+ */
+export async function latestCompletedWeek(cfg: FantasyConfig): Promise<number | null> {
+  return (await resolveLatestWeek(await fetchLeague(cfg))).week;
+}

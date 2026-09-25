@@ -1,0 +1,47 @@
+{
+  "agentName": "Claude",
+
+  "allowedChats": [
+    "+16145551234",
+    "you@icloud.com",
+    "Family Chat"
+  ],
+
+  "contacts": {
+    "+16145551234": "Jim"
+  },
+
+  "groupTriggers": ["claude", "@claude"],
+  "respondToAllInGroups": false,
+  "groupAdmins": ["+16145551234"],
+
+  "dataDir": "~/.imessage-agent",
+  "outboxStagingDir": "~/Pictures/imessage-agent-outbox",
+  "pollIntervalMs": 1500,
+
+  "model": null,
+  "allowBash": false,
+  "extraAllowedTools": [],
+  "mcpServers": {},
+  "loadUserClaudeSettings": false,
+  "maxTurns": 40,
+  "turnTimeoutMs": 600000,
+
+  "voice": {
+    "enabled": true,
+    "whisperBin": "whisper-cli",
+    "modelPath": "~/.imessage-agent/models/ggml-base.en.bin"
+  },
+
+  "fantasy": {
+    "espnLeagueId": "1008081104",
+    "myTeamId": 1,
+    "teams": {
+      "+16145551234": "Your Team Name",
+      "+16145559876": "Friend's Team Name"
+    }
+  },
+
+  "maxChunkChars": 2500,
+  "dryRun": false
+}

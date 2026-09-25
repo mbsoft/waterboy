@@ -1,0 +1,176 @@
+const { app, BrowserWindow, ipcMain, shell, nativeTheme } = require("electron");
+const path = require("node:path");
+const fs = require("node:fs");
+const agent = require("./lib/agent");
+const service = require("./lib/service");
+const { redactPage, namesToRedact } = require("./lib/redact");
+
+app.setName("Waterboy");
+
+// "Buy me a coffee" link: the `funding` URL in package.json (the About page hides the card without one).
+const COFFEE_URL = (() => {
+  const f = require("./package.json").funding;
+  const url = typeof f === "string" ? f : f?.url;
+  return /^https:\/\//.test(url ?? "") ? url : null;
+})();
+
+// The packaged app carries the service (Contents/Resources/agent) and installs/updates it on launch.
+const BUNDLE = app.isPackaged ? service.bundle({ resourcesPath: process.resourcesPath, execPath: process.execPath, version: app.getVersion() }) : null;
+let setup = { state: BUNDLE ? "checking" : "unbundled" };
+let ensuring = null; // the launch-time install/update, which the first overview waits for
+
+// The renderer can call exactly these, nothing else.
+const API = {
+  overview: async () => {
+    await ensuring;
+    return { ...(await agent.overview()), setup: { ...setup, bundled: !!BUNDLE } };
+  },
+  // Switch to (or install) the service bundled with this app.
+  installService: async () => {
+    setup = await service.adopt(BUNDLE);
+    return setup;
+  },
+  start: () => agent.startService(),
+  pause: () => agent.pauseService(),
+  restart: () => agent.restartService(),
+  logs: () => agent.logs(),
+  conversations: () => agent.conversations(),
+  setAllowed: (key, on) => agent.setAllowed(key, on),
+  setContactName: (handle, name) => agent.setContactName(handle, name),
+  setAdmin: (handle, on) => agent.setAdmin(handle, on),
+  setTeam: (handle, team) => agent.setTeam(handle, team),
+  setAccess: (handle, level) => agent.setAccess(handle, level),
+  fantasyTeams: () => agent.fantasyTeams(),
+  automations: () => agent.automations(),
+  createAutomation: (t) => agent.createAutomation(t),
+  updateAutomation: (id, t) => agent.updateAutomation(id, t),
+  setAutomationEnabled: (id, on) => agent.setAutomationEnabled(id, on),
+  deleteAutomation: (id) => agent.deleteAutomation(id),
+  describeSchedule: (s) => agent.describeSchedule(s),
+  memories: () => agent.memories(),
+  saveMemory: (dir, text) => agent.saveMemory(dir, text),
+  resetSession: (guid) => agent.resetSession(guid),
+  settings: () => agent.settings(),
+  saveSettings: (patch) => agent.saveSettings(patch),
+  connections: () => agent.connections(),
+  removeExtraTool: (name) => agent.removeExtraTool(name),
+  setConnector: (key, level) => agent.setConnector(key, level),
+  // Only the agent's own files and folders can be opened.
+  open: async (what) => {
+    const loc = await agent.locate();
+    const target = { config: loc.configPath, logs: path.dirname(loc.logFile), data: loc.dataDir, project: loc.project }[what];
+    if (!target) throw new Error(`Unknown location ${what}`);
+    const err = await shell.openPath(target);
+    if (err) throw new Error(err);
+  },
+  version: () => ({ app: app.getVersion(), electron: process.versions.electron, node: process.versions.node, coffee: !!COFFEE_URL }),
+  openCoffee: async () => {
+    if (!COFFEE_URL) throw new Error("No Buy Me a Coffee link is set.");
+    await shell.openExternal(COFFEE_URL);
+  },
+};
+
+for (const [name, fn] of Object.entries(API)) {
+  ipcMain.handle(`agent:${name}`, async (_e, ...args) => {
+    try {
+      return { ok: true, value: await fn(...args) };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+}
+
+function createWindow() {
+  const win = new BrowserWindow({
+    width: 1180,
+    height: 820,
+    minWidth: 860,
+    minHeight: 560,
+    title: "Waterboy",
+    titleBarStyle: "hiddenInset",
+    trafficLightPosition: { x: 18, y: 18 },
+    vibrancy: "sidebar",
+    visualEffectState: "followWindow",
+    backgroundColor: "#00000000",
+    show: false,
+    // Full-page screenshots can be taller than the screen.
+    enableLargerThanScreen: !!process.env.CAPTURE_DIR,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  win.loadFile(path.join(__dirname, "renderer/index.html"));
+  win.once("ready-to-show", () => {
+    win.show();
+    if (process.env.CAPTURE_DIR) capture(win, process.env.CAPTURE_DIR).finally(() => app.quit());
+  });
+  // Links open in the browser, never inside the app.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/.test(url)) shell.openExternal(url);
+    return { action: "deny" };
+  });
+  win.webContents.on("will-navigate", (e) => e.preventDefault());
+}
+
+/**
+ * `npm run capture`: screenshot every page (for checking the UI without clicking through it).
+ *   CAPTURE_PAGES=a,b  only these pages      CAPTURE_THEMES=light,dark  one set per theme
+ *   CAPTURE_SCROLL=bottom  end of long pages   CAPTURE_FULL=1  whole page, not just the window
+ *   CAPTURE_REDACT=1   scramble + blur phone numbers, emails, names and memory (see lib/redact.js)
+ *   CAPTURE_CLICK=sel  click an element before capturing
+ */
+async function capture(win, dir) {
+  fs.mkdirSync(dir, { recursive: true });
+  const redact = process.env.CAPTURE_REDACT === "1";
+  const cfg = redact ? await agent.getConfig().catch(() => ({})) : null;
+  const opts = redact ? { names: namesToRedact(cfg, [require("node:os").userInfo().username]), homeUser: require("node:os").userInfo().username } : null;
+  const [width, height] = win.getContentSize();
+  const all = ["dashboard", "connections", "conversations", "memory", "automations", "logs", "settings", "about"];
+  const pages = process.env.CAPTURE_PAGES ? process.env.CAPTURE_PAGES.split(",") : all;
+  const themes = process.env.CAPTURE_THEMES ? process.env.CAPTURE_THEMES.split(",") : ["light"];
+  for (const theme of themes) {
+    nativeTheme.themeSource = theme;
+    for (const p of pages) {
+      await win.webContents.executeJavaScript(`location.hash = "#${p}"`);
+      await new Promise((r) => setTimeout(r, 1800));
+      // CAPTURE_SCROLL=bottom shows the end of long pages.
+      if (process.env.CAPTURE_SCROLL === "bottom") {
+        await win.webContents.executeJavaScript(`document.getElementById("content").scrollTop = 1e6`);
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      // CAPTURE_CLICK=<css selector> clicks the first match first (e.g. to open a form).
+      if (process.env.CAPTURE_CLICK) {
+        await win.webContents.executeJavaScript(`document.querySelector(${JSON.stringify(process.env.CAPTURE_CLICK)})?.click()`);
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+      if (process.env.CAPTURE_FULL === "1") {
+        const full = await win.webContents.executeJavaScript(`document.querySelector(".page").scrollHeight + 52 + 60`);
+        win.setContentSize(width, Math.min(Math.max(height, full), 4000));
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      if (redact) {
+        await win.webContents.executeJavaScript(`(${redactPage.toString()})(${JSON.stringify(opts)})`);
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      const img = await win.webContents.capturePage();
+      if (process.env.CAPTURE_FULL === "1") win.setContentSize(width, height);
+      fs.writeFileSync(path.join(dir, `${p}${theme === "light" ? "" : `-${theme}`}.png`), img.toPNG());
+    }
+  }
+}
+
+app.whenReady().then(() => {
+  createWindow();
+  if (BUNDLE && !process.env.CAPTURE_DIR)
+    ensuring = service.ensure(BUNDLE).then(
+      (r) => (setup = r),
+      (e) => (setup = { state: "error", error: e.message }),
+    );
+});
+app.on("window-all-closed", () => app.quit());
+app.on("activate", () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+});

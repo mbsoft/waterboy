@@ -1,0 +1,63 @@
+# Build config for the distributable macOS app. See scripts/release.sh for the signed pipeline.
+appId: com.jameswelch.waterboy
+productName: Waterboy
+copyright: Copyright © 2026 James Welch
+artifactName: "Waterboy-${version}-${arch}.${ext}"
+
+directories:
+  output: dist
+  buildResources: build
+
+# Only what the app needs at runtime (electron-builder adds production node_modules itself).
+files:
+  - main.js
+  - preload.js
+  - lib/**
+  - renderer/**
+  - package.json
+asar: true
+
+# The Waterboy service, staged per architecture by scripts/stage-agent.js (`npm run stage-agent`).
+# Lands in Contents/Resources/agent; lib/service.js installs it as the launchd job on first launch.
+# (Staged as build/agent/<arch>/agent: electron-builder always drops a node_modules at the root of `from`.)
+extraResources:
+  - from: build/agent/${arch}
+    to: .
+    filter: ["agent/**/*"]
+
+mac:
+  category: public.app-category.utilities
+  icon: build/icon.icns
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  # Release builds must use a "Developer ID Application" certificate (keychain or CSC_LINK).
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # Notarizes the app when APPLE_* credentials are in the environment (scripts/release.sh requires them).
+  notarize: true
+  # The Agent SDK's Claude binary is already signed and notarized by Anthropic; keep that signature.
+  signIgnore:
+    - "Resources/agent/node_modules/@anthropic-ai/claude-agent-sdk-darwin-[^/]+/claude$"
+  minimumSystemVersion: "12.0"
+  extendInfo:
+    # Shown when the bundled service first sends a message through Messages.
+    NSAppleEventsUsageDescription: Waterboy sends your assistant's replies through Messages.
+    NSHumanReadableCopyright: Copyright © 2026 James Welch
+    LSApplicationCategoryType: public.app-category.utilities
+
+dmg:
+  # Sign the disk image itself (off by default); scripts/release.sh notarizes it afterwards.
+  sign: true
+  title: "Waterboy ${version}"
+  icon: build/icon.icns
+  window: { width: 540, height: 380 }
+  contents:
+    - { x: 140, y: 190, type: file }
+    - { x: 400, y: 190, type: link, path: /Applications }
+
+publish: null

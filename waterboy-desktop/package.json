@@ -1,0 +1,30 @@
+{
+  "name": "waterboy-desktop",
+  "productName": "Waterboy",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Waterboy: desktop control panel for the Waterboy iMessage assistant, with the service (../waterboy-agent) bundled in",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "capture": "CAPTURE_DIR=./screenshots electron .",
+    "test": "node --no-warnings --test test/*.test.js",
+    "icon": "electron scripts/make-icon.js",
+    "banner": "electron scripts/make-banner.js",
+    "pack": "npm run stage-agent && electron-builder --mac --dir -c.mac.identity=null -c.mac.notarize=false",
+    "dist:unsigned": "npm run stage-agent && electron-builder --mac -c.mac.identity=null -c.mac.notarize=false",
+    "release": "bash scripts/release.sh",
+    "capture:redacted": "CAPTURE_DIR=./screenshots CAPTURE_REDACT=1 CAPTURE_FULL=1 CAPTURE_THEMES=light,dark electron .",
+    "stage-agent": "node scripts/stage-agent.js"
+  },
+  "dependencies": {
+    "croner": "^10.0.1"
+  },
+  "devDependencies": {
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3"
+  },
+  "author": "James Welch",
+  "license": "MIT",
+  "funding": "https://buymeacoffee.com/jgauntlettk"
+}
