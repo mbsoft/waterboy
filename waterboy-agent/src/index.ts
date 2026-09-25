@@ -11,7 +11,7 @@ import { startScheduler } from "./scheduler.ts";
 import { makeConditions } from "./conditions.ts";
 import { startNflverseSync } from "./nflverse.ts";
 import { setRankingsDataDir } from "./rankings.ts";
-import { startTypingIndicators } from "./imessage.ts";
+import { startIMessageHelper } from "./imessage.ts";
 
 const cfg = loadConfig();
 if (process.argv.includes("--dry-run")) cfg.dryRun = true;
@@ -41,8 +41,12 @@ const state = new State(cfg.dataDir);
 const sender = cfg.dryRun ? new ConsoleSender() : new AppleScriptSender(cfg.outboxStagingDir);
 const conditions = makeConditions(cfg, state);
 const runner = cfg.provider === "chatgpt" ? new CodexAgentRunner(cfg) : new ClaudeAgentRunner(cfg, state, conditions);
-const indicators = cfg.typingIndicators && !cfg.dryRun ? startTypingIndicators(cfg.dataDir) : null;
-const bot = new Bot(cfg, state, runner, sender, indicators?.typing ?? null);
+// Typing indicators, tapbacks and threaded replies (all best-effort; plain sends work without it).
+const helper = !cfg.dryRun ? startIMessageHelper(cfg.dataDir) : null;
+const bot = new Bot(cfg, state, runner, sender, helper && {
+  typing: cfg.typingIndicators ? helper.typing : null,
+  actions: helper.actions,
+});
 
 // Start from "now" on first launch so we never answer old history.
 let cursor = Number(state.get("lastRowId") ?? NaN);
@@ -109,7 +113,7 @@ const shutdown = async (sig: string) => {
   clearInterval(indexTimer);
   if (nflverseTimer) clearInterval(nflverseTimer);
   await Promise.race([bot.idle(), new Promise((r) => setTimeout(r, 15_000))]);
-  await indicators?.bridge.stop(); // quits the hidden Messages instance
+  await helper?.bridge.stop(); // quits the hidden Messages instance
   db.close();
   process.exit(0);
 };

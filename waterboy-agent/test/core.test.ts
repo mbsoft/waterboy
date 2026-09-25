@@ -117,6 +117,7 @@ function setup(overrides: Partial<Config> = {}) {
     provider: "claude",
     chatgpt: { model: null },
     typingIndicators: false,
+    threadedReplies: "auto" as const,
     ...overrides,
   } satisfies Config;
   const state = new State(dataDir);
@@ -325,7 +326,7 @@ test("bot: typing indicator runs during a turn and is cleared before the reply, 
     end: async (c: string) => void events.push(`end ${c}`),
     refresh: async (c: string) => void events.push(`refresh ${c}`),
   };
-  const bot = new Bot(cfg, state, agent, sender, typing as never);
+  const bot = new Bot(cfg, state, agent, sender, { typing: typing as never, actions: { react: async () => true, reply: async () => false } as never });
   bot.handleIncoming([msg({ text: "hello" })]);
   await bot.idle();
   assert.deepEqual(events, ["begin iMessage;-;+16145551234", "end iMessage;-;+16145551234", "send ok"]);
@@ -333,4 +334,55 @@ test("bot: typing indicator runs during a turn and is cleared before the reply, 
   bot.handleIncoming([msg({ text: "/help" })]);
   await bot.idle();
   assert.ok(events.every((e) => e.startsWith("send ")), events.join(", "));
+});
+
+test("bot: REACT answers tapback the message, and send nothing if that fails", async () => {
+  const { cfg, state } = setup();
+  const reacted: string[] = [];
+  let reactWorks = true;
+  const actions = {
+    react: async (chat: string, message: string, reaction: string) => (reacted.push(`${chat} ${message} ${reaction}`), reactWorks),
+    reply: async () => false,
+  };
+  const sender = new ConsoleSender(true);
+  const bot = new Bot(cfg, state, new StubAgent(() => "REACT heart"), sender, { typing: null, actions: actions as never });
+  bot.handleIncoming([msg({ text: "thanks!", guid: "MSG-1" })]);
+  await bot.idle();
+  assert.deepEqual(reacted, ["iMessage;-;+16145551234 MSG-1 heart"]);
+  assert.equal(sender.sent.length, 0); // a tapback, no text
+  reactWorks = false;
+  bot.handleIncoming([msg({ text: "thanks again!", guid: "MSG-2", rowid: 2 })]);
+  await bot.idle();
+  assert.equal(sender.sent.length, 0); // no separate emoji message
+});
+
+test("bot: group replies are threaded when the chat moved on (auto), always, or never", async () => {
+  const g = { chatGuid: "iMessage;+;chat999", chatIdentifier: "chat999", chatName: "Family", isGroup: true };
+  for (const mode of ["auto", "always", "off"] as const) {
+    const { cfg, state } = setup({ threadedReplies: mode });
+    const threaded: string[] = [];
+    const actions = { react: async () => true, reply: async (_c: string, m: string, t: string) => (threaded.push(`${m}: ${t}`), true) };
+    const sender = new ConsoleSender(true);
+    let bot!: Bot;
+    // While the agent works, someone else posts in the group (the conversation moves on).
+    const agent = new StubAgent((req) => {
+      if (req.prompt.includes("first")) bot.handleIncoming([msg({ ...g, text: "anyway, dinner?", guid: "OTHER", rowid: 9 })]);
+      return "answer";
+    });
+    bot = new Bot(cfg, state, agent, sender, { typing: null, actions: actions as never });
+    bot.handleIncoming([msg({ ...g, text: "Claude, first question", guid: "Q1" })]);
+    await bot.idle();
+    bot.handleIncoming([msg({ ...g, text: "Claude, second question", guid: "Q2", rowid: 10 })]);
+    await bot.idle();
+    const expected = { auto: ["Q1: answer"], always: ["Q1: answer", "Q2: answer"], off: [] }[mode];
+    assert.deepEqual(threaded, expected, mode);
+    assert.equal(threaded.length + sender.sent.length, 2, mode); // every answer went out exactly once
+  }
+  // 1:1 chats never thread.
+  const { cfg, state } = setup({ threadedReplies: "always" });
+  const threaded: string[] = [];
+  const bot = new Bot(cfg, state, new StubAgent(), new ConsoleSender(true), { typing: null, actions: { react: async () => true, reply: async (_c: string, m: string) => (threaded.push(m), true) } as never });
+  bot.handleIncoming([msg({ text: "hi", guid: "D1" })]);
+  await bot.idle();
+  assert.deepEqual(threaded, []);
 });

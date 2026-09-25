@@ -57,6 +57,11 @@ export interface Config {
   chatDbPath: string;
   /** Show "typing…" in a chat while the agent works on a reply (needs the waterboy-imessage helper and Accessibility access). */
   typingIndicators: boolean;
+  /**
+   * Group chats: reply in-thread to the message that asked. "auto" only when other messages arrived
+   * while the agent was working (so it's clear who the answer is for); "always"; or "off".
+   */
+  threadedReplies: "auto" | "always" | "off";
 }
 
 export function expandHome(p: string): string {
@@ -95,6 +100,7 @@ const DEFAULTS: Config = {
   fantasy: null,
   chatDbPath: "~/Library/Messages/chat.db",
   typingIndicators: true,
+  threadedReplies: "auto",
 };
 
 export function loadConfig(file = process.env.IMESSAGE_AGENT_CONFIG ?? "config.json"): Config {
@@ -110,6 +116,7 @@ export function loadConfig(file = process.env.IMESSAGE_AGENT_CONFIG ?? "config.j
     voice: { ...DEFAULTS.voice, ...(raw.voice ?? {}) },
     chatgpt: { ...DEFAULTS.chatgpt, ...(raw.chatgpt ?? {}) },
   };
+  if (!["auto", "always", "off"].includes(cfg.threadedReplies)) cfg.threadedReplies = "auto";
   if (cfg.provider !== "claude" && cfg.provider !== "chatgpt") {
     console.warn(`[config] unknown provider ${JSON.stringify(cfg.provider)}, using claude`);
     cfg.provider = "claude";

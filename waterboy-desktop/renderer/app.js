@@ -979,6 +979,16 @@
           h("div", { class: "hint" }, "Uses whisper.cpp locally. Nothing is uploaded."),
           h("label", {}, "Typing indicator"), h("span", { class: "toggle-label" }, toggle(s.typingIndicators, (on) => save({ typingIndicators: on }), "Typing indicator"), "Show \u201ctyping\u2026\u201d in the chat while a reply is being written"),
           h("div", { class: "hint" }, "Needs Accessibility access for Waterboy (System Settings → Privacy & Security → Accessibility). Uses a hidden second copy of Messages; one chat shows typing at a time."),
+          h("label", {}, "Threaded replies"), (() => {
+            const sel = h("select", { "aria-label": "Threaded replies in group chats" },
+              h("option", { value: "auto" }, "When the chat has moved on"),
+              h("option", { value: "always" }, "Always"),
+              h("option", { value: "off" }, "Never"));
+            sel.value = s.threadedReplies;
+            sel.addEventListener("change", () => save({ threadedReplies: sel.value }, "Threaded replies saved").catch((e) => toast(e.message, true)));
+            return sel;
+          })(),
+          h("div", { class: "hint" }, "In group chats, answer as a reply to the message that asked, so it's clear who it's for. Messages that only need a thumbs-up or a laugh get a tapback instead of a text. Both use the same helper and Accessibility access as the typing indicator."),
         ),
       ),
       card(

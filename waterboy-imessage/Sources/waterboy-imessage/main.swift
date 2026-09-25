@@ -7,12 +7,15 @@
 // Protocol: one JSON object per line on stdin, one reply per line on stdout.
 //   {"id":1,"op":"ping"}                                   → {"id":1,"ok":true,"accessibility":"authorized"}
 //   {"id":2,"op":"typing","chat":"any;-;+16145550142","on":true}  → {"id":2,"ok":true}
+//   {"id":3,"op":"react","chat":"…","message":"<message GUID>","reaction":"like"}  (heart, like, dislike,
+//      laugh, emphasize, question, or any single emoji)                → {"id":3,"ok":true}
+//   {"id":4,"op":"reply","chat":"…","message":"<message GUID>","text":"…"}   (threaded reply) → {"id":4,"ok":true}
 //   any failure                                            → {"id":N,"ok":false,"error":"…"}
 // Requests run one at a time, in order. Closing stdin (or SIGTERM) quits the hidden Messages and exits.
 import Foundation
 import IMessage
 
-let version = "0.1.0"
+let version = "0.2.0"
 
 func reply(_ object: [String: Any]) {
     guard var data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]) else { return }
@@ -25,6 +28,9 @@ struct Request: Decodable {
     let op: String
     let chat: String?
     let on: Bool?
+    let message: String?
+    let reaction: String?
+    let text: String?
 }
 
 let dataDir = CommandLine.arguments.dropFirst().first
@@ -64,6 +70,18 @@ func handle(_ req: Request) async -> [String: Any] {
         case "typing":
             guard let chat = req.chat, !chat.isEmpty else { throw BridgeError("typing needs a chat") }
             try await api.sendActivityIndicator(type: req.on == false ? "none" : "typing", threadID: chat)
+            return ["id": req.id, "ok": true]
+        case "react":
+            guard let chat = req.chat, let message = req.message, let reaction = req.reaction, !reaction.isEmpty else {
+                throw BridgeError("react needs chat, message and reaction")
+            }
+            try await api.addReaction(threadID: chat, messageID: message, reactionKey: reaction)
+            return ["id": req.id, "ok": true]
+        case "reply":
+            guard let chat = req.chat, let message = req.message, let text = req.text, !text.isEmpty else {
+                throw BridgeError("reply needs chat, message and text")
+            }
+            _ = try await api.sendMessage(threadID: chat, text: text, filePath: nil, quotedMessageID: message)
             return ["id": req.id, "ok": true]
         default:
             throw BridgeError("unknown op \(req.op)")

@@ -7,8 +7,10 @@ cd "$(dirname "$0")"
 bins=()
 for arch in arm64 x86_64; do
   echo "==> building $arch"
-  swift build -c release --product waterboy-imessage --triple "$arch-apple-macosx13.0"
-  bins+=("$(swift build -c release --product waterboy-imessage --triple "$arch-apple-macosx13.0" --show-bin-path)/waterboy-imessage")
+  # A scratch path per arch: switching triples in one .build folder breaks SwiftPM's build description.
+  opts=(-c release --product waterboy-imessage --triple "$arch-apple-macosx13.0" --scratch-path ".build/$arch")
+  swift build "${opts[@]}"
+  bins+=("$(swift build "${opts[@]}" --show-bin-path)/waterboy-imessage")
 done
 mkdir -p dist
 lipo -create "${bins[@]}" -output dist/waterboy-imessage

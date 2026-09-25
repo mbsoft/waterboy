@@ -174,11 +174,50 @@ export class TypingIndicators {
   }
 }
 
+/** Reactions an assistant can ask for by name (anything else must be a single emoji). */
+export const REACTIONS = { heart: "❤️", like: "👍", dislike: "👎", laugh: "😂", emphasize: "‼️", question: "❓" } as const;
+
+/**
+ * "REACT like" / "REACT: 🏈" → the reaction key for the helper ("like", "🏈"); null if the reply
+ * isn't a reaction. An unknown word falls back to "like" rather than being sent as text.
+ */
+export function parseReaction(text: string): string | null {
+  const m = text.trim().match(/^REACT\s*[:\s]\s*(\S+)\s*$/i);
+  if (!m) return null;
+  const want = m[1].toLowerCase();
+  if (want in REACTIONS) return want;
+  const graphemes = [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(m[1])];
+  return graphemes.length === 1 && /\p{Extended_Pictographic}/u.test(m[1]) ? m[1] : "like";
+}
+
+/** Tapbacks and threaded replies through the helper. Each returns false if it couldn't, so callers can fall back. */
+export class MessageActions {
+  constructor(private bridge: TypingTransport) {}
+
+  async react(chat: string, message: string, reaction: string): Promise<boolean> {
+    const r = await this.bridge.request("react", { chat, message, reaction }, 30_000);
+    if (!r.ok) log(`[imessage] reaction failed: ${r.error}`);
+    return r.ok;
+  }
+
+  async reply(chat: string, message: string, text: string): Promise<boolean> {
+    const r = await this.bridge.request("reply", { chat, message, text }, 45_000);
+    if (!r.ok) log(`[imessage] threaded reply failed: ${r.error}`);
+    return r.ok;
+  }
+}
+
+export interface IMessageHelper {
+  typing: TypingIndicators;
+  actions: MessageActions;
+  bridge: IMessageBridge;
+}
+
 /** Start the helper if it's installed (checking it in the background, so startup never waits on it). */
-export function startTypingIndicators(dataDir: string): { typing: TypingIndicators; bridge: IMessageBridge } | null {
+export function startIMessageHelper(dataDir: string): IMessageHelper | null {
   const bin = findHelper();
   if (!bin) {
-    log("[imessage] typing indicators off: waterboy-imessage helper not found (build it with waterboy-imessage/build.sh)");
+    log("[imessage] typing indicators, reactions and threaded replies off: waterboy-imessage helper not found (build it with waterboy-imessage/build.sh)");
     return null;
   }
   const bridge = new IMessageBridge(bin, path.join(dataDir, "imessage-helper"));
@@ -188,5 +227,5 @@ export function startTypingIndicators(dataDir: string): { typing: TypingIndicato
       log("[imessage] typing indicators need Accessibility access: System Settings → Privacy & Security → Accessibility → turn on Waterboy");
     else log(`[imessage] typing indicators on (helper ${ping.version})`);
   });
-  return { typing: new TypingIndicators(bridge), bridge };
+  return { typing: new TypingIndicators(bridge), actions: new MessageActions(bridge), bridge };
 }

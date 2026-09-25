@@ -45,6 +45,7 @@
   },
 
   "typingIndicators": true,
+  "threadedReplies": "auto",
   "maxChunkChars": 2500,
   "dryRun": false
 }

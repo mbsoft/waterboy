@@ -45,3 +45,15 @@ test("a failing helper never throws into the bot", async () => {
   await t.begin("A");
   await t.end("A");
 });
+
+test("REACT answers become reaction keys", async () => {
+  const { parseReaction } = await import("../src/imessage.ts");
+  assert.equal(parseReaction("REACT like"), "like");
+  assert.equal(parseReaction("react: Heart"), "heart");
+  assert.equal(parseReaction("  REACT 🏈 "), "🏈");
+  assert.equal(parseReaction("REACT 👍🏽"), "👍🏽"); // one grapheme, even with a skin tone
+  assert.equal(parseReaction("REACT awesome"), "like"); // unknown word: never sent as text
+  assert.equal(parseReaction("REACT like and also here's the answer"), null);
+  assert.equal(parseReaction("Reacting is fun"), null);
+  assert.equal(parseReaction("NO_REPLY"), null);
+});

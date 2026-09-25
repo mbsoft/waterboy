@@ -1,6 +1,7 @@
 # waterboy-imessage
 
-A small Swift helper that gives the Waterboy service typing indicators in Messages, built on
+A small Swift helper that gives the Waterboy service typing indicators, tapbacks and threaded
+replies in Messages, built on
 Beeper's [platform-imessage](https://github.com/beeper/platform-imessage) (MIT, pinned in
 `Package.swift`). It drives a hidden second copy of Messages.app through the macOS Accessibility
 APIs: no private frameworks, SIP stays on.
@@ -13,9 +14,13 @@ The service (`../waterboy-agent/src/imessage.ts`) starts it once and talks to it
 stdin/stdout:
 
 ```
-{"id":1,"op":"ping"}                                          → {"id":1,"ok":true,"version":"0.1.0","accessibility":"authorized"}
+{"id":1,"op":"ping"}                                          → {"id":1,"ok":true,"version":"0.2.0","accessibility":"authorized"}
 {"id":2,"op":"typing","chat":"any;-;+16145550142","on":true}  → {"id":2,"ok":true}
+{"id":3,"op":"react","chat":"…","message":"<GUID>","reaction":"like"}  → {"id":3,"ok":true}   (heart, like, dislike, laugh, emphasize, question, or one emoji)
+{"id":4,"op":"reply","chat":"…","message":"<GUID>","text":"…"}        → {"id":4,"ok":true}   (threaded reply)
 ```
+
+Messages are identified by their `chat.db` GUID.
 
 The hidden Messages copy, and any typing indicator it shows, lives only as long as this process,
 so it stays running; closing stdin quits both. It needs **Accessibility** access for whatever app

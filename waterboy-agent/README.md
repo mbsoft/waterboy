@@ -90,6 +90,7 @@ On first start the service begins at the newest message, so it never answers old
 | `loadUserClaudeSettings` | Also load `~/.claude/settings.json` (your user-level MCP servers, hooks, etc.) |
 | `model` | Model override; `null` means Claude Code's default |
 | `typingIndicators` | Show "typing…" in a chat while a reply is being written (default `true`; see below) |
+| `threadedReplies` | Group chats: reply in-thread to the message that asked: `"auto"` (default; only when other messages arrived meanwhile), `"always"` or `"off"` |
 | `voice` | whisper.cpp binary and model path |
 
 ## ChatGPT as the assistant
@@ -170,10 +171,13 @@ The roundup text itself (results, standings with movement and playoff line, high
   logs/
 ```
 
-## Typing indicators
+## Typing indicators, tapbacks and threaded replies
 
 While the agent works on a reply to a message, the chat shows "typing…" until the reply is sent.
-This uses the `waterboy-imessage` helper (`../waterboy-imessage`, built on Beeper's
+When a message only deserves an acknowledgment ("thanks!", a joke), the agent answers `REACT like`
+(or heart, laugh, emphasize, question, dislike, or one emoji) and the message gets a tapback
+instead of a text. In group chats, answers are threaded under the message that asked when the chat
+moved on meanwhile (`threadedReplies`). All three use the `waterboy-imessage` helper (`../waterboy-imessage`, built on Beeper's
 platform-imessage), which drives a hidden second copy of Messages through the Accessibility APIs,
 with SIP left on. Build it once with `../waterboy-imessage/build.sh`; the installer bundles it.
 
@@ -182,12 +186,13 @@ with SIP left on. Build it once with `../waterboy-imessage/build.sh`; the instal
   says `typing indicators on` once it works.
 - Messages has one compose field, so one chat shows typing at a time: the one that most recently
   started a turn. Scheduled posts and slash commands don't show it. Group chats need macOS Tahoe or later.
-- It's best-effort: without the helper or the permission, replies go out as before, just without
-  the indicator. Set `"typingIndicators": false` to turn it off.
+- It's best-effort: without the helper or the permission, replies go out as before: no typing,
+  threaded answers are sent normally, and a tapback is skipped (logged, nothing sent). Set
+  `"typingIndicators": false` or `"threadedReplies": "off"` to turn those off.
 
 ## Known limits
 
-- Replies are sent with AppleScript, which only supports plain sending: no tapbacks or threaded replies (the typing indicator comes from the helper above). Apple has changed this scripting behavior in past macOS releases; if sending breaks after an update, check `osascript` first.
+- Plain replies are sent with AppleScript; typing, tapbacks and threaded replies come from the helper above. Text formatting (bold, effects) isn't supported by either. Apple has changed this scripting behavior in past macOS releases; if sending breaks after an update, check `osascript` first.
 - Files sent back are staged in `~/Pictures/imessage-agent-outbox`, because Messages can't read many other folders. Change the location with `outboxStagingDir`.
 - Subscription usage limits apply. The log prints each turn's API-equivalent cost so you can keep track.
 - Anyone in an allowlisted chat can instruct the agent. Keep the allowlist tight and the tool list small.
