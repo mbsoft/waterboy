@@ -78,6 +78,8 @@ say "Building Waterboy $version"
 npm test
 say "Testing the agent"
 (cd ../waterboy-agent && npm run typecheck && npm test)
+say "Building the typing-indicator helper"
+../waterboy-imessage/build.sh
 say "Staging the agent"
 npm run stage-agent
 rm -rf dist
@@ -108,6 +110,9 @@ for app in dist/mac*/"Waterboy.app"; do
   codesign --verify --strict "$claude"
   # ChatGPT assistant: the tool server and the Codex CLI (still OpenAI-signed).
   [ -f "$agent/mcpServer.mjs" ] || die "$app has no mcpServer.mjs."
+  # Typing-indicator helper: built here, so signed with our identity.
+  [ -x "$agent/bin/waterboy-imessage" ] || die "$app has no typing-indicator helper."
+  codesign --verify --strict "$agent/bin/waterboy-imessage"
   codex=$(ls "$agent"/node_modules/@openai/codex-darwin-*/vendor/*/bin/codex)
   codesign --verify --strict "$codex"
   ELECTRON_RUN_AS_NODE=1 "$app/Contents/MacOS/Waterboy" -e 'require("node:sqlite")' 2>/dev/null \

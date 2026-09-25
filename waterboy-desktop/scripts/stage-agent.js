@@ -5,6 +5,8 @@
  * For each architecture, build/agent/<arch>/agent/ gets
  *   index.mjs            the service, compiled from src/ by esbuild (npm packages left external)
  *   mcpServer.mjs        Waterboy's tools as stdio MCP servers, for the ChatGPT (Codex) assistant
+ *   bin/waterboy-imessage  typing-indicator helper (../waterboy-imessage, Beeper's platform-imessage), thinned
+ *                        to that architecture; skipped with a warning if it hasn't been built
  *   node_modules/        production dependencies for that architecture (the Agent SDK's Claude binary is per-arch)
  *   package.json, package-lock.json, run.sh, config.example.json
  * electron-builder copies it to Waterboy.app/Contents/Resources/agent (extraResources in electron-builder.yml).
@@ -16,6 +18,7 @@ const crypto = require("node:crypto");
 const { execFileSync } = require("node:child_process");
 
 const AGENT = path.resolve(__dirname, "../../waterboy-agent");
+const HELPER = path.resolve(__dirname, "../../waterboy-imessage/dist/waterboy-imessage");
 const OUT = path.resolve(__dirname, "../build/agent");
 const arches = process.argv.slice(2).length ? process.argv.slice(2) : ["arm64", "x64"];
 const npm = (args, cwd) => execFileSync("npm", args, { cwd, stdio: "inherit" });
@@ -41,6 +44,15 @@ for (const arch of arches) {
   copy("config.example.json");
   copy("scripts/run-app.sh", "run.sh");
   fs.chmodSync(path.join(dir, "run.sh"), 0o755);
+
+  const bin = path.join(dir, "bin");
+  fs.rmSync(bin, { recursive: true, force: true });
+  if (fs.existsSync(HELPER)) {
+    fs.mkdirSync(bin);
+    execFileSync("/usr/bin/lipo", [HELPER, "-thin", arch === "arm64" ? "arm64" : "x86_64", "-output", path.join(bin, "waterboy-imessage")]);
+  } else {
+    console.warn(`${arch}: no typing-indicator helper (run waterboy-imessage/build.sh); this build won't show typing`);
+  }
 
   const stamp = path.join(dir, "node_modules/.waterboy-lock");
   if (fs.existsSync(stamp) && fs.readFileSync(stamp, "utf8") === lockHash) {

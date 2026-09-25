@@ -55,6 +55,8 @@ export interface Config {
   fantasy: FantasyConfig | null;
   /** Path to chat.db. Defaults to ~/Library/Messages/chat.db. */
   chatDbPath: string;
+  /** Show "typing…" in a chat while the agent works on a reply (needs the waterboy-imessage helper and Accessibility access). */
+  typingIndicators: boolean;
 }
 
 export function expandHome(p: string): string {
@@ -92,6 +94,7 @@ const DEFAULTS: Config = {
   chatAccess: {},
   fantasy: null,
   chatDbPath: "~/Library/Messages/chat.db",
+  typingIndicators: true,
 };
 
 export function loadConfig(file = process.env.IMESSAGE_AGENT_CONFIG ?? "config.json"): Config {

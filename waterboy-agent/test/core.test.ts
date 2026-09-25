@@ -9,7 +9,7 @@ import { chunk, toPlainText } from "../src/format.ts";
 import { computeNextRun } from "../src/scheduler.ts";
 import { State } from "../src/state.ts";
 import { Bot } from "../src/bot.ts";
-import { ConsoleSender } from "../src/sender.ts";
+import { ConsoleSender, type ChatTarget } from "../src/sender.ts";
 import type { AgentRequest, AgentRunner } from "../src/agent.ts";
 import type { Config } from "../src/config.ts";
 import { addChat, addHandle, addMessage, makeFakeChatDb } from "./helpers.ts";
@@ -116,6 +116,7 @@ function setup(overrides: Partial<Config> = {}) {
     chatAccess: {},
     provider: "claude",
     chatgpt: { model: null },
+    typingIndicators: false,
     ...overrides,
   } satisfies Config;
   const state = new State(dataDir);
@@ -308,4 +309,28 @@ test("chat access: a fantasy-only person gets the locked-down fantasy profile in
   bot.handleIncoming([msg({ text: "what's the weather?" })]);
   await bot.idle();
   assert.equal(agent.calls.at(-1)!.profile, "full");
+});
+
+test("bot: typing indicator runs during a turn and is cleared before the reply, not for commands", async () => {
+  const { cfg, state, agent } = setup();
+  const events: string[] = [];
+  const sender = new (class extends ConsoleSender {
+    async sendText(target: ChatTarget, text: string) {
+      events.push(`send ${text}`);
+      await super.sendText(target, text);
+    }
+  })(true);
+  const typing = {
+    begin: async (c: string) => void events.push(`begin ${c}`),
+    end: async (c: string) => void events.push(`end ${c}`),
+    refresh: async (c: string) => void events.push(`refresh ${c}`),
+  };
+  const bot = new Bot(cfg, state, agent, sender, typing as never);
+  bot.handleIncoming([msg({ text: "hello" })]);
+  await bot.idle();
+  assert.deepEqual(events, ["begin iMessage;-;+16145551234", "end iMessage;-;+16145551234", "send ok"]);
+  events.length = 0;
+  bot.handleIncoming([msg({ text: "/help" })]);
+  await bot.idle();
+  assert.ok(events.every((e) => e.startsWith("send ")), events.join(", "));
 });

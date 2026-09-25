@@ -9,6 +9,7 @@ import type { ChatTarget, Sender } from "./sender.ts";
 import { chunk, toPlainText } from "./format.ts";
 import { importAttachment, isAudio, transcribe } from "./media.ts";
 import { describeTask } from "./scheduler.ts";
+import type { TypingIndicators } from "./imessage.ts";
 
 type Job = { kind: "messages"; msgs: IncomingMessage[] } | { kind: "task"; task: ScheduledTask; context?: string };
 
@@ -57,6 +58,7 @@ export class Bot {
     private state: State,
     private agent: AgentRunner,
     private sender: Sender,
+    private typing: TypingIndicators | null = null,
   ) {
     this.allowed = new Set(cfg.allowedChats.flatMap((c) => [c.trim().toLowerCase(), normalizeHandle(c)]));
   }
@@ -249,6 +251,9 @@ export class Bot {
 
     this.clearOutbox(dir);
     this.busy++;
+    // "typing…" while someone waits for an answer (not for scheduled runs), cleared before the reply.
+    const typing = job.kind === "messages" ? this.typing : null;
+    void typing?.begin(chatGuid);
     let res;
     try {
       res = await this.agent.run({
@@ -257,7 +262,10 @@ export class Bot {
         prompt,
         sessionId,
         systemAppend: profile === "full" ? this.systemAppend(q, dir) : this.fantasySystemPrompt(q),
-        post: (text) => this.reply(q, text, false),
+        post: async (text) => {
+          await this.reply(q, text, false);
+          void typing?.refresh(chatGuid); // a sent message ends the recipient's typing bubble
+        },
         profile,
         // In groups only admins can create/cancel scheduled tasks (fantasy-only people can in their
         // own chat); scheduled runs never can.
@@ -267,6 +275,7 @@ export class Bot {
       });
     } finally {
       this.busy--;
+      await typing?.end(chatGuid);
     }
     if (res.sessionId && res.sessionId !== sessionId) this.state.setSession(chatGuid, res.sessionId);
     if (res.costUsd !== undefined) log(`[bot] ${q.label}: turn cost $${res.costUsd.toFixed(4)} (API-equivalent)`);

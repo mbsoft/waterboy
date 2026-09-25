@@ -973,10 +973,12 @@
         })(),
       ),
       card(
-        h("h3", {}, "Voice messages"),
+        h("h3", {}, "Messages"),
         h("div", { class: "form" },
           h("label", {}, "Transcribe"), h("span", { class: "toggle-label" }, toggle(s.voice.enabled, (on) => save({ "voice.enabled": on }), "Transcribe voice messages"), "Transcribe incoming voice messages on this Mac"),
           h("div", { class: "hint" }, "Uses whisper.cpp locally. Nothing is uploaded."),
+          h("label", {}, "Typing indicator"), h("span", { class: "toggle-label" }, toggle(s.typingIndicators, (on) => save({ typingIndicators: on }), "Typing indicator"), "Show \u201ctyping\u2026\u201d in the chat while a reply is being written"),
+          h("div", { class: "hint" }, "Needs Accessibility access for Waterboy (System Settings → Privacy & Security → Accessibility). Uses a hidden second copy of Messages; one chat shows typing at a time."),
         ),
       ),
       card(

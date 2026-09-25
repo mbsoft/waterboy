@@ -615,6 +615,7 @@ const SETTINGS = {
   maxTurns: (v) => Math.max(1, Math.min(200, Math.round(Number(v)) || 40)),
   turnTimeoutMs: (v) => Math.max(30_000, Math.min(3_600_000, Math.round(Number(v)) || 600_000)),
   "voice.enabled": Boolean,
+  typingIndicators: Boolean,
   "fantasy.espnLeagueId": (v) => String(v).trim(),
   "fantasy.myTeamId": (v) => (v === "" || v === null ? undefined : Number(v)),
   "fantasy.sleeper": Boolean,
@@ -650,6 +651,7 @@ async function settings() {
     maxTurns: cfg.maxTurns ?? 40,
     turnTimeoutMs: cfg.turnTimeoutMs ?? 600_000,
     voice: { enabled: !!cfg.voice?.enabled },
+    typingIndicators: cfg.typingIndicators !== false,
     connectors: Object.fromEntries(Object.keys(CONNECTORS).map((k) => [k, connectorLevel(cfg, k)])),
     fantasy: cfg.fantasy
       ? {

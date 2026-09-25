@@ -162,3 +162,9 @@ test("adding a person allows them with a name, access level and team, without du
     else process.env.IMESSAGE_AGENT_DIR = prev;
   }
 });
+
+test("typing-indicator helper lines become events", () => {
+  const ev = parseLog(`2026-09-25T18:00:00.000Z [imessage] typing indicators need Accessibility access: System Settings → Privacy & Security → Accessibility → turn on Waterboy
+2026-09-25T18:00:01.000Z [imessage] typing indicators on (helper 0.1.0)`);
+  assert.deepEqual(ev.map((e) => [e.kind, e.title]), [["error", "Typing indicators need Accessibility"], ["info", "Typing indicators on"]]);
+});

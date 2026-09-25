@@ -22,6 +22,9 @@ function parseLog(text) {
     else if (/SIGTERM received|SIGINT received/.test(msg)) e = { kind: "stop", title: "Agent stopping", detail: "Finishing in-flight replies" };
     else if (/^allowlisted chats:/.test(msg)) continue;
     else if ((x = msg.match(/^assistant: (Claude|ChatGPT)(?: \((.+)\))?$/))) e = { kind: "info", title: `Assistant: ${x[1]}`, detail: x[2] ?? "" };
+    else if (tag === "imessage" && /need Accessibility access/.test(msg))
+      e = { kind: "error", title: "Typing indicators need Accessibility", detail: "System Settings → Privacy & Security → Accessibility → turn on Waterboy" };
+    else if (tag === "imessage" && /^typing indicators on/.test(msg)) e = { kind: "info", title: "Typing indicators on", detail: msg };
     else if ((x = msg.match(/^group and fantasy chats are off: (.+)$/))) e = { kind: "error", title: "Group chats paused", detail: `Codex turned on features Waterboy hasn't reviewed: ${x[1].replace(/^unreviewed Codex features /, "")}` };
     else if ((x = msg.match(/^session (\S+) \(auth: (\w+), model: (.+)\)$/))) {
       openTurns.push(Date.parse(at));

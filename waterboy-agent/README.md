@@ -89,6 +89,7 @@ On first start the service begins at the newest message, so it never answers old
 | `extraAllowedTools`, `mcpServers` | Extra tools or MCP servers, for example `{ "mcpServers": { "gmail": { "type": "http", "url": "…" } } }` (every tool from a listed server is allowed) |
 | `loadUserClaudeSettings` | Also load `~/.claude/settings.json` (your user-level MCP servers, hooks, etc.) |
 | `model` | Model override; `null` means Claude Code's default |
+| `typingIndicators` | Show "typing…" in a chat while a reply is being written (default `true`; see below) |
 | `voice` | whisper.cpp binary and model path |
 
 ## ChatGPT as the assistant
@@ -169,9 +170,24 @@ The roundup text itself (results, standings with movement and playoff line, high
   logs/
 ```
 
+## Typing indicators
+
+While the agent works on a reply to a message, the chat shows "typing…" until the reply is sent.
+This uses the `waterboy-imessage` helper (`../waterboy-imessage`, built on Beeper's
+platform-imessage), which drives a hidden second copy of Messages through the Accessibility APIs,
+with SIP left on. Build it once with `../waterboy-imessage/build.sh`; the installer bundles it.
+
+- Grant **Accessibility** to whatever runs the service: Waterboy in the installed app, or the `node`
+  binary when running from source (System Settings → Privacy & Security → Accessibility). The log
+  says `typing indicators on` once it works.
+- Messages has one compose field, so one chat shows typing at a time: the one that most recently
+  started a turn. Scheduled posts and slash commands don't show it. Group chats need macOS Tahoe or later.
+- It's best-effort: without the helper or the permission, replies go out as before, just without
+  the indicator. Set `"typingIndicators": false` to turn it off.
+
 ## Known limits
 
-- The service scripts Messages with AppleScript, which only supports plain sending: no typing indicators, tapbacks or threaded replies. Apple has changed this scripting behavior in past macOS releases; if sending breaks after an update, check `osascript` first.
+- Replies are sent with AppleScript, which only supports plain sending: no tapbacks or threaded replies (the typing indicator comes from the helper above). Apple has changed this scripting behavior in past macOS releases; if sending breaks after an update, check `osascript` first.
 - Files sent back are staged in `~/Pictures/imessage-agent-outbox`, because Messages can't read many other folders. Change the location with `outboxStagingDir`.
 - Subscription usage limits apply. The log prints each turn's API-equivalent cost so you can keep track.
 - Anyone in an allowlisted chat can instruct the agent. Keep the allowlist tight and the tool list small.
