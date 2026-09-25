@@ -4,6 +4,7 @@
  * so it can be tested without ESPN.
  */
 import type { FantasyConfig } from "./fantasy.ts";
+import type { TeamLine } from "./vegas.ts";
 
 const FANTASY_BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons";
 
@@ -84,6 +85,8 @@ export interface PlayerLine {
   injury: string; // "", "Q", "O", ...
   eligible: number[];
   alt: number | null; // Sleeper's projection, when available
+  vegas: number | null; // implied team points from the betting line (for a D/ST: the opponent's)
+  weather: string | null; // flagged weather for this player's game ("Rain, 45°"), outdoors only
 }
 
 /** Second-opinion projection for an ESPN player (Sleeper), or null if unknown. */
@@ -120,7 +123,7 @@ function ownerLabel(league: RawWeekLeague, t: RawTeam, overrides: Record<string,
   return overrides[String(t.id)] ?? overrides[base] ?? base;
 }
 
-function playerLine(e: RawEntry, season: number, nflWeek: number, pro: ProTeam[], alt?: AltProjector): PlayerLine {
+function playerLine(e: RawEntry, season: number, nflWeek: number, pro: ProTeam[], alt?: AltProjector, lines?: Map<string, TeamLine>): PlayerLine {
   const p = e.playerPoolEntry.player;
   const pos = POS[p.defaultPositionId] ?? "?";
   const stat = (src: number) =>
@@ -135,6 +138,8 @@ function playerLine(e: RawEntry, season: number, nflWeek: number, pro: ProTeam[]
   }
   if (!team) opp = "FA";
   const act = stat(0);
+  const line = team ? lines?.get(team.abbrev) : undefined;
+  const vegas = line && game ? (pos === "D/ST" ? (lines?.get(line.opp)?.implied ?? null) : line.implied) : null;
   return {
     slot: SLOT[e.lineupSlotId] ?? String(e.lineupSlotId),
     slotId: e.lineupSlotId,
@@ -147,13 +152,16 @@ function playerLine(e: RawEntry, season: number, nflWeek: number, pro: ProTeam[]
     injury: INJ[p.injuryStatus ?? e.playerPoolEntry.player.injuryStatus ?? ""] ?? "",
     eligible: p.eligibleSlots,
     alt: alt?.(p.id, pos, team?.abbrev ?? "FA", p.fullName) ?? null,
+    vegas,
+    weather: line?.badWeather && line.weather ? `${line.home ? line.team : line.opp} vs ${line.home ? line.opp : line.team}: ${line.weather}` : null,
   };
 }
 
 function sheet(
   league: RawWeekLeague, t: RawTeam, side: RawSide | undefined, nflWeek: number, pro: ProTeam[], owners: Record<string, string>, alt?: AltProjector,
+  gameLines?: Map<string, TeamLine>,
 ): TeamSheet {
-  const lines = (t.roster?.entries ?? []).map((e) => playerLine(e, league.seasonId, nflWeek, pro, alt));
+  const lines = (t.roster?.entries ?? []).map((e) => playerLine(e, league.seasonId, nflWeek, pro, alt, gameLines));
   const starters = lines
     .filter((l) => l.slotId !== BENCH && l.slotId !== IR)
     .sort((a, b) => SLOT_ORDER.indexOf(a.slotId) - SLOT_ORDER.indexOf(b.slotId));
@@ -182,6 +190,10 @@ function sheet(
     else if (["O", "IR", "SSPD"].includes(s.injury)) notes.push(`⚠️ ${s.name} is ${s.injury === "O" ? "OUT" : s.injury}`);
     else if (s.injury === "D") notes.push(`⚠️ ${s.name} is doubtful`);
   }
+  // Bad weather, one note per game: "🌧️ BUF vs LAC: 38°, Snow (J. Allen, T. Bass)"
+  const weather = new Map<string, string[]>();
+  for (const s of starters) if (s.actual === null && s.weather) weather.set(s.weather, [...(weather.get(s.weather) ?? []), s.name]);
+  for (const [game, names] of weather) notes.push(`🌧️ ${game} (${names.join(", ")})`);
   // Start/sit: best available bench upgrade per unplayed starter
   const used = new Set<string>();
   for (const s of starters) {
@@ -231,6 +243,7 @@ export function findTeam(league: RawWeekLeague, query: string, myTeam?: number |
 
 export function buildPreview(
   league: RawWeekLeague, pro: ProTeam[], week: number, nflWeek: number, teamId: number, owners: Record<string, string> = {}, alt?: AltProjector,
+  lines?: Map<string, TeamLine>,
 ): Preview {
   const m = league.schedule.find((x) => x.matchupPeriodId === week && (x.home.teamId === teamId || x.away?.teamId === teamId));
   if (!m) throw new Error(`No week ${week} matchup for team ${teamId}`);
@@ -240,8 +253,8 @@ export function buildPreview(
   return {
     league: league.settings.name,
     week,
-    home: sheet(league, byId(mine.teamId), mine, nflWeek, pro, owners, alt),
-    away: theirs ? sheet(league, byId(theirs.teamId), theirs, nflWeek, pro, owners, alt) : null,
+    home: sheet(league, byId(mine.teamId), mine, nflWeek, pro, owners, alt, lines),
+    away: theirs ? sheet(league, byId(theirs.teamId), theirs, nflWeek, pro, owners, alt, lines) : null,
   };
 }
 
@@ -251,9 +264,10 @@ function playerRow(p: PlayerLine): string {
   const inj = p.injury ? ` (${p.injury})` : "";
   const pts = p.actual !== null ? `${p.actual} ✓` : p.opp === "BYE" ? "BYE" : p.proj ? `${p.proj}` : "–";
   const alt = p.actual === null && p.opp !== "BYE" && p.alt !== null ? ` · S ${p.alt}` : "";
+  const vegas = p.actual === null && p.opp !== "BYE" && p.vegas !== null ? ` · ${p.pos === "D/ST" ? "opp " : ""}V ${p.vegas}` : "";
   const opp = p.opp === "BYE" ? "" : ` ${p.opp}`;
   // iMessage uses a proportional font, so no column padding — keep each row short instead.
-  return `${p.slot} ${p.name}${inj} (${p.nfl}${opp}) ${pts}${alt}`;
+  return `${p.slot} ${p.name}${inj} (${p.nfl}${opp}) ${pts}${alt}${vegas}`;
 }
 
 function teamBlock(t: TeamSheet): string[] {
@@ -267,6 +281,15 @@ function teamBlock(t: TeamSheet): string[] {
   return lines;
 }
 
+/** "(S = Sleeper projection · V = Vegas implied team points)" for whichever columns appear. */
+function legend(starters: PlayerLine[]): string[] {
+  const parts = [
+    starters.some((s) => s.alt !== null) ? "S = Sleeper projection" : null,
+    starters.some((s) => s.vegas !== null && s.actual === null) ? "V = Vegas implied team points, opp V for a D/ST" : null,
+  ].filter(Boolean);
+  return parts.length ? [`(${parts.join(" · ")})`] : [];
+}
+
 export function formatPreview(p: Preview): string {
   const a = p.home, b = p.away;
   if (!b) return [`🏈 Week ${p.week}: ${a.name} has a bye`, "", ...teamBlock(a)].join("\n");
@@ -276,7 +299,7 @@ export function formatPreview(p: Preview): string {
   return [
     `🏈 Week ${p.week} ${started ? "Matchup" : "Preview"}: ${a.name} vs ${b.name}`,
     `${started ? "Projected final" : "Projected"} ${a.proj}–${b.proj} (${favored})${prob}`,
-    ...([...a.starters, ...b.starters].some((s) => s.alt !== null) ? ["(S = Sleeper projection)"] : []),
+    ...legend([...a.starters, ...b.starters]),
     "",
     ...teamBlock(a),
     "",

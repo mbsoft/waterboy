@@ -16,6 +16,8 @@ import { State } from "./state.ts";
 import { fantasyMcpServer } from "./fantasy.ts";
 import { schedulerMcpServer } from "./scheduler.ts";
 import { makeConditions } from "./conditions.ts";
+import { setNflverseDataDir } from "./nflverse.ts";
+import { setRankingsDataDir } from "./rankings.ts";
 
 // stdout is the MCP channel, so everything else logs to stderr.
 console.log = (...a: unknown[]) => console.error(...a);
@@ -23,6 +25,8 @@ console.log = (...a: unknown[]) => console.error(...a);
 const which = process.argv[2];
 const cfg = loadConfig();
 const env = process.env;
+setNflverseDataDir(cfg.dataDir);
+setRankingsDataDir(cfg.dataDir);
 
 let server;
 if (which === "fantasy") {

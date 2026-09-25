@@ -10,9 +10,11 @@ import { AppleScriptSender, ConsoleSender } from "./sender.ts";
 import { startScheduler } from "./scheduler.ts";
 import { makeConditions } from "./conditions.ts";
 import { startNflverseSync } from "./nflverse.ts";
+import { setRankingsDataDir } from "./rankings.ts";
 
 const cfg = loadConfig();
 if (process.argv.includes("--dry-run")) cfg.dryRun = true;
+setRankingsDataDir(cfg.dataDir);
 
 if (!fs.existsSync(cfg.chatDbPath)) {
   console.error(`Messages database not found at ${cfg.chatDbPath}. Is Messages set up on this Mac?`);

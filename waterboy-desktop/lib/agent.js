@@ -568,6 +568,10 @@ const SETTINGS = {
   "fantasy.myTeamId": (v) => (v === "" || v === null ? undefined : Number(v)),
   "fantasy.sleeper": Boolean,
   "fantasy.nflverse": Boolean,
+  "fantasy.vegas": Boolean,
+  "fantasy.rankings": Boolean,
+  "fantasy.tradeValues": Boolean,
+  "fantasy.dynasty": Boolean,
 };
 
 /** When the service last downloaded nflverse data (its daily sync writes <dataDir>/nflverse). */
@@ -602,6 +606,10 @@ async function settings() {
           myTeamId: cfg.fantasy.myTeamId ?? null,
           sleeper: cfg.fantasy.sleeper !== false,
           nflverse: cfg.fantasy.nflverse !== false,
+          vegas: cfg.fantasy.vegas !== false,
+          rankings: cfg.fantasy.rankings !== false,
+          tradeValues: cfg.fantasy.tradeValues !== false,
+          dynasty: !!cfg.fantasy.dynasty,
           nflverseUpdatedAt: nflverseStatus(loc, cfg).updatedAt,
         }
       : null,
@@ -638,6 +646,9 @@ async function connections() {
     { name: "Scheduler", detail: "Reminders and recurring tasks (every chat)" },
     ...(cfg.fantasy ? [{ name: "Fantasy football", detail: `ESPN league ${cfg.fantasy.espnLeagueId}${cfg.fantasy.sleeper === false ? "" : " + Sleeper"} (every chat)` }] : []),
     ...(cfg.fantasy && cfg.fantasy.nflverse !== false ? [{ name: "NFL usage stats", detail: "nflverse snaps, targets, expected points and injury reports, updated daily" }] : []),
+    ...(cfg.fantasy && cfg.fantasy.vegas !== false ? [{ name: "Betting lines", detail: "Spreads, over/unders, implied team points and weather from ESPN (DraftKings)" }] : []),
+    ...(cfg.fantasy && cfg.fantasy.rankings !== false ? [{ name: "Expert rankings", detail: "FantasyPros consensus, weekly and rest of season, updated daily" }] : []),
+    ...(cfg.fantasy && cfg.fantasy.tradeValues !== false ? [{ name: "Trade values", detail: `FantasyCalc ${cfg.fantasy.dynasty ? "dynasty" : "redraft"} values for this league's format` }] : []),
     providerOf(cfg) === "chatgpt"
       ? { name: "Files, photos & web", detail: "Edit files in the chat folder, view photos, web search (1:1 chats only)" }
       : { name: "Files & web", detail: "Read/write in the chat folder, web search and fetch (1:1 chats only)" },

@@ -57,9 +57,14 @@ export async function syncNflverse(season: number, force = false): Promise<{ upd
   return { updated, failed };
 }
 
+/** Where the files live: <dataDir>/nflverse. startNflverseSync sets it too; tool servers only need this. */
+export function setNflverseDataDir(dataDir: string) {
+  dir = path.join(dataDir, "nflverse");
+}
+
 /** Sync now, then check hourly (each file is only downloaded once it's a day old). */
 export function startNflverseSync(dataDir: string, season: () => number): NodeJS.Timeout {
-  dir = path.join(dataDir, "nflverse");
+  setNflverseDataDir(dataDir);
   const tick = () => void syncNflverse(season()).catch((e) => log("[nflverse] sync failed:", (e as Error).message));
   tick();
   return setInterval(tick, 3600_000);

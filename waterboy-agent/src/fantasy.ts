@@ -9,6 +9,9 @@ import { fetchWeek, buildPreview, formatPreview, formatSlate, findTeam } from ".
 import { waiverReport } from "./fantasyWaivers.ts";
 import { fmtCount, nameKey, scoringFromEspn, sleeperProjector, sleeperTeam, sleeperTrending } from "./sleeper.ts";
 import { dataAge, findPlayers, formatUsage, loadIndex, syncNflverse } from "./nflverse.ts";
+import { formatGameLines, weekLines } from "./vegas.ts";
+import { RANK_POSITIONS, formatPlayerRanks, formatTopRanks, loadRankings } from "./rankings.ts";
+import { evaluateTrade, formatTrade, formatValues, tradeValues, type TradeFormat, type Valued } from "./tradeValues.ts";
 
 export interface FantasyConfig {
   espnLeagueId: string;
@@ -36,6 +39,14 @@ export interface FantasyConfig {
   sleeper?: boolean;
   /** Download nflverse usage stats (snaps, targets, expected points, injury reports) daily (default true). */
   nflverse?: boolean;
+  /** Betting lines, implied team totals and game weather from ESPN's scoreboard (default true). */
+  vegas?: boolean;
+  /** FantasyPros expert consensus rankings via DynastyProcess's daily data (default true). */
+  rankings?: boolean;
+  /** FantasyCalc trade values (default true). */
+  tradeValues?: boolean;
+  /** Dynasty league: trade values count future seasons (default false = redraft). */
+  dynasty?: boolean;
 }
 
 const FANTASY_BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons";
@@ -406,7 +417,8 @@ export function fantasyMcpServer(cfg: FantasyConfig, post?: (text: string) => Pr
         "matchup_preview",
         "Matchup data from live ESPN: both lineups with each player's NFL opponent, projected (or live) points, " +
           "injury tags, bench, byes/empty slots and start-sit suggestions; for a single team it also shows Sleeper's " +
-          "projection as a second opinion (\"S 12.3\"). Pass `team` (team name, owner first name, " +
+          "projection as a second opinion (\"S 12.3\"), the Vegas implied points for each player's NFL team (\"V 24.5\"; " +
+          "higher = better scoring environment; for a D/ST it's the opponent's, lower = better) and bad-weather games. Pass `team` (team name, owner first name, " +
           "abbreviation, or 'me') for one full matchup; omit it for a one-line-per-game slate of the whole week. " +
           "`week` defaults to the current week. By default (post=false) the text comes back to you: use it to ANSWER specific " +
           "questions yourself in a few short lines, e.g. 'should I start Burrow or Stroud?', 'who's my flex?', 'am I winning?', " +
@@ -421,9 +433,12 @@ export function fantasyMcpServer(cfg: FantasyConfig, post?: (text: string) => Pr
         async ({ team, week, post: shouldPost }) => {
           try {
             const { league, pro, week: w, nflWeek } = await fetchWeek(cfg, week);
-            const alt = team && cfg.sleeper !== false
-              ? (await sleeperProjector(league.seasonId, nflWeek, scoringFromEspn(league.settings))) ?? undefined
-              : undefined;
+            const [alt, lines] = team
+              ? await Promise.all([
+                  cfg.sleeper !== false ? sleeperProjector(league.seasonId, nflWeek, scoringFromEspn(league.settings)).then((x) => x ?? undefined) : undefined,
+                  cfg.vegas !== false ? weekLines(league.seasonId, nflWeek) : undefined,
+                ])
+              : [undefined, undefined];
             let text: string;
             if (team) {
               const t = findTeam(league, team, myTeam(cfg));
@@ -432,7 +447,7 @@ export function fantasyMcpServer(cfg: FantasyConfig, post?: (text: string) => Pr
                 const names = league.teams.map((x) => x.name).join(", ");
                 return { content: [{ type: "text", text: `No team matches "${team}". Teams: ${names}` }], isError: true };
               }
-              text = formatPreview(buildPreview(league, pro, w, nflWeek, t.id, cfg.ownerNames, alt));
+              text = formatPreview(buildPreview(league, pro, w, nflWeek, t.id, cfg.ownerNames, alt, lines));
             } else {
               text = formatSlate(league, pro, w, nflWeek, cfg.ownerNames);
             }
@@ -559,6 +574,91 @@ export function fantasyMcpServer(cfg: FantasyConfig, post?: (text: string) => Pr
           } catch (e) {
             log("[fantasy] player usage failed:", (e as Error).message);
             return { content: [{ type: "text", text: `Couldn't read nflverse data: ${(e as Error).message}` }], isError: true };
+          }
+        },
+      ),
+      tool(
+        "game_lines",
+        "This week's NFL betting lines from ESPN (DraftKings): each game's spread, over/under, implied points for each " +
+          "team (what the market expects it to score) and weather for outdoor games. Use for 'what's the line on the " +
+          "Bengals game?', 'which games will be high scoring?', 'is weather a concern for Allen?', and to back up start/sit " +
+          "calls (a player whose team is implied for 27+ is in a great spot; under 18 is a warning). `week` is the NFL week " +
+          "(defaults to this fantasy week's). Returns data for you; it does not post to the chat.",
+        { week: z.number().int().min(1).max(18).optional() },
+        async ({ week }) => {
+          if (cfg.vegas === false) return { content: [{ type: "text", text: "Betting lines are turned off in the config." }], isError: true };
+          try {
+            const nflWeek = week ?? (await fetchWeek(cfg)).nflWeek;
+            const season = cfg.season ?? new Date().getFullYear();
+            const lines = await weekLines(season, nflWeek);
+            if (!lines.size) return { content: [{ type: "text", text: "Couldn't get betting lines from ESPN right now." }], isError: true };
+            return { content: [{ type: "text", text: formatGameLines(lines, nflWeek) }] };
+          } catch (e) {
+            log("[fantasy] game lines failed:", (e as Error).message);
+            return { content: [{ type: "text", text: `Couldn't get the lines: ${(e as Error).message}` }], isError: true };
+          }
+        },
+      ),
+      tool(
+        "expert_rankings",
+        "FantasyPros expert consensus rankings (updated daily): this week's rank and the rest-of-season rank at each " +
+          "player's position, with the range of expert opinions. Pass `players` (1-8 names; a team defense as 'Bills D/ST') " +
+          "for start/sit and trade questions ('Chase or Nabers this week?', 'is X a must-start?'), or `position` for the top " +
+          "of a position ('top 12 TEs this week', 'rest-of-season RB rankings'; kind 'ros'). Weekly RB/WR/TE ranks are PPR. " +
+          "Use it alongside matchup_preview and player_usage; say which way the experts lean. Returns data; does not post.",
+        {
+          players: z.array(z.string().min(2)).min(1).max(8).optional(),
+          position: z.enum(RANK_POSITIONS).optional(),
+          kind: z.enum(["weekly", "ros"]).optional(),
+          limit: z.number().int().min(1).max(40).optional(),
+        },
+        async ({ players, position, kind = "weekly", limit = 15 }) => {
+          if (cfg.rankings === false) return { content: [{ type: "text", text: "Expert rankings are turned off in the config." }], isError: true };
+          if (!players?.length && !position) return { content: [{ type: "text", text: "Pass players or a position." }], isError: true };
+          try {
+            const r = await loadRankings();
+            if (!r) return { content: [{ type: "text", text: "Expert rankings aren't available right now (download failed)." }], isError: true };
+            const parts = [players?.length ? formatPlayerRanks(r, players) : null, position ? formatTopRanks(r, position, kind, limit) : null];
+            return { content: [{ type: "text", text: parts.filter(Boolean).join("\n\n") }] };
+          } catch (e) {
+            log("[fantasy] rankings failed:", (e as Error).message);
+            return { content: [{ type: "text", text: `Couldn't read the rankings: ${(e as Error).message}` }], isError: true };
+          }
+        },
+      ),
+      tool(
+        "trade_value",
+        "Trade values from FantasyCalc (built from real trades, matched to this league's format: teams, PPR, superflex, " +
+          "redraft or dynasty). For 'is this trade fair?' pass `give` (players the asker sends) and `get` (players they " +
+          "receive): returns each player's value, the totals and a verdict. For 'what's X worth?' / 'who's worth more?' pass " +
+          "just `give` with the names. Each player also shows which team in this league has him. Answer with a clear take in " +
+          "a few lines; values are a market guide, so mention roster fit (e.g. positional need) when it matters. Returns data; does not post.",
+        {
+          give: z.array(z.string().min(2)).min(1).max(6),
+          get: z.array(z.string().min(2)).max(6).optional(),
+        },
+        async ({ give, get }) => {
+          if (cfg.tradeValues === false) return { content: [{ type: "text", text: "Trade values are turned off in the config." }], isError: true };
+          try {
+            const { league } = await fetchWeek(cfg);
+            const slots = league.settings.rosterSettings.lineupSlotCounts;
+            const scoring = scoringFromEspn(league.settings);
+            const format: TradeFormat = {
+              teams: league.teams.length,
+              ppr: scoring === "ppr" ? 1 : scoring === "half_ppr" ? 0.5 : 0,
+              qbs: (slots["7"] ?? 0) > 0 || (slots["0"] ?? 0) > 1 ? 2 : 1, // OP (superflex) slot or 2 QBs
+              dynasty: !!cfg.dynasty,
+            };
+            const values = await tradeValues(format);
+            // Which fantasy team rosters each player, by ESPN id.
+            const owner = new Map<number, string>();
+            for (const t of league.teams) for (const e of t.roster?.entries ?? []) owner.set(e.playerPoolEntry.player.id, (t.name ?? t.abbrev).trim());
+            const ownerOf = (p: Valued) => (p.espnId !== null ? (owner.has(p.espnId) ? `on ${owner.get(p.espnId)}` : "available here") : undefined);
+            const text = get?.length ? formatTrade(evaluateTrade(values, give, get), format, ownerOf) : formatValues(values, give, format, ownerOf);
+            return { content: [{ type: "text", text }] };
+          } catch (e) {
+            log("[fantasy] trade values failed:", (e as Error).message);
+            return { content: [{ type: "text", text: `Couldn't get trade values: ${(e as Error).message}` }], isError: true };
           }
         },
       ),

@@ -27,7 +27,7 @@ const MEMORY_FILE = "MEMORY.md";
  * session's system prompt and reuses it on resume, so a session created under an older
  * policy is discarded rather than resumed.
  */
-const POLICY_VERSION = { full: "full-9", group: "group-9", fantasy: "fantasy-1" } as const;
+const POLICY_VERSION = { full: "full-10", group: "group-10", fantasy: "fantasy-2" } as const;
 const MAX_MEMORY_CHARS = 8000;
 const BACKLOG = 15;
 
@@ -348,6 +348,8 @@ export class Bot {
             `- team "me" in any tool means the sender's own team. If several people asked at once, pass the team name from their prefix instead. If a tool says it doesn't know the sender's team, ask them which team is theirs.`,
             `- Who's hot / being dropped league-wide, or buzz on a player: call trending_players (Sleeper data) and summarise it in a few short lines.`,
             `- How a player is really being used (snap %, targets, carries, expected points, injury/practice report): call player_usage with their names. Use it to back up start/sit and pickup calls.`,
+            `- Start/sit between specific players: also call expert_rankings for them (FantasyPros consensus) and use the Vegas "V" (implied team points) in matchup_preview; lean on these when ESPN's projections are close. Lines, over/unders and weather on their own: game_lines.`,
+            `- Trade questions ("is this fair?", "what's X worth?", "who wins this trade?"): call trade_value with give/get (FantasyCalc values for this league's format) and give a clear verdict in a few lines.`,
             `- With post=true, league_roundup / matchup_preview / waiver_report send their formatted text to the chat themselves. Never retype it; add at most one short line, or reply NO_REPLY.`,
             group
               ? `- Scheduled league posts (only league admins may create or cancel them; the tool will refuse otherwise):`
@@ -394,6 +396,8 @@ export class Bot {
               `Only for "send the waiver report"/a full rundown call waiver_report with post=true (it posts itself; don't repeat it). ` +
               `For who's trending (most added/dropped across Sleeper leagues) use trending_players and summarise briefly. ` +
               `For how players are actually being used (snap %, targets, carries, expected points, injury/practice report) call player_usage with their names; use it to back up start/sit and pickup calls. ` +
+              `For start/sit between specific players also check expert_rankings (FantasyPros consensus) and the Vegas "V" implied team points in matchup_preview; game_lines has every game's spread, over/under and weather. ` +
+              `For trade questions ("is this fair?", "what's X worth?") call trade_value with give/get and give a clear verdict. ` +
               `To set up the automatic weekly roundup, call schedule_task with schedule "*/30 * * * 1-3", condition "fantasy_week_final" and a prompt like "Send the weekly fantasy standings roundup".`,
           ]
         : []),

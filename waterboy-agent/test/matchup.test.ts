@@ -74,3 +74,25 @@ test("findTeam by owner, partial name, id and 'me'", () => {
   assert.equal(findTeam(league, "me"), undefined);
   assert.equal(findTeam(league, "nobody"), undefined);
 });
+
+test("matchup preview: Vegas implied points and bad weather", async () => {
+  const { linesFromScoreboard } = await import("../src/vegas.ts");
+  const lines = linesFromScoreboard({
+    events: [{
+      date: "2026-09-27T17:00Z",
+      status: { type: { state: "pre" } },
+      weather: { displayValue: "Snow showers", temperature: 30 },
+      competitions: [{
+        competitors: [{ homeAway: "home", team: { abbreviation: "CIN" } }, { homeAway: "away", team: { abbreviation: "PIT" } }],
+        odds: [{ provider: { name: "DraftKings" }, details: "CIN -3.5", overUnder: 44.5 }],
+        venue: { indoor: false },
+      }],
+    }],
+  });
+  const text = formatPreview(buildPreview(league, pro, 3, 3, 1, {}, undefined, lines));
+  assert.match(text, /QB J\. Starter \(CIN vs PIT\) 15 · V 24/); // (44.5 + 3.5) / 2
+  assert.match(text, /\(V = Vegas implied team points, opp V for a D\/ST\)/);
+  assert.match(text, /🌧️ CIN vs PIT: 30°, Snow showers \(J\. Starter, R\. One\)/);
+  assert.doesNotMatch(text, /O\. Qb .*· V/); // already played
+  assert.doesNotMatch(text, /B\. Guy .*· V/); // bye
+});

@@ -141,6 +141,14 @@ With `"fantasy": { "espnLeagueId": "…" }` in the config, the agent gets `leagu
 
 **Sleeper data (no account needed).** The tools also use Sleeper's public API as a second source: single-team matchup previews show Sleeper's projection next to ESPN's (`S 12.3`, scored PPR, half-PPR or standard to match your ESPN league), the waiver report adds a "Hot on Sleeper" section of the most-added players across Sleeper that are still available in your league, and `trending_players` answers "who's everyone adding/dropping?" with each player's status in your league. Players are matched to ESPN by the `espn_id` in Sleeper's player database, which is downloaded at most once a day (~15 MB). If Sleeper is unreachable the ESPN output is unchanged. Set `"sleeper": false` in the `fantasy` config to turn it off.
 
+**Betting lines, expert rankings and trade values (no accounts needed).**
+
+- *Betting lines* come from ESPN's public scoreboard (DraftKings): each game's spread and over/under, the implied points for each team, and weather for outdoor games. Matchup previews show each unplayed starter's team implied total (`V 24.5`; for a D/ST the opponent's, `opp V 19.5`) and flag rain, snow, storms, wind or freezing games. `game_lines` answers "what's the line on the Bengals game?" and "which games will shoot out?". Set `"vegas": false` to turn it off.
+- *Expert rankings* are FantasyPros' consensus rankings from DynastyProcess's open data on GitHub, downloaded at most twice a day into `~/.imessage-agent/rankings/`. `expert_rankings` gives a player's rank this week and for the rest of the season, with the range of expert opinion ("RB8, experts RB4–RB9"), or the top of a position. Weekly RB/WR/TE ranks are PPR. Set `"rankings": false` to turn it off.
+- *Trade values* come from FantasyCalc (built from real trades), matched to your league's team count, PPR and superflex settings; add `"dynasty": true` for a dynasty league. `trade_value` answers "is Walker for Moore fair?" and "what's Chase worth?", and shows which team in your league has each player. Set `"tradeValues": false` to turn it off.
+
+These sources are free but unofficial and can change without notice; if one is unreachable, the tools say so and everything else keeps working.
+
 - **On demand:** text something like "fantasy standings?" or "roundup for week 3".
 - **Automatic weekly roundup:** in the chat that should receive it, text "send the fantasy roundup here every week after Monday Night Football". This creates a scheduled task with the `fantasy_week_final` condition. The task checks every 30 minutes from Monday through Wednesday and fires once, as soon as every NFL game of the week is final. `/tasks` lists it, and "cancel the fantasy roundup" removes it.
 
