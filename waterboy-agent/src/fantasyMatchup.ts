@@ -5,6 +5,7 @@
  */
 import type { FantasyConfig } from "./fantasy.ts";
 import type { TeamLine } from "./vegas.ts";
+import { SOURCE, sourceLine } from "./sources.ts";
 
 const FANTASY_BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons";
 
@@ -292,7 +293,9 @@ function legend(starters: PlayerLine[]): string[] {
 
 export function formatPreview(p: Preview): string {
   const a = p.home, b = p.away;
-  if (!b) return [`🏈 Week ${p.week}: ${a.name} has a bye`, "", ...teamBlock(a)].join("\n");
+  const all = [...a.starters, ...(b?.starters ?? [])];
+  const source = sourceLine([SOURCE.espn, all.some((s) => s.alt !== null) && SOURCE.sleeper, all.some((s) => s.vegas !== null && s.actual === null) && SOURCE.lines]);
+  if (!b) return [`🏈 Week ${p.week}: ${a.name} has a bye`, "", ...teamBlock(a), "", source].join("\n");
   const favored = a.proj === b.proj ? "Dead even" : a.proj > b.proj ? `${a.name} by ${r1(a.proj - b.proj)}` : `${b.name} by ${r1(b.proj - a.proj)}`;
   const prob = a.winProb !== null && b.winProb !== null ? ` · win prob ${a.winProb}%–${b.winProb}%` : "";
   const started = a.live !== null || b.live !== null;
@@ -304,6 +307,8 @@ export function formatPreview(p: Preview): string {
     ...teamBlock(a),
     "",
     ...teamBlock(b),
+    "",
+    source,
   ].join("\n");
 }
 
@@ -320,5 +325,6 @@ export function formatSlate(league: RawWeekLeague, pro: ProTeam[], week: number,
     lines.push(`• ${a.name} ${a.proj} vs ${b.name} ${b.proj}${prob}`);
     lines.push(`   key: ${top(a)?.name} ${top(a)?.proj} / ${top(b)?.name} ${top(b)?.proj}${flags ? ` · ${flags} lineup alert${flags > 1 ? "s" : ""}` : ""}`);
   }
+  lines.push("", sourceLine([SOURCE.espn]));
   return lines.join("\n");
 }

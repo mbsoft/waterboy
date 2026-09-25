@@ -9,6 +9,7 @@ import { myTeam, nflWeekComplete } from "./fantasy.ts";
 import { fetchWeek, findTeam, type RawWeekLeague } from "./fantasyMatchup.ts";
 import { fmtCount, nameKey, scoringFromEspn, sleeperProjections, sleeperProjector, sleeperTrending, sleeperTeam } from "./sleeper.ts";
 import { log } from "./config.ts";
+import { SOURCE, sourceLine } from "./sources.ts";
 
 const FANTASY_BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons";
 const POS: Record<number, string> = { 1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "D/ST" };
@@ -222,6 +223,7 @@ export function formatPositionReport(r: WaiverReport, pos: string): string {
   if (r.sleeperTrending.length) lines.push(`Most added on Sleeper (24h): ${r.sleeperTrending.map((c) => `${c.name} ${fmtCount(c.adds)}`).join(", ")}`);
   const up = r.team?.upgrades.find((u) => u.add.pos === pos);
   if (up) lines.push(`Biggest projected upgrade: add ${up.add.name} (${up.add.proj}) for ${up.drop.name} (${up.drop.proj})`);
+  lines.push(sourceLine([SOURCE.espn, (list.some((c) => c.alt !== null) || r.sleeperTrending.length > 0) && SOURCE.sleeper]));
   return lines.join("\n");
 }
 
@@ -262,6 +264,8 @@ export function formatWaiverReport(r: WaiverReport): string {
     for (const m of r.moves)
       lines.push(`• ${m.team}: ${[...m.added.map((a) => `+${a}`), ...m.dropped.map((d) => `−${d}`)].join(", ")}`);
   }
+  const usesSleeper = r.sleeperTrending.length > 0 || Object.values(r.byPos).some((l) => l.some((c) => c.alt !== null));
+  lines.push("", sourceLine([SOURCE.espn, usesSleeper && SOURCE.sleeper]));
   return lines.join("\n");
 }
 

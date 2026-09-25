@@ -43,6 +43,7 @@ test("betting lines: spreads, implied team totals, weather", () => {
   assert.match(text, /• MIN @ DET · MIN -1\.5 · O\/U 47\.5 · DET 23, MIN 24\.5 · dome/);
   assert.match(text, /• CHI @ GB · PK · O\/U 41 .*Thunderstorms ⚠️/);
   assert.match(text, /• SF @ SEA · final/);
+  assert.match(text, /\nSource: DraftKings via ESPN$/);
 });
 
 const CSV = [
@@ -70,7 +71,7 @@ test("expert rankings: positional ranks, lookups, defenses", () => {
   const text = formatPlayerRanks(r, ["Ja'Marr Chase", "Nobody Here"]);
   assert.match(text, /Ja'Marr Chase WR CIN — this week WR3 \(avg 3\.4, experts WR2–WR9\) · rest of season WR1/);
   assert.match(text, /Nobody Here: not in the FantasyPros rankings/);
-  assert.match(formatTopRanks(r, "WR", "weekly", 2), /PPR\):\n1\. Jaxon Smith-Njigba SEA \(avg 1\.1\)\n2\. Amon-Ra St\. Brown DET \(avg 1\.95\)$/);
+  assert.match(formatTopRanks(r, "WR", "weekly", 2), /PPR\):\n1\. Jaxon Smith-Njigba SEA \(avg 1\.1\)\n2\. Amon-Ra St\. Brown DET \(avg 1\.95\)\nSource: FantasyPros consensus \(via DynastyProcess\)$/);
 });
 
 const raw = (name: string, pos: string, team: string, espnId: string, value: number, rank: number, posRank: number, trend = 0) =>
@@ -101,4 +102,5 @@ test("trade values: lookups, verdicts, owners", () => {
   assert.match(text, /You give \(9800\):\n• DJ Moore WR CHI: 4800 \(WR18, #34 overall\) · available here\n• Kenneth Walker III RB SEA: 5000 \(RB12, #30 overall\) \(▲400 in 30 days\)/);
   assert.match(text, /• Jahmyr Gibbs RB DET: 10000 \(RB1, #1 overall\) \(▼160 in 30 days\) · on Suze's Castaways/);
   assert.match(text, /premium/); // uneven trade note
+  assert.match(text, /\nSource: FantasyCalc$/);
 });

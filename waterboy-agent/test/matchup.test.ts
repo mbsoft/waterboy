@@ -58,6 +58,7 @@ test("matchup preview: Sleeper second opinion", () => {
   const text = formatPreview(p);
   assert.match(text, /QB J\. Starter \(CIN vs PIT\) 15 · S 17/);
   assert.match(text, /\(S = Sleeper projection\)/);
+  assert.match(text, /\nSources: ESPN Fantasy, Sleeper$/);
   assert.equal(p.home.altProj, 26.5); // 17 + 9.5, bye counts 0
   assert.match(text, /ALPHA \(Jim W\.\) · proj 35 \(Sleeper 26\.5\)/);
   assert.equal(p.away!.altProj, 35.5); // 24.5 actual + 11
@@ -92,6 +93,7 @@ test("matchup preview: Vegas implied points and bad weather", async () => {
   const text = formatPreview(buildPreview(league, pro, 3, 3, 1, {}, undefined, lines));
   assert.match(text, /QB J\. Starter \(CIN vs PIT\) 15 · V 24/); // (44.5 + 3.5) / 2
   assert.match(text, /\(V = Vegas implied team points, opp V for a D\/ST\)/);
+  assert.match(text, /\nSources: ESPN Fantasy, DraftKings via ESPN$/);
   assert.match(text, /🌧️ CIN vs PIT: 30°, Snow showers \(J\. Starter, R\. One\)/);
   assert.doesNotMatch(text, /O\. Qb .*· V/); // already played
   assert.doesNotMatch(text, /B\. Guy .*· V/); // bye

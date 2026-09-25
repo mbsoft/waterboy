@@ -5,6 +5,7 @@
  * get an empty map if ESPN is unreachable, and games already played have no lines.
  */
 import { log } from "./config.ts";
+import { SOURCE, sourceLine } from "./sources.ts";
 
 const SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard";
 
@@ -118,5 +119,5 @@ export function formatGameLines(lines: Map<string, TeamLine>, nflWeek: number): 
       return `• ${matchup} · ${fav} · O/U ${h.total} · ${h.team} ${h.implied}, ${a.team} ${a.implied}${where ? ` · ${where}` : ""}${h.badWeather ? " ⚠️" : ""}${h.state === "in" ? " · live" : ""}`;
     });
   const book = games.find((g) => g.book)?.book;
-  return [`NFL week ${nflWeek} lines${book ? ` (${book})` : ""}: spread · over/under · implied team points · weather`, ...rows].join("\n");
+  return [`NFL week ${nflWeek} lines${book ? ` (${book})` : ""}: spread · over/under · implied team points · weather`, ...rows, sourceLine([book ? `${book} via ESPN` : SOURCE.lines])].join("\n");
 }

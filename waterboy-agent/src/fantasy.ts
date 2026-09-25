@@ -10,6 +10,7 @@ import { waiverReport } from "./fantasyWaivers.ts";
 import { fmtCount, nameKey, scoringFromEspn, sleeperProjector, sleeperTeam, sleeperTrending } from "./sleeper.ts";
 import { dataAge, findPlayers, formatUsage, loadIndex, syncNflverse } from "./nflverse.ts";
 import { formatGameLines, weekLines } from "./vegas.ts";
+import { SOURCE, sourceLine } from "./sources.ts";
 import { RANK_POSITIONS, formatPlayerRanks, formatTopRanks, loadRankings } from "./rankings.ts";
 import { evaluateTrade, formatTrade, formatValues, tradeValues, type TradeFormat, type Valued } from "./tradeValues.ts";
 
@@ -355,6 +356,7 @@ export function formatRoundup(r: Roundup): string {
     if (i === r.playoffTeams - 1) lines.push("— playoff line —");
   });
   if (r.highlights.length) lines.push("", "HIGHLIGHTS", ...r.highlights.map((h) => `• ${h}`));
+  lines.push("", sourceLine([SOURCE.espn]));
   return lines.join("\n");
 }
 
@@ -534,7 +536,7 @@ export function fantasyMcpServer(cfg: FantasyConfig, post?: (text: string) => Pr
                 return `• ${name} ${p.pos} (${p.team ?? "FA"})${p.injury ? ` [${p.injury}]` : ""} — ${fmtCount(t.count)} ${type}s · ${here ? `on ${here}` : "available here"}`;
               });
             const head = `Sleeper most ${type === "add" ? "added" : "dropped"}, last ${hours}h (across all Sleeper leagues):`;
-            return { content: [{ type: "text", text: [head, ...rows].join("\n") }] };
+            return { content: [{ type: "text", text: [head, ...rows, sourceLine([SOURCE.sleeper, SOURCE.espn])].join("\n") }] };
           } catch (e) {
             log("[fantasy] trending failed:", (e as Error).message);
             return { content: [{ type: "text", text: `Couldn't get trending players: ${(e as Error).message}` }], isError: true };
@@ -570,7 +572,7 @@ export function fantasyMcpServer(cfg: FantasyConfig, post?: (text: string) => Pr
               return formatUsage(best, weeks, ix!.lastWeek) + note;
             });
             const head = `nflverse ${season}, through week ${ix.lastWeek} (${dataAge(season) ?? "age unknown"}). Expected PPR = what the player's opportunities were worth on average.`;
-            return { content: [{ type: "text", text: [head, ...out].join("\n\n") }] };
+            return { content: [{ type: "text", text: [head, ...out, sourceLine([SOURCE.nflverse])].join("\n\n") }] };
           } catch (e) {
             log("[fantasy] player usage failed:", (e as Error).message);
             return { content: [{ type: "text", text: `Couldn't read nflverse data: ${(e as Error).message}` }], isError: true };
@@ -679,6 +681,7 @@ export function fantasyMcpServer(cfg: FantasyConfig, post?: (text: string) => Pr
                   currentWeek: league.status.currentMatchupPeriod,
                   latestFinalizedWeek: finals.at(-1) ?? null,
                   regularSeasonWeeks: league.settings.scheduleSettings.matchupPeriodCount,
+                  source: SOURCE.espn,
                 }),
               },
             ],

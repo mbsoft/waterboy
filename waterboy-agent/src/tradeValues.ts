@@ -6,6 +6,7 @@
  */
 import { log } from "./config.ts";
 import { nameKey } from "./sleeper.ts";
+import { SOURCE, sourceLine } from "./sources.ts";
 
 const API = "https://api.fantasycalc.com/values/current";
 
@@ -129,6 +130,7 @@ export function formatTrade(t: TradeVerdict, f: TradeFormat, owners: (p: Valued)
     ...block("You get", t.get),
     `Verdict: ${t.verdict}`,
     ...(packageNote ? [packageNote] : []),
+    sourceLine([SOURCE.tradeValues]),
   ].join("\n");
 }
 
@@ -137,5 +139,5 @@ export function formatValues(values: Valued[], names: string[], f: TradeFormat, 
     const v = findValued(values, n);
     return v ? playerRow(v, owners(v)) : `• ${n}: no trade value listed (likely replacement level, or check the spelling)`;
   });
-  return [`FantasyCalc trade values (${fmtFormat(f)}):`, ...rows].join("\n");
+  return [`FantasyCalc trade values (${fmtFormat(f)}):`, ...rows, sourceLine([SOURCE.tradeValues])].join("\n");
 }

@@ -54,7 +54,7 @@ test("waiver report: ranks by position, skips injured, personal upgrades, league
   assert.match(r.text, /Week 4 Waiver Wire/);
   assert.match(r.text, /RB: R\. Ner \(CIN\) 8\.1 proj · 20% rostered · waivers/);
   assert.match(r.text, /Add R\. Ner RB \(8\.1\) for H\. Back \(O, 0\) — or stash/);
-  assert.match(r.text, /• Alpha: \+N\. Ew \(W\), \+F\. Ree, −O\. Ld, −D\. Rop$/);
+  assert.match(r.text, /• Alpha: \+N\. Ew \(W\), \+F\. Ree, −O\. Ld, −D\. Rop\n\nSources?: ESPN Fantasy(, Sleeper)?$/);
   assert.doesNotMatch(r.text, /F\. Ail|O\. Ld2/);
   assert.deepEqual(r.sleeperTrending.map((c) => c.name), ["R. Ner", "GB D/ST"]); // rostered and OUT players skipped
   assert.match(r.text, /HOT ON SLEEPER \(available here\)\n• R\. Ner RB \(CIN\) 45\.2k adds\/24h · 7\.4 proj · waivers\n• GB D\/ST DEF \(GB\) 1\.2k adds\/24h/);

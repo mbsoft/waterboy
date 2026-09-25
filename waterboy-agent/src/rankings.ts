@@ -11,6 +11,7 @@ import path from "node:path";
 import { log } from "./config.ts";
 import { parseCsv } from "./nflverse.ts";
 import { nameKey } from "./sleeper.ts";
+import { SOURCE, sourceLine } from "./sources.ts";
 
 const URL = "https://github.com/dynastyprocess/data/raw/master/files/db_fpecr_latest.csv";
 const MAX_AGE_MS = 12 * 3600_000;
@@ -123,7 +124,7 @@ export function formatPlayerRanks(r: Rankings, queries: string[]): string {
     const rest = ros ? ` · rest of season ${ros.pos}${ros.rank}` : "";
     return `${label(p)} — ${week}${rest}`;
   });
-  return [`FantasyPros expert consensus (${r.date}; weekly RB/WR/TE ranks are PPR):`, ...rows].join("\n");
+  return [`FantasyPros expert consensus (${r.date}; weekly RB/WR/TE ranks are PPR):`, ...rows, sourceLine([SOURCE.rankings])].join("\n");
 }
 
 /** Top `limit` at a position: "1. Jaxon Smith-Njigba SEA (1.1)". */
@@ -131,5 +132,9 @@ export function formatTopRanks(r: Rankings, pos: RankPos, kind: RankKind, limit:
   const list = r.lists.get(`${kind}:${pos}`) ?? [];
   if (!list.length) return `No ${kind === "weekly" ? "weekly" : "rest-of-season"} ${pos} rankings available.`;
   const head = `FantasyPros ${kind === "weekly" ? "this week's" : "rest-of-season"} ${pos} consensus (${r.date}${kind === "weekly" && ["RB", "WR", "TE"].includes(pos) ? ", PPR" : ""}):`;
-  return [head, ...list.slice(0, limit).map((p) => `${p.rank}. ${p.pos === "DST" ? p.name : `${p.name} ${p.team}`} (avg ${p.avg}${p.sd >= 3 ? `, split ${p.best}–${p.worst}` : ""})`)].join("\n");
+  return [
+    head,
+    ...list.slice(0, limit).map((p) => `${p.rank}. ${p.pos === "DST" ? p.name : `${p.name} ${p.team}`} (avg ${p.avg}${p.sd >= 3 ? `, split ${p.best}–${p.worst}` : ""})`),
+    sourceLine([SOURCE.rankings]),
+  ].join("\n");
 }
