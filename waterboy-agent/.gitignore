@@ -2,3 +2,5 @@ node_modules/
 config.json
 *.log
 dist/
+/experiments/.codex-home/
+/experiments/out/
