@@ -28,7 +28,7 @@ const MEMORY_FILE = "MEMORY.md";
  * session's system prompt and reuses it on resume, so a session created under an older
  * policy is discarded rather than resumed.
  */
-const POLICY_VERSION = { full: "full-12", group: "group-12", fantasy: "fantasy-4" } as const;
+const POLICY_VERSION = { full: "full-13", group: "group-13", fantasy: "fantasy-5" } as const;
 const MAX_MEMORY_CHARS = 8000;
 const BACKLOG = 15;
 
@@ -253,6 +253,7 @@ export class Bot {
     this.busy++;
     // "typing…" while someone waits for an answer (not for scheduled runs), cleared before the reply.
     const typing = job.kind === "messages" ? (this.imessage?.typing ?? null) : null;
+    const attachments: string[] = []; // images from tools (start/sit cards), sent after the reply
     void typing?.begin(chatGuid);
     let res;
     try {
@@ -266,6 +267,7 @@ export class Bot {
           await this.reply(q, text, false);
           void typing?.refresh(chatGuid); // a sent message ends the recipient's typing bubble
         },
+        attach: async (file) => void attachments.push(file),
         profile,
         // In groups only admins can create/cancel scheduled tasks (fantasy-only people can in their
         // own chat); scheduled runs never can.
@@ -286,6 +288,13 @@ export class Bot {
     const reaction = parseReaction(text);
     if (reaction) await this.react(q, trigger?.guid, reaction);
     else if (text && text !== "NO_REPLY") await this.reply(q, text, true, this.threadTo(q, job));
+    for (const file of attachments) {
+      try {
+        await this.sender.sendFile(q.target, file);
+      } catch (e) {
+        log(`[bot] ${q.label}: couldn't send ${path.basename(file)}:`, (e as Error).message);
+      }
+    }
     if (profile === "full") await this.sendOutbox(q, dir);
   }
 
@@ -360,7 +369,7 @@ export class Bot {
             `- team "me" in any tool means the sender's own team. If several people asked at once, pass the team name from their prefix instead. If a tool says it doesn't know the sender's team, ask them which team is theirs.`,
             `- Who's hot / being dropped league-wide, or buzz on a player: call trending_players (Sleeper data) and summarise it in a few short lines.`,
             `- How a player is really being used (snap %, targets, carries, expected points, injury/practice report): call player_usage with their names. Use it to back up start/sit and pickup calls.`,
-            `- Start/sit between specific players: also call expert_rankings for them (FantasyPros consensus) and use the Vegas "V" (implied team points) in matchup_preview; lean on these when ESPN's projections are close. Lines, over/unders and weather on their own: game_lines.`,
+            `- Start/sit between two players ("Taylor or Kyren?", "who's my flex, X or Y?"): call start_sit_card with both names. It weighs projections, Vegas, expert ranks and matchups, and sends a comparison card image after your reply; answer in 2-4 short lines with the pick and why, without describing the image. For three or more players, or a whole lineup, use matchup_preview with expert_rankings instead. Lines, over/unders and weather on their own: game_lines.`,
             `- Trade questions ("is this fair?", "what's X worth?", "who wins this trade?"): call trade_value with give/get (FantasyCalc values for this league's format) and give a clear verdict in a few lines.`,
             `- With post=true, league_roundup / matchup_preview / waiver_report send their formatted text to the chat themselves. Never retype it; add at most one short line, or reply NO_REPLY.`,
             group
@@ -410,7 +419,7 @@ export class Bot {
               `Only for "send the waiver report"/a full rundown call waiver_report with post=true (it posts itself; don't repeat it). ` +
               `For who's trending (most added/dropped across Sleeper leagues) use trending_players and summarise briefly. ` +
               `For how players are actually being used (snap %, targets, carries, expected points, injury/practice report) call player_usage with their names; use it to back up start/sit and pickup calls. ` +
-              `For start/sit between specific players also check expert_rankings (FantasyPros consensus) and the Vegas "V" implied team points in matchup_preview; game_lines has every game's spread, over/under and weather. ` +
+              `For start/sit between two players call start_sit_card with both names: it weighs projections, Vegas, expert ranks and matchups and sends a comparison card image after your reply, so answer in a few short lines with the pick and why, without describing the image. For three or more players use matchup_preview with expert_rankings. game_lines has every game's spread, over/under and weather. ` +
               `For trade questions ("is this fair?", "what's X worth?") call trade_value with give/get and give a clear verdict. ` +
               `To set up the automatic weekly roundup, call schedule_task with schedule "*/30 * * * 1-3", condition "fantasy_week_final" and a prompt like "Send the weekly fantasy standings roundup".`,
           ]

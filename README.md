@@ -27,5 +27,5 @@ covered by that license. They're © Anthropic PBC, all rights reserved, and subj
 installer bundles them as part of the service. The typing-indicator helper (`waterboy-imessage/`) is built on Beeper's
 [platform-imessage](https://github.com/beeper/platform-imessage) (MIT). The Codex SDK and CLI used for the ChatGPT assistant
 (`@openai/codex-sdk`, `@openai/codex`) are Apache-2.0, © OpenAI, and using them with a ChatGPT
-sign-in is subject to OpenAI's terms. Other dependencies (Electron, croner, zod and more) keep
+sign-in is subject to OpenAI's terms. Start/sit cards are rendered with resvg (`@resvg/resvg-js`, MPL-2.0). Other dependencies (Electron, croner, zod and more) keep
 their own open-source licenses, mostly MIT.

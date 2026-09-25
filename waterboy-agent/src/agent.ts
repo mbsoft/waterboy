@@ -1,3 +1,4 @@
+import path from "node:path";
 import { query, type Options, type McpSdkServerConfigWithInstance } from "@anthropic-ai/claude-agent-sdk";
 import type { Config } from "./config.ts";
 import { log } from "./config.ts";
@@ -14,6 +15,8 @@ export interface AgentRequest {
   systemAppend: string;
   /** Send text to the chat immediately and verbatim (used by tools like the fantasy roundup). */
   post?: (text: string) => Promise<void>;
+  /** Queue an image or file to send right after the reply (e.g. a start/sit card). */
+  attach?: (file: string) => Promise<void>;
   /**
    * "full": 1:1 chats — all configured tools.
    * "group": group chats, and "fantasy": 1:1 chats limited to fantasy football — fantasy tools
@@ -79,7 +82,7 @@ export class ClaudeAgentRunner implements AgentRunner {
     const timer = setTimeout(() => abort.abort(), this.cfg.turnTimeoutMs);
     const group = req.profile === "group" || req.profile === "fantasy"; // locked down
     const fantasy: Record<string, McpSdkServerConfigWithInstance> = this.cfg.fantasy
-      ? { fantasy: fantasyMcpServer({ ...this.cfg.fantasy, me: req.fantasyMe }, req.post, { scheduled: req.scheduled }) }
+      ? { fantasy: fantasyMcpServer({ ...this.cfg.fantasy, me: req.fantasyMe }, req.post, { scheduled: req.scheduled, attach: req.attach, cardDir: path.join(this.cfg.dataDir, "cards") }) }
       : {};
     const scheduler = schedulerMcpServer(this.state, req.chatGuid, this.conditions, {
       canManage: group ? !!req.canManageTasks : true,

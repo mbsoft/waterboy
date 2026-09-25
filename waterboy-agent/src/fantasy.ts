@@ -11,6 +11,8 @@ import { fmtCount, nameKey, scoringFromEspn, sleeperProjector, sleeperTeam, slee
 import { dataAge, findPlayers, formatUsage, loadIndex, syncNflverse } from "./nflverse.ts";
 import { formatGameLines, weekLines } from "./vegas.ts";
 import { SOURCE, sourceLine } from "./sources.ts";
+import { buildStartSit, ordinal } from "./startSit.ts";
+import { renderStartSitCard } from "./startSitCard.ts";
 import { RANK_POSITIONS, formatPlayerRanks, formatTopRanks, loadRankings } from "./rankings.ts";
 import { evaluateTrade, formatTrade, formatValues, tradeValues, type TradeFormat, type Valued } from "./tradeValues.ts";
 
@@ -48,6 +50,8 @@ export interface FantasyConfig {
   tradeValues?: boolean;
   /** Dynasty league: trade values count future seasons (default false = redraft). */
   dynasty?: boolean;
+  /** Send a comparison card image with start/sit answers (default true). */
+  startSitCards?: boolean;
 }
 
 const FANTASY_BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons";
@@ -366,7 +370,11 @@ export function formatRoundup(r: Roundup): string {
  * @param post  sends text to the chat verbatim (bypassing the model), so standings are
  *              never paraphrased or recalled from an older turn.
  */
-export function fantasyMcpServer(cfg: FantasyConfig, post?: (text: string) => Promise<void>, opts: { scheduled?: boolean } = {}) {
+export function fantasyMcpServer(
+  cfg: FantasyConfig,
+  post?: (text: string) => Promise<void>,
+  opts: { scheduled?: boolean; attach?: (file: string) => Promise<void>; cardDir?: string } = {},
+) {
   // Reports are posted verbatim only when asked (post=true), or by default on a scheduled run
   // ("send the weekly roundup"). A chat question gets the data back to answer in its own words.
   const shouldSend = (requested: boolean | undefined) => !!post && (requested ?? !!opts.scheduled);
@@ -576,6 +584,58 @@ export function fantasyMcpServer(cfg: FantasyConfig, post?: (text: string) => Pr
           } catch (e) {
             log("[fantasy] player usage failed:", (e as Error).message);
             return { content: [{ type: "text", text: `Couldn't read nflverse data: ${(e as Error).message}` }], isError: true };
+          }
+        },
+      ),
+      tool(
+        "start_sit_card",
+        "Start/sit comparison of TWO players on rosters in this league ('Taylor or Kyren?', 'should I start Chase or " +
+          "Nabers?', 'who's my flex, X or Y?'). Call it for every start/sit question between two players: it combines ESPN " +
+          "and Sleeper projections, Vegas implied team points, FantasyPros expert ranks, snap share, each opponent's fantasy " +
+          "points allowed to the position and an estimated boom/bust range, picks one, and sends a comparison card IMAGE " +
+          "to the chat right after your reply. Answer in 2-4 short lines: the pick, the main reasons, and anything the " +
+          "card can't know (news, weather, the asker's situation). Don't describe the image. Players may be at different " +
+          "positions (a flex call). Returns data; the text doesn't post.",
+        { players: z.array(z.string().min(2)).length(2), week: z.number().int().min(1).max(18).optional() },
+        async ({ players, week }) => {
+          try {
+            const ss = await buildStartSit(cfg, [players[0], players[1]], { week });
+            let sent = "";
+            if (cfg.startSitCards !== false && opts.attach && opts.cardDir) {
+              try {
+                const league = (await fetchLeague(cfg)).settings.name;
+                await opts.attach(await renderStartSitCard(ss, opts.cardDir, league));
+                sent = "A comparison card image will be sent right after your reply.";
+              } catch (e) {
+                log("[fantasy] start/sit card failed:", (e as Error).message);
+                sent = "(The comparison card couldn't be drawn; answer in text.)";
+              }
+            }
+            const row = (i: 0 | 1) => {
+              const c = ss.players[i];
+              return [
+                `${c.line.fullName} ${c.line.pos} (${c.line.nfl} ${c.line.opp}${c.line.injury ? `, ${c.line.injury}` : ""}) on ${c.rosteredBy}:`,
+                `  projection ${c.proj} (ESPN ${c.espn}${c.sleeper !== null ? `, Sleeper ${c.sleeper}` : ""})`,
+                c.implied !== null ? `  Vegas implied ${c.line.pos === "D/ST" ? "opponent" : "team"} points ${c.implied}` : null,
+                c.ecr ? `  FantasyPros this week ${c.ecr.pos}${c.ecr.rank} (experts ${c.ecr.pos}${c.ecr.best}–${c.ecr.pos}${c.ecr.worst})` : null,
+                c.snapPct !== null ? `  snap share last 3 games ${c.snapPct}%` : null,
+                c.history.length ? `  PPR points this season (latest first): ${c.history.join(", ")}` : null,
+                c.defense ? `  opponent ${c.defense.team} allows ${c.defense.allowed} PPR/game to ${c.line.pos}s (${ordinal(c.defense.rank)} fewest of ${c.defense.teams})` : null,
+                `  estimated bust (<${c.dist.bustAt}) ${Math.round(c.dist.bust * 100)}%, boom (${c.dist.boomAt}+) ${Math.round(c.dist.boom * 100)}%`,
+              ].filter(Boolean).join("\n");
+            };
+            const pick = ss.players[ss.pick];
+            const text = [
+              `Week ${ss.week} start/sit: START ${pick.line.fullName}. Why: ${ss.reasons.join("; ")}.`,
+              row(0),
+              row(1),
+              sent,
+              sourceLine(ss.sources),
+            ].filter(Boolean).join("\n\n");
+            return { content: [{ type: "text", text }] };
+          } catch (e) {
+            log("[fantasy] start/sit failed:", (e as Error).message);
+            return { content: [{ type: "text", text: `Couldn't compare them: ${(e as Error).message}` }], isError: true };
           }
         },
       ),

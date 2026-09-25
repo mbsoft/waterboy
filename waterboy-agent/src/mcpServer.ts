@@ -7,9 +7,11 @@
  *   IMESSAGE_AGENT_CONFIG  the service's config.json          WB_CHAT_GUID    chat the scheduler acts on
  *   WB_CAN_MANAGE          "1" = may create/cancel tasks       WB_SCHEDULED    "1" = a scheduled run
  *   WB_FANTASY_ME          JSON of the asker's team ("me"); unset = config default
- *   WB_POST_FILE           fantasy "post to chat" text is appended here as JSON lines; the runner sends it
+ *   WB_POST_FILE           fantasy "post to chat" text ({"text"}) and images to send after the reply
+ *                          ({"file"}) are appended here as JSON lines; the runner sends them
  */
 import fs from "node:fs";
+import path from "node:path";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig } from "./config.ts";
 import { State } from "./state.ts";
@@ -32,9 +34,11 @@ let server;
 if (which === "fantasy") {
   if (!cfg.fantasy) throw new Error("Fantasy football isn't configured.");
   const postFile = env.WB_POST_FILE;
-  const post = postFile ? async (text: string) => fs.appendFileSync(postFile, JSON.stringify({ text }) + "\n") : undefined;
+  const relay = (entry: object) => fs.appendFileSync(postFile!, JSON.stringify(entry) + "\n");
+  const post = postFile ? async (text: string) => relay({ text }) : undefined;
+  const attach = postFile ? async (file: string) => relay({ file }) : undefined;
   const me = env.WB_FANTASY_ME === undefined ? {} : { me: JSON.parse(env.WB_FANTASY_ME) as string | number | null };
-  server = fantasyMcpServer({ ...cfg.fantasy, ...me }, post, { scheduled: env.WB_SCHEDULED === "1" });
+  server = fantasyMcpServer({ ...cfg.fantasy, ...me }, post, { scheduled: env.WB_SCHEDULED === "1", attach, cardDir: path.join(cfg.dataDir, "cards") });
 } else if (which === "scheduler") {
   if (!env.WB_CHAT_GUID) throw new Error("WB_CHAT_GUID is required.");
   const state = new State(cfg.dataDir);

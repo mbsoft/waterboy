@@ -39,7 +39,7 @@ export interface RawWeekLeague {
   members?: { id: string; firstName?: string; lastName?: string; displayName?: string }[];
   schedule: RawMatchup[];
 }
-interface ProTeam { id: number; abbrev: string; proGamesByScoringPeriod?: Record<string, { homeProTeamId: number; awayProTeamId: number; date: number }[]> }
+export interface ProTeam { id: number; abbrev: string; proGamesByScoringPeriod?: Record<string, { homeProTeamId: number; awayProTeamId: number; date: number }[]> }
 
 async function getJson<T>(url: string, cfg: FantasyConfig): Promise<T> {
   const headers: Record<string, string> = {
@@ -75,12 +75,16 @@ export async function fetchWeek(cfg: FantasyConfig, week?: number): Promise<{ le
 // ---------- model ----------
 
 export interface PlayerLine {
+  espnId: number;
+  fullName: string;
   slot: string;
   slotId: number;
   name: string;
   pos: string;
   nfl: string;
   opp: string; // "@PIT", "vs HOU", "BYE"
+  oppTeam: string | null; // "PIT"
+  kickoff: number | null; // ms since epoch
   proj: number;
   actual: number | null; // points so far this week, once the game has started
   injury: string; // "", "Q", "O", ...
@@ -132,9 +136,11 @@ function playerLine(e: RawEntry, season: number, nflWeek: number, pro: ProTeam[]
   const team = pro.find((t) => t.id === p.proTeamId);
   const game = team?.proGamesByScoringPeriod?.[String(nflWeek)]?.[0];
   let opp = "BYE";
+  let oppTeam: string | null = null;
   if (game) {
     const home = game.homeProTeamId === p.proTeamId;
     const other = pro.find((t) => t.id === (home ? game.awayProTeamId : game.homeProTeamId));
+    oppTeam = other?.abbrev ?? null;
     opp = `${home ? "vs " : "@"}${other?.abbrev ?? "?"}`;
   }
   if (!team) opp = "FA";
@@ -142,6 +148,10 @@ function playerLine(e: RawEntry, season: number, nflWeek: number, pro: ProTeam[]
   const line = team ? lines?.get(team.abbrev) : undefined;
   const vegas = line && game ? (pos === "D/ST" ? (lines?.get(line.opp)?.implied ?? null) : line.implied) : null;
   return {
+    espnId: p.id,
+    fullName: p.fullName,
+    oppTeam,
+    kickoff: game?.date ?? null,
     slot: SLOT[e.lineupSlotId] ?? String(e.lineupSlotId),
     slotId: e.lineupSlotId,
     name: shortName(p.fullName, pos),
@@ -221,6 +231,33 @@ function sheet(
     winProb: side?.winProbability && side.winProbability > 0 ? Math.round(side.winProbability * 100) : null,
     notes,
   };
+}
+
+/**
+ * A player on any roster in the league, by name ("Ja'Marr Chase", "chase") or a team defense
+ * ("49ers D/ST", "SF defense"), with this week's line and the fantasy team that has him.
+ */
+export function findRosteredPlayer(
+  league: RawWeekLeague, pro: ProTeam[], nflWeek: number, query: string, alt?: AltProjector, lines?: Map<string, TeamLine>,
+): { line: PlayerLine; team: string } | null {
+  const q = query.trim().toLowerCase();
+  const isDef = /\b(d\/?st|def|defense|defence)\b/.test(q);
+  const bare = q.replace(/\b(d\/?st|def|defense|defence)\b/g, "").trim();
+  const key = (n: string) => n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\b(jr|sr|ii|iii|iv|v)\b\.?/g, "").replace(/[^a-z]/g, "");
+  let best: { line: PlayerLine; team: string; score: number } | null = null;
+  for (const t of league.teams)
+    for (const e of t.roster?.entries ?? []) {
+      const p = e.playerPoolEntry.player;
+      const dst = p.defaultPositionId === 16;
+      if (isDef !== dst && !(dst && bare && pro.find((x) => x.id === p.proTeamId)?.abbrev.toLowerCase() === bare)) continue;
+      const full = key(p.fullName);
+      const last = key(p.fullName.split(" ").slice(1).join(" "));
+      const abbrev = pro.find((x) => x.id === p.proTeamId)?.abbrev.toLowerCase();
+      const k = key(bare);
+      const score = full === k ? 3 : (dst && (abbrev === bare || full.includes(k))) || last === k ? 2 : k.length >= 3 && full.includes(k) ? 1 : 0;
+      if (score && (!best || score > best.score)) best = { line: playerLine(e, league.seasonId, nflWeek, pro, alt, lines), team: (t.name ?? t.abbrev).trim(), score };
+    }
+  return best && { line: best.line, team: best.team };
 }
 
 /** Find a team by id, name, abbreviation or owner first name (case-insensitive, partial ok). */

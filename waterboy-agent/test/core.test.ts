@@ -386,3 +386,17 @@ test("bot: group replies are threaded when the chat moved on (auto), always, or 
   await bot.idle();
   assert.deepEqual(threaded, []);
 });
+
+test("bot: images from tools are sent after the reply", async () => {
+  const { cfg, state } = setup();
+  const sender = new ConsoleSender(true);
+  const agent = new StubAgent();
+  agent.run = async (req) => {
+    await req.attach?.("/tmp/card.png");
+    return { text: "Start Taylor.", sessionId: "s" };
+  };
+  const bot = new Bot(cfg, state, agent, sender);
+  bot.handleIncoming([msg({ text: "Taylor or Kyren?" })]);
+  await bot.idle();
+  assert.deepEqual(sender.sent.map((s) => s.text ?? `file ${s.file}`), ["Start Taylor.", "file /tmp/card.png"]);
+});

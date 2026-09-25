@@ -905,6 +905,7 @@
           h("label", {}, "Betting lines"), h("span", { class: "toggle-label" }, toggle(f.vegas, (on) => save({ "fantasy.vegas": on }), "Betting lines"), "Spreads, implied team points and weather in previews and answers"),
           h("label", {}, "Expert rankings"), h("span", { class: "toggle-label" }, toggle(f.rankings, (on) => save({ "fantasy.rankings": on }), "Expert rankings"), "FantasyPros consensus rankings for start/sit questions"),
           h("label", {}, "Trade values"), h("span", { class: "toggle-label" }, toggle(f.tradeValues, (on) => save({ "fantasy.tradeValues": on }), "Trade values"), "FantasyCalc values for \"is this trade fair?\""),
+          h("label", {}, "Start/sit cards"), h("span", { class: "toggle-label" }, toggle(f.startSitCards, (on) => save({ "fantasy.startSitCards": on }), "Start/sit cards"), "Send a comparison image with \u201cwho should I start?\u201d answers"),
           h("label", {}, "Dynasty league"), h("span", { class: "toggle-label" }, toggle(f.dynasty, (on) => save({ "fantasy.dynasty": on }), "Dynasty league"), "Value players for future seasons too (trade values)"),
         ),
       );

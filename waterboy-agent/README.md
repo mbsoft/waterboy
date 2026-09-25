@@ -149,6 +149,16 @@ With `"fantasy": { "espnLeagueId": "…" }` in the config, the agent gets `leagu
 - *Expert rankings* are FantasyPros' consensus rankings from DynastyProcess's open data on GitHub, downloaded at most twice a day into `~/.imessage-agent/rankings/`. `expert_rankings` gives a player's rank this week and for the rest of the season, with the range of expert opinion ("RB8, experts RB4–RB9"), or the top of a position. Weekly RB/WR/TE ranks are PPR. Set `"rankings": false` to turn it off.
 - *Trade values* come from FantasyCalc (built from real trades), matched to your league's team count, PPR and superflex settings; add `"dynasty": true` for a dynasty league. `trade_value` answers "is Walker for Moore fair?" and "what's Chase worth?", and shows which team in your league has each player. Set `"tradeValues": false` to turn it off.
 
+**Start/sit cards.** For "should I start X or Y?" the agent calls `start_sit_card`, which combines
+all of the above for the two players (ESPN and Sleeper projections, Vegas implied points,
+FantasyPros rank, snap share, each opponent's fantasy points allowed to the position from nflverse
+box scores) plus an estimated boom/bust range, picks one, and sends a comparison card image right
+after the text answer. The card is drawn as SVG and rendered with resvg (`src/startSitCard.ts`);
+headshots and logos come from ESPN's image CDN. The boom/bust range is an estimate: a lognormal
+around the projection whose spread starts from a typical spread for the position and moves toward
+the player's own weekly scoring as games accumulate. Set `"startSitCards": false` to answer in text
+only.
+
 These sources are free but unofficial and can change without notice; if one is unreachable, the tools say so and everything else keeps working.
 
 - **On demand:** text something like "fantasy standings?" or "roundup for week 3".

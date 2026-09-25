@@ -248,15 +248,17 @@ export class CodexAgentRunner implements AgentRunner {
     const codex = new Codex({ env: this.env(), config: setup.config as never });
     const thread = resume ? codex.resumeThread(resume, setup.thread) : codex.startThread(setup.thread);
 
-    // Fantasy tools with post=true append their text to postFile; send it as each tool call completes.
+    // Fantasy tools append {"text"} (post=true reports) and {"file"} (images for after the reply) to
+    // postFile; hand them over as each tool call completes.
     let posted = 0;
     const flushPosts = async () => {
       if (!fs.existsSync(postFile)) return;
       const lines = fs.readFileSync(postFile, "utf8").split("\n").filter(Boolean);
       for (const line of lines.slice(posted)) {
         posted++;
-        const { text } = JSON.parse(line) as { text: string };
-        if (req.post) await req.post(text);
+        const entry = JSON.parse(line) as { text?: string; file?: string };
+        if (entry.text !== undefined && req.post) await req.post(entry.text);
+        if (entry.file && req.attach) await req.attach(entry.file);
       }
     };
 
