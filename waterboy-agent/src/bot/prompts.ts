@@ -10,7 +10,7 @@ export const MEMORY_FILE = "MEMORY.md";
  * session's system prompt and reuses it on resume, so a session created under an older
  * policy is discarded rather than resumed.
  */
-export const POLICY_VERSION = { full: "full-13", group: "group-13", fantasy: "fantasy-5" } as const;
+export const POLICY_VERSION = { full: "full-14", group: "group-14", fantasy: "fantasy-6" } as const;
 export const MAX_MEMORY_CHARS = 8000;
 
 export const HELP = `Commands:
@@ -75,7 +75,8 @@ export function fantasyPrompt(c: PromptContext): string {
           `- Who's hot / being dropped league-wide, or buzz on a player: call trending_players (Sleeper data) and summarise it in a few short lines.`,
           `- How a player is really being used (snap %, targets, carries, expected points, injury/practice report): call player_usage with their names. Use it to back up start/sit and pickup calls.`,
           `- Start/sit between two players ("Taylor or Kyren?", "who's my flex, X or Y?"): call start_sit_card with both names. It weighs projections, Vegas, expert ranks and matchups, and sends a comparison card image after your reply; answer in 2-4 short lines with the pick and why, without describing the image. For three or more players, or a whole lineup, use matchup_preview with expert_rankings instead. Lines, over/unders and weather on their own: game_lines.`,
-          `- Trade questions ("is this fair?", "what's X worth?", "who wins this trade?"): call trade_value with give/get (FantasyCalc values for this league's format) and give a clear verdict in a few lines.`,
+          `- Trade questions ("is this fair?", "what's X worth?", "who wins this trade?"): call trade_value with give/get (FantasyCalc values for this league's format, plus each team's lineup before/after). With give and get it sends a trade card image after your reply; give a clear verdict in a few lines without describing the image.`,
+          `- Comparing two players ("compare X and Y", "who's been better?"): call compare_players. It sends a season comparison image after your reply; answer with the takeaway in 2-4 short lines.`,
           `- With post=true, league_roundup / matchup_preview / waiver_report send their formatted text to the chat themselves. Never retype it; add at most one short line, or reply NO_REPLY.`,
           group
             ? `- Scheduled league posts (only league admins may create or cancel them; the tool will refuse otherwise):`
@@ -123,7 +124,8 @@ export function fullPrompt(c: PromptContext): string {
             `For who's trending (most added/dropped across Sleeper leagues) use trending_players and summarise briefly. ` +
             `For how players are actually being used (snap %, targets, carries, expected points, injury/practice report) call player_usage with their names; use it to back up start/sit and pickup calls. ` +
             `For start/sit between two players call start_sit_card with both names: it weighs projections, Vegas, expert ranks and matchups and sends a comparison card image after your reply, so answer in a few short lines with the pick and why, without describing the image. For three or more players use matchup_preview with expert_rankings. game_lines has every game's spread, over/under and weather. ` +
-            `For trade questions ("is this fair?", "what's X worth?") call trade_value with give/get and give a clear verdict. ` +
+            `For trade questions ("is this fair?", "what's X worth?") call trade_value with give/get and give a clear verdict; with both sides it sends a trade card image after your reply (don't describe it). ` +
+            `To compare two players ("compare X and Y", "who's been better?") call compare_players; it sends a season comparison image after your reply, so answer with the takeaway in a few short lines. ` +
             `To set up the automatic weekly roundup, call schedule_task with schedule "*/30 * * * 1-3", condition "fantasy_week_final" and a prompt like "Send the weekly fantasy standings roundup".`,
         ]
       : []),

@@ -223,6 +223,12 @@ function sheet(
   };
 }
 
+/** A team's whole roster with this week's lines (projections, opponents, eligible slots). */
+export function rosterLines(league: RawWeekLeague, pro: ProTeam[], nflWeek: number, teamId: number): PlayerLine[] {
+  const t = league.teams.find((x) => x.id === teamId);
+  return (t?.roster?.entries ?? []).map((e) => playerLine(e, league.seasonId, nflWeek, pro));
+}
+
 /**
  * A player on any roster in the league, by name ("Ja'Marr Chase", "chase") or a team defense
  * ("49ers D/ST", "SF defense"), with this week's line and the fantasy team that has him.

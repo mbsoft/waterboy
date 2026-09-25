@@ -1,26 +1,14 @@
 /**
- * Draws a start/sit comparison (startSit.ts) as a PNG for iMessage: an SVG laid out by hand,
- * rendered with resvg (no browser). Headshots and logos come from ESPN's image CDN and are
- * optional: without them the card shows initials. Font: Avenir Next, which ships with macOS.
+ * Draws a start/sit comparison (startSit.ts) as a PNG for iMessage: an SVG laid out by hand, with
+ * the shared card pieces in ../cards/draw.ts.
  */
-import fs from "node:fs";
-import path from "node:path";
-import { Resvg } from "@resvg/resvg-js";
 import { lognormalPdf, ordinal, type Contender, type StartSit } from "./startSit.ts";
 import { sourceLine } from "../sources.ts";
+import { W, C, txt, avatar, header, headshotUrl, logoUrl, dataUri, renderPng } from "../cards/draw.ts";
 
-const W = 1080;
-const FONT = "Avenir Next";
-const C = {
-  ink: "#111827", muted: "#6b7280", faint: "#9ca3af", line: "#e5e7eb", panel: "#f3f4f6",
-  win: "#34c759", winDark: "#1f9d45", lose: "#c7c9ce", blue: "#1a5ce0", navy: "#0c2f86", sky: "#3d8bff", bust: "#ef4444", boom: "#1a5ce0",
-};
 
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const pct = (p: number) => `${Math.round(p * 100)}%`;
-const txt = (x: number, y: number, s: string, o: { size?: number; weight?: number; fill?: string; anchor?: "start" | "middle" | "end" } = {}) =>
-  `<text x="${x}" y="${y}" font-family="${FONT}" font-size="${o.size ?? 28}" font-weight="${o.weight ?? 500}" fill="${o.fill ?? C.ink}" text-anchor="${o.anchor ?? "start"}">${esc(s)}</text>`;
 
 export interface CardImages {
   headshots: [string | null, string | null]; // data: URIs
@@ -34,15 +22,6 @@ function kickoff(ms: number | null): string {
   return `${d.toLocaleDateString("en-US", { weekday: "short" })} ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
 }
 
-function avatar(x: number, y: number, size: number, uri: string | null, c: Contender, ring: string): string {
-  const r = size / 2;
-  const id = `clip${x}${y}`;
-  const initials = c.line.fullName.split(" ").map((w) => w[0]).join("").slice(0, 2);
-  const inner = uri
-    ? `<clipPath id="${id}"><circle cx="${x + r}" cy="${y + r}" r="${r - 4}"/></clipPath><image href="${uri}" x="${x}" y="${y + 6}" width="${size}" height="${size * 0.73}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${id})"/>`
-    : txt(x + r, y + r + 14, initials, { size: 40, weight: 700, fill: C.muted, anchor: "middle" });
-  return `<circle cx="${x + r}" cy="${y + r}" r="${r - 2}" fill="${C.panel}" stroke="${ring}" stroke-width="4"/>${inner}`;
-}
 
 /** Two bars side by side sharing a row: the better value is green. */
 function splitBar(y: number, label: string, a: { text: string; v: number }, b: { text: string; v: number }, better: 0 | 1 | null): string {
@@ -166,10 +145,7 @@ export function startSitSvg(ss: StartSit, images: CardImages, league = ""): { sv
   const parts: string[] = [];
   // Header
   parts.push(
-    `<defs><linearGradient id="hdr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${C.sky}"/><stop offset="0.5" stop-color="${C.blue}"/><stop offset="1" stop-color="${C.navy}"/></linearGradient></defs>`,
-    `<rect x="0" y="0" width="${W}" height="200" fill="url(#hdr)"/>`,
-    txt(60, 70, `WATERBOY · WEEK ${ss.week}${league ? ` · ${league.toUpperCase()}` : ""}`, { size: 24, weight: 700, fill: "#cfe1ff" }),
-    txt(60, 150, "Who do I start?", { size: 70, weight: 800, fill: "#ffffff" }),
+    header(`Waterboy · Week ${ss.week}${league ? ` · ${league}` : ""}`, "Who do I start?"),
   );
   // Player chips
   let y = 230;
@@ -179,7 +155,7 @@ export function startSitSvg(ss: StartSit, images: CardImages, league = ""): { sv
     const ring = isPick ? C.win : C.line;
     parts.push(
       `<rect x="${x}" y="${y}" width="490" height="190" rx="22" fill="#fff" stroke="${ring}" stroke-width="${isPick ? 5 : 3}"/>`,
-      avatar(x + 22, y + 32, 126, images.headshots[i], c, ring),
+      avatar(x + 22, y + 32, 126, images.headshots[i], c.line.fullName, ring),
       txt(x + 168, y + 72, c.line.name, { size: 36, weight: 700 }),
       `<rect x="${x + 168}" y="${y + 92}" width="${c.line.pos.length * 16 + 22}" height="34" rx="7" fill="${C.blue}"/>`,
       txt(x + 179, y + 118, c.line.pos, { size: 22, weight: 700, fill: "#fff" }),
@@ -213,44 +189,20 @@ export function startSitSvg(ss: StartSit, images: CardImages, league = ""): { sv
 
 // ---------- images + rendering ----------
 
-const imageCache = new Map<string, string | null>();
-async function dataUri(url: string): Promise<string | null> {
-  if (imageCache.has(url)) return imageCache.get(url)!;
-  let uri: string | null = null;
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(6_000) });
-    if (res.ok) uri = `data:image/png;base64,${Buffer.from(await res.arrayBuffer()).toString("base64")}`;
-  } catch {}
-  imageCache.set(url, uri);
-  return uri;
-}
 
-const headshotUrl = (c: Contender) =>
-  c.line.pos === "D/ST"
-    ? `https://a.espncdn.com/i/teamlogos/nfl/500/${c.line.nfl.toLowerCase()}.png`
-    : `https://a.espncdn.com/i/headshots/nfl/players/full/${c.line.espnId}.png`;
+const photoUrl = (c: Contender) => (c.line.pos === "D/ST" ? logoUrl(c.line.nfl) : headshotUrl(c.line.espnId));
 
 export async function cardImages(ss: StartSit): Promise<CardImages> {
   const teams = ss.players.map((c) => c.defense?.team).filter((t): t is string => !!t);
   const [h0, h1, ...logos] = await Promise.all([
-    dataUri(headshotUrl(ss.players[0])),
-    dataUri(headshotUrl(ss.players[1])),
-    ...teams.map((t) => dataUri(`https://a.espncdn.com/i/teamlogos/nfl/500/${t.toLowerCase()}.png`)),
+    dataUri(photoUrl(ss.players[0])),
+    dataUri(photoUrl(ss.players[1])),
+    ...teams.map((t) => dataUri(logoUrl(t))),
   ]);
   return { headshots: [h0, h1], logos: Object.fromEntries(teams.map((t, i) => [t, logos[i]])) };
 }
 
 /** Render the card and write it to `dir`; returns the PNG path. */
 export async function renderStartSitCard(ss: StartSit, dir: string, league = ""): Promise<string> {
-  const { svg } = startSitSvg(ss, await cardImages(ss), league);
-  const png = new Resvg(svg, { font: { loadSystemFonts: true, defaultFontFamily: FONT } }).render().asPng();
-  fs.mkdirSync(dir, { recursive: true });
-  // Cards are only needed until Messages has uploaded them; keep a day's worth.
-  for (const f of fs.readdirSync(dir)) {
-    const p = path.join(dir, f);
-    if (f.startsWith("start-sit-") && Date.now() - fs.statSync(p).mtimeMs > 24 * 3600_000) fs.rmSync(p, { force: true });
-  }
-  const file = path.join(dir, `start-sit-week${ss.week}-${Date.now()}.png`);
-  fs.writeFileSync(file, png);
-  return file;
+  return renderPng(startSitSvg(ss, await cardImages(ss), league).svg, dir, `start-sit-week${ss.week}`);
 }

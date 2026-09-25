@@ -17,7 +17,11 @@ import { SOURCE, sourceLine } from "./sources.ts";
 import { buildStartSit, ordinal } from "./startSit/startSit.ts";
 import { renderStartSitCard } from "./startSit/card.ts";
 import { RANK_POSITIONS, formatPlayerRanks, formatTopRanks, loadRankings } from "./data/rankings.ts";
-import { evaluateTrade, formatTrade, formatValues, tradeValues, type TradeFormat, type Valued } from "./data/tradeValues.ts";
+import { formatTrade, formatValues, tradeValues, type Valued } from "./data/tradeValues.ts";
+import { analyzeTrade, leagueTradeFormat, type TeamImpact } from "./trade/analysis.ts";
+import { renderTradeCard } from "./cards/trade.ts";
+import { comparePlayers } from "./compare/compare.ts";
+import { renderCompareCard } from "./cards/compare.ts";
 import { fetchLeague, buildRoundup, finalizedPeriods, periodNflComplete, resolveLatestWeek } from "./roundup.ts";
 
 const ME_UNKNOWN = `I don't know which team is yours. Ask again with your team name, or have the admin add your number under fantasy.teams in config.json.`;
@@ -251,23 +255,33 @@ export function fantasyMcpServer(
           "and Sleeper projections, Vegas implied team points, FantasyPros expert ranks, snap share, each opponent's fantasy " +
           "points allowed to the position and an estimated boom/bust range, picks one, and sends a comparison card IMAGE " +
           "to the chat right after your reply. Answer in 2-4 short lines: the pick, the main reasons, and anything the " +
-          "card can't know (news, weather, the asker's situation). Don't describe the image. Players may be at different " +
+          "card can't know (news, weather, the asker's situation). A season comparison image (points and usage by week) " +
+          "is sent too. Don't describe the images. Players may be at different " +
           "positions (a flex call). Returns data; the text doesn't post.",
         { players: z.array(z.string().min(2)).length(2), week: z.number().int().min(1).max(18).optional() },
         async ({ players, week }) => {
           try {
             const ss = await buildStartSit(cfg, [players[0], players[1]], { week });
-            let sent = "";
+            const images: string[] = [];
             if (cfg.startSitCards !== false && opts.attach && opts.cardDir) {
               try {
                 const league = (await fetchLeague(cfg)).settings.name;
                 await opts.attach(await renderStartSitCard(ss, opts.cardDir, league));
-                sent = "A comparison card image will be sent right after your reply.";
+                images.push("a start/sit card");
               } catch (e) {
                 log("[fantasy] start/sit card failed:", (e as Error).message);
-                sent = "(The comparison card couldn't be drawn; answer in text.)";
               }
             }
+            // The season-long comparison (points and usage by week) goes with it.
+            if (cfg.compareCards !== false && cfg.nflverse !== false && opts.attach && opts.cardDir) {
+              try {
+                await opts.attach(await renderCompareCard(await comparePlayers(cfg, [ss.players[0].line.fullName, ss.players[1].line.fullName]), opts.cardDir));
+                images.push("a season comparison card");
+              } catch (e) {
+                log("[fantasy] comparison card failed:", (e as Error).message);
+              }
+            }
+            const sent = images.length ? `Images sent right after your reply: ${images.join(" and ")}.` : "";
             const row = (i: 0 | 1) => {
               const c = ss.players[i];
               return [
@@ -292,6 +306,46 @@ export function fantasyMcpServer(
             return { content: [{ type: "text", text }] };
           } catch (e) {
             log("[fantasy] start/sit failed:", (e as Error).message);
+            return { content: [{ type: "text", text: `Couldn't compare them: ${(e as Error).message}` }], isError: true };
+          }
+        },
+      ),
+      tool(
+        "compare_players",
+        "Side-by-side comparison of ANY two NFL players (rostered or not) over this season: fantasy points and usage by " +
+          "week, season total and positional rank, points and expected points per game, snap share, targets, carries, " +
+          "yards, TDs, plus this week's ESPN projection and FantasyPros rank when known. Use it for 'compare X and Y', " +
+          "'who's been better, X or Y?', 'X vs Y rest of season' and similar. It sends a comparison card IMAGE right after " +
+          "your reply; answer in 2-4 short lines with the takeaway (who's better and why), without describing the image. " +
+          "For 'who should I START this week' between two rostered players use start_sit_card instead (it includes this " +
+          "comparison). Returns data; the text doesn't post.",
+        { players: z.array(z.string().min(2)).length(2) },
+        async ({ players }) => {
+          if (cfg.nflverse === false) return { content: [{ type: "text", text: "nflverse data is turned off in the config." }], isError: true };
+          try {
+            const cmp = await comparePlayers(cfg, [players[0], players[1]]);
+            let sent = "";
+            if (cfg.compareCards !== false && opts.attach && opts.cardDir) {
+              try {
+                await opts.attach(await renderCompareCard(cmp, opts.cardDir));
+                sent = "A comparison card image will be sent right after your reply.";
+              } catch (e) {
+                log("[fantasy] comparison card failed:", (e as Error).message);
+              }
+            }
+            const row = (c: (typeof cmp.players)[number]) =>
+              [
+                `${c.usage.name} ${c.usage.pos} ${c.usage.team}${c.opp ? ` (this week ${c.opp})` : ""}:`,
+                `  season ${c.total} PPR in ${c.games.length} games (${c.perGame}/game${c.expPerGame !== null ? `, expected ${c.expPerGame}/game` : ""})${c.posRank !== null ? `, ${c.usage.pos}${c.posRank} of ${c.posCount}` : ""}`,
+                `  by week (PPR / ${cmp.usageLabel.toLowerCase()}): ${c.games.map((w) => `wk${w.week} ${Math.round(w.ppr * 10) / 10}/${cmp.usageOf(w)}`).join(", ") || "no games yet"}`,
+                c.snapPct !== null ? `  snap share ${c.snapPct}%` : null,
+                c.espnProj !== null ? `  this week ESPN projection ${c.espnProj}` : null,
+                c.ecr ? `  FantasyPros this week ${c.ecr.pos}${c.ecr.rank}` : null,
+              ].filter(Boolean).join("\n");
+            const text = [`Season ${cmp.season} through week ${cmp.lastWeek}:`, row(cmp.players[0]), row(cmp.players[1]), sent, sourceLine(cmp.sources)].filter(Boolean).join("\n\n");
+            return { content: [{ type: "text", text }] };
+          } catch (e) {
+            log("[fantasy] compare failed:", (e as Error).message);
             return { content: [{ type: "text", text: `Couldn't compare them: ${(e as Error).message}` }], isError: true };
           }
         },
@@ -351,7 +405,9 @@ export function fantasyMcpServer(
           "redraft or dynasty). For 'is this trade fair?' pass `give` (players the asker sends) and `get` (players they " +
           "receive): returns each player's value, the totals and a verdict. For 'what's X worth?' / 'who's worth more?' pass " +
           "just `give` with the names. Each player also shows which team in this league has him. Answer with a clear take in " +
-          "a few lines; values are a market guide, so mention roster fit (e.g. positional need) when it matters. Returns data; does not post.",
+          "a few lines; values are a market guide, so mention roster fit (e.g. positional need) when it matters. With give AND get " +
+          "it also shows each team's projected lineup before/after and sends a trade card IMAGE after your reply (don't describe " +
+          "it). Returns data; the text doesn't post.",
         {
           give: z.array(z.string().min(2)).min(1).max(6),
           get: z.array(z.string().min(2)).max(6).optional(),
@@ -359,22 +415,41 @@ export function fantasyMcpServer(
         async ({ give, get }) => {
           if (cfg.tradeValues === false) return { content: [{ type: "text", text: "Trade values are turned off in the config." }], isError: true };
           try {
+            if (get?.length) {
+              const a = await analyzeTrade(cfg, give, get);
+              const ownerLabel = (p: Valued) => {
+                const o = a.ownerOf(p);
+                return p.espnId === null ? undefined : o ? `on ${o}` : "available here";
+              };
+              const sides: [string, TeamImpact | null][] = [["You", a.mine], ["Them", a.partner]];
+              const impact = sides
+                .filter((x): x is [string, TeamImpact] => x[1] !== null)
+                .map(([who, t]) => {
+                  const d = (x: number) => (x > 0 ? `+${x.toFixed(1)}` : x.toFixed(1));
+                  const pos = ["QB", "RB", "WR", "TE"].map((k) => `${k} ${d((t.after.byPos[k] ?? 0) - (t.before.byPos[k] ?? 0))}`).join(", ");
+                  return `${who} (${t.team}): best projected lineup this week ${t.before.total} → ${t.after.total} (${pos})`;
+                });
+              let sent = "";
+              if (cfg.tradeCards !== false && opts.attach && opts.cardDir) {
+                try {
+                  await opts.attach(await renderTradeCard(a, opts.cardDir));
+                  sent = "A trade card image will be sent right after your reply.";
+                } catch (e) {
+                  log("[fantasy] trade card failed:", (e as Error).message);
+                }
+              }
+              // Lineup impact uses ESPN projections, so the source line names both.
+              const text = [formatTrade(a.trade, a.format, ownerLabel, a.sources), ...impact, sent].filter(Boolean).join("\n");
+              return { content: [{ type: "text", text }] };
+            }
             const { league } = await fetchWeek(cfg);
-            const slots = league.settings.rosterSettings.lineupSlotCounts;
-            const scoring = scoringFromEspn(league.settings);
-            const format: TradeFormat = {
-              teams: league.teams.length,
-              ppr: scoring === "ppr" ? 1 : scoring === "half_ppr" ? 0.5 : 0,
-              qbs: (slots["7"] ?? 0) > 0 || (slots["0"] ?? 0) > 1 ? 2 : 1, // OP (superflex) slot or 2 QBs
-              dynasty: !!cfg.dynasty,
-            };
+            const format = leagueTradeFormat(league, cfg);
             const values = await tradeValues(format);
             // Which fantasy team rosters each player, by ESPN id.
             const owner = new Map<number, string>();
             for (const t of league.teams) for (const e of t.roster?.entries ?? []) owner.set(e.playerPoolEntry.player.id, (t.name ?? t.abbrev).trim());
             const ownerOf = (p: Valued) => (p.espnId !== null ? (owner.has(p.espnId) ? `on ${owner.get(p.espnId)}` : "available here") : undefined);
-            const text = get?.length ? formatTrade(evaluateTrade(values, give, get), format, ownerOf) : formatValues(values, give, format, ownerOf);
-            return { content: [{ type: "text", text }] };
+            return { content: [{ type: "text", text: formatValues(values, give, format, ownerOf) }] };
           } catch (e) {
             log("[fantasy] trade values failed:", (e as Error).message);
             return { content: [{ type: "text", text: `Couldn't get trade values: ${(e as Error).message}` }], isError: true };

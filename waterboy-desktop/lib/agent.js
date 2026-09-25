@@ -629,6 +629,8 @@ const SETTINGS = {
   "fantasy.tradeValues": Boolean,
   "fantasy.dynasty": Boolean,
   "fantasy.startSitCards": Boolean,
+  "fantasy.tradeCards": Boolean,
+  "fantasy.compareCards": Boolean,
 };
 
 /** When the service last downloaded nflverse data (its daily sync writes <dataDir>/nflverse). */
@@ -670,6 +672,8 @@ async function settings() {
           tradeValues: cfg.fantasy.tradeValues !== false,
           dynasty: !!cfg.fantasy.dynasty,
           startSitCards: cfg.fantasy.startSitCards !== false,
+          tradeCards: cfg.fantasy.tradeCards !== false,
+          compareCards: cfg.fantasy.compareCards !== false,
           nflverseUpdatedAt: nflverseStatus(loc, cfg).updatedAt,
         }
       : null,

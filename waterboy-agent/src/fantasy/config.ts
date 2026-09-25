@@ -35,6 +35,10 @@ export interface FantasyConfig {
   dynasty?: boolean;
   /** Send a comparison card image with start/sit answers (default true). */
   startSitCards?: boolean;
+  /** Send a trade card image with trade evaluations (default true). */
+  tradeCards?: boolean;
+  /** Send a player comparison image with comparisons and start/sit answers (default true). */
+  compareCards?: boolean;
 }
 
 /** The team "me" refers to this turn (see FantasyConfig.me). */

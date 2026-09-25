@@ -92,15 +92,30 @@ test("trade values: lookups, verdicts, owners", () => {
   const fair = evaluateTrade(values, ["Kenneth Walker"], ["DJ Moore"]);
   assert.equal(fair.verdict, "Fair: within 5% either way.");
   const win = evaluateTrade(values, ["DJ Moore", "Kenneth Walker"], ["Gibbs"]);
-  assert.equal(win.diff, 200);
+  // 2-for-1 into the best player: +12% of Gibbs' value to the "get" side.
+  assert.deepEqual(win.bonus && [win.bonus.side, win.bonus.player.name, win.bonus.value], ["get", "Jahmyr Gibbs", 1200]);
+  assert.deepEqual([win.getTotal, win.giveTotal, win.diff, win.pct], [11200, 9800, 1400, 13]);
+  assert.match(win.verdict, /You win it by about 13%/);
   const lose = evaluateTrade(values, ["Gibbs"], ["Kenneth Walker", "Nobody"]);
-  assert.match(lose.verdict, /You lose about 50% in value/);
+  assert.match(lose.verdict, /You lose about 50% in value/); // 1-for-1 once "Nobody" drops out: no bonus
+  assert.equal(lose.bonus, null);
   assert.deepEqual(lose.get.missing, ["Nobody"]);
 
   const text = formatTrade(win, { teams: 12, ppr: 1, qbs: 1, dynasty: false }, (p) => (p.name === "Jahmyr Gibbs" ? "on Suze's Castaways" : "available here"));
   assert.match(text, /^FantasyCalc trade values \(redraft, 12 teams, PPR\):/);
   assert.match(text, /You give \(9800\):\n• DJ Moore WR CHI: 4800 \(WR18, #34 overall\) · available here\n• Kenneth Walker III RB SEA: 5000 \(RB12, #30 overall\) \(▲400 in 30 days\)/);
   assert.match(text, /• Jahmyr Gibbs RB DET: 10000 \(RB1, #1 overall\) \(▼160 in 30 days\) · on Suze's Castaways/);
-  assert.match(text, /premium/); // uneven trade note
+  assert.match(text, /Best player bonus: \+1200 to the side getting Jahmyr Gibbs/);
   assert.match(text, /\nSource: FantasyCalc$/);
+});
+
+test("best player bonus: only for the side consolidating into the best player", async () => {
+  const { bestPlayerBonus } = await import("../src/fantasy/data/tradeValues.ts");
+  const v = (name: string, value: number) => ({ name, pos: "RB", team: "X", espnId: null, value, overallRank: 1, positionRank: 1, trend30: 0 });
+  const star = v("Star", 10000), a = v("A", 4000), b = v("B", 3000), c = v("C", 2000);
+  assert.equal(bestPlayerBonus([a], [b]), null); // even trade
+  assert.deepEqual(bestPlayerBonus([a, b], [star]), { side: "get", player: star, value: 1200 });
+  assert.deepEqual(bestPlayerBonus([star], [a, b, c]), { side: "give", player: star, value: 2400 }); // 2 extra pieces: 24%
+  assert.equal(bestPlayerBonus([star, a], [b]), null); // the best player came with more pieces
+  assert.equal(bestPlayerBonus([star], [a, b, c, v("D", 1), v("E", 1)])!.value, 3000); // capped at 30%
 });

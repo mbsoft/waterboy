@@ -8,7 +8,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { log } from "../../config.ts";
-import { nameKey } from "../names.ts";
+import { nameKey, nameOnly } from "../names.ts";
 
 const NFLVERSE = "https://github.com/nflverse/nflverse-data/releases/download";
 const FFVERSE = "https://github.com/ffverse/ffopportunity/releases/download/latest-data";
@@ -127,6 +127,7 @@ export interface PlayerUsage {
   name: string;
   pos: string;
   team: string;
+  espnId: string | null;
   weeks: WeekLine[]; // most recent first
   injury: { week: number; status: string; injury: string; practice: string } | null;
 }
@@ -180,7 +181,7 @@ export function buildIndex(season: number, csv: Record<FileKey, string>): Index 
     if (p.espn_id) byEspn.set(p.espn_id, p.gsis_id);
     if (FANTASY_POS.has(p.position) && p.status !== "RET") {
       addName(p.display_name, p.position, p.gsis_id);
-      byId.set(p.gsis_id, { id: p.gsis_id, name: p.display_name, pos: p.position, team: p.latest_team, weeks: [], injury: null });
+      byId.set(p.gsis_id, { id: p.gsis_id, name: p.display_name, pos: p.position, team: p.latest_team, espnId: p.espn_id || null, weeks: [], injury: null });
     }
   }
 
@@ -200,7 +201,7 @@ export function buildIndex(season: number, csv: Record<FileKey, string>): Index 
   for (const r of parseCsv(csv.stats, statCols)) {
     if (r.season_type !== "REG" && r.season_type !== "POST") continue;
     if (!byId.has(r.player_id) && FANTASY_POS.has(r.position)) {
-      byId.set(r.player_id, { id: r.player_id, name: r.player_display_name, pos: r.position, team: r.team, weeks: [], injury: null });
+      byId.set(r.player_id, { id: r.player_id, name: r.player_display_name, pos: r.position, team: r.team, espnId: null, weeks: [], injury: null });
       addName(r.player_display_name, r.position, r.player_id);
     }
     const week = Number(r.week);
@@ -255,12 +256,12 @@ export function buildIndex(season: number, csv: Record<FileKey, string>): Index 
 
 /** Find players by name ("Chase", "Ja'Marr Chase", "chase brown"); best matches first. */
 export function findPlayers(ix: Index, query: string, limit = 3): PlayerUsage[] {
-  const q = nameKey(query, "").replace(/\|$/, "");
+  const q = nameOnly(query);
   if (!q) return [];
   const active = (p: PlayerUsage) => p.weeks.length > 0;
   const score = (p: PlayerUsage) => {
-    const full = nameKey(p.name, "").replace(/\|$/, "");
-    const last = nameKey(p.name.split(" ").slice(1).join(" "), "").replace(/\|$/, "");
+    const full = nameOnly(p.name);
+    const last = nameOnly(p.name.split(" ").slice(1).join(" "));
     if (full === q) return 3;
     if (last === q) return 2;
     if (full.includes(q)) return 1;

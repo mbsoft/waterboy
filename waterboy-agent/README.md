@@ -159,6 +159,21 @@ around the projection whose spread starts from a typical spread for the position
 the player's own weekly scoring as games accumulate. Set `"startSitCards": false` to answer in text
 only.
 
+**Trade cards.** `trade_value` with both sides (`give` and `get`) sends a trade card: FantasyCalc
+values as stacked columns per side with player chips, a *best player bonus* for the side
+consolidating into the single best player in an uneven trade (an estimate: 12% of his value per
+extra player on the other side, at most 30%, included in the verdict), and each team's best
+projected lineup this week before → after, by position (ESPN projections, the league's lineup
+slots). Set `"tradeCards": false` to answer in text only.
+
+**Comparison cards.** `compare_players` compares any two NFL players over the season (nflverse):
+fantasy points and usage by week as line charts (touches for RBs, targets for WR/TE, pass attempts
+for QBs), season total and positional rank, per-game and expected points, snap share, targets,
+carries, yards and TDs, plus this week's ESPN projection and FantasyPros rank. Start/sit answers
+send it too, after the start/sit card. Set `"compareCards": false` to turn it off.
+
+All three cards are drawn by `src/fantasy/cards/` (shared pieces in `draw.ts`).
+
 These sources are free but unofficial and can change without notice; if one is unreachable, the tools say so and everything else keeps working.
 
 - **On demand:** text something like "fantasy standings?" or "roundup for week 3".

@@ -81,7 +81,32 @@ export function findValued(values: Valued[], query: string): Valued | null {
 }
 
 export interface TradeSide { players: Valued[]; missing: string[]; total: number }
-export interface TradeVerdict { give: TradeSide; get: TradeSide; diff: number; pct: number; verdict: string }
+export interface Bonus { side: "give" | "get"; player: Valued; value: number }
+export interface TradeVerdict {
+  give: TradeSide;
+  get: TradeSide;
+  bonus: Bonus | null;
+  /** Totals including the best player bonus. */
+  giveTotal: number;
+  getTotal: number;
+  diff: number; // getTotal - giveTotal
+  pct: number;
+  verdict: string;
+}
+
+/**
+ * The "best player bonus": in an uneven trade, the side getting the single best player (in fewer
+ * pieces) deserves a premium, because lineup and roster spots are limited and depth is cheap on
+ * waivers. An estimate: 12% of that player's value per extra player on the other side, at most 30%.
+ */
+export function bestPlayerBonus(give: Valued[], get: Valued[]): Bonus | null {
+  if (!give.length || !get.length || give.length === get.length) return null;
+  const best = [...give, ...get].sort((a, b) => b.value - a.value)[0];
+  const side = get.includes(best) ? "get" : "give";
+  const [mine, other] = side === "get" ? [get, give] : [give, get];
+  if (mine.length >= other.length) return null; // the best player came with more pieces: no premium
+  return { side, player: best, value: Math.round(best.value * Math.min(0.3, 0.12 * (other.length - mine.length))) };
+}
 
 function side(values: Valued[], names: string[]): TradeSide {
   const players: Valued[] = [];
@@ -98,14 +123,17 @@ function side(values: Valued[], names: string[]): TradeSide {
 export function evaluateTrade(values: Valued[], give: string[], get: string[]): TradeVerdict {
   const g = side(values, give);
   const r = side(values, get);
-  const diff = r.total - g.total;
-  const pct = Math.max(g.total, r.total) ? Math.round((Math.abs(diff) / Math.max(g.total, r.total)) * 100) : 0;
+  const bonus = bestPlayerBonus(g.players, r.players);
+  const giveTotal = g.total + (bonus?.side === "give" ? bonus.value : 0);
+  const getTotal = r.total + (bonus?.side === "get" ? bonus.value : 0);
+  const diff = getTotal - giveTotal;
+  const pct = Math.max(giveTotal, getTotal) ? Math.round((Math.abs(diff) / Math.max(giveTotal, getTotal)) * 100) : 0;
   const verdict =
     !g.players.length || !r.players.length ? "Not enough valued players to compare."
     : pct <= 5 ? "Fair: within 5% either way."
     : diff > 0 ? `You win it by about ${pct}% in value.`
     : `You lose about ${pct}% in value.`;
-  return { give: g, get: r, diff, pct, verdict };
+  return { give: g, get: r, bonus, giveTotal, getTotal, diff, pct, verdict };
 }
 
 const fmtFormat = (f: TradeFormat) =>
@@ -114,23 +142,22 @@ const trend = (n: number) => (Math.abs(n) < 50 ? "" : ` (${n > 0 ? "▲" : "▼"
 export const playerRow = (p: Valued, owner?: string) =>
   `• ${p.name} ${p.pos} ${p.team}: ${p.value} (${p.pos}${p.positionRank}, #${p.overallRank} overall)${trend(p.trend30)}${owner ? ` · ${owner}` : ""}`;
 
-export function formatTrade(t: TradeVerdict, f: TradeFormat, owners: (p: Valued) => string | undefined = () => undefined): string {
+export function formatTrade(t: TradeVerdict, f: TradeFormat, owners: (p: Valued) => string | undefined = () => undefined, sources: string[] = [SOURCE.tradeValues]): string {
   const block = (title: string, s: TradeSide) => [
     `${title} (${s.total}):`,
     ...s.players.map((p) => playerRow(p, owners(p))),
     ...s.missing.map((m) => `• ${m}: no trade value listed (likely replacement level, or check the spelling)`),
   ];
-  const packageNote =
-    t.give.players.length !== t.get.players.length
-      ? "Note: in uneven trades the side getting the single best player usually deserves a premium (roster spots and lineup slots are limited)."
-      : null;
+  const packageNote = t.bonus
+    ? `Best player bonus: +${t.bonus.value} to the side getting ${t.bonus.player.name} (an estimate for consolidating into the best player; included in the verdict: ${t.getTotal} vs ${t.giveTotal}).`
+    : null;
   return [
     `FantasyCalc trade values (${fmtFormat(f)}):`,
     ...block("You give", t.give),
     ...block("You get", t.get),
     `Verdict: ${t.verdict}`,
     ...(packageNote ? [packageNote] : []),
-    sourceLine([SOURCE.tradeValues]),
+    sourceLine(sources),
   ].join("\n");
 }
 
