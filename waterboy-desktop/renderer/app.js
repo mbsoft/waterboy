@@ -114,7 +114,7 @@
   function buildShell() {
     const nav = $("#nav");
     for (const p of PAGES) {
-      const a = h("a", { href: `#${p.id}`, "data-page": p.id }, icon(p.icon, 18), h("span", {}, p.title));
+      const a = h("a", { href: `#${p.id}`, "data-page": p.id, title: p.title }, icon(p.icon, 18), h("span", {}, p.title));
       nav.append(a);
     }
     $("#sidebar-toggle").innerHTML = ICONS.sidebar(19);
@@ -146,7 +146,6 @@
       toast(e.message, true);
     }
     const o = state.overview;
-    $("#nav-label").textContent = o?.agentName ?? "Agent";
     const foot = $("#sidebar-foot");
     foot.replaceChildren();
     if (o) foot.append(o.status.running ? h("span", { class: "pulse" }) : icon("pause", 13), o.status.running ? "Running" : o.status.installed ? "Paused" : "Not installed");

@@ -7,8 +7,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 const mascot = require("./mascot");
 
-const W = 3000;
-const H = 1000;
+// --sidebar: the app's sidebar header instead (renderer/sidebar-banner.png, 600×200 = 3× its
+// ~200px width): mascot and name only, since the tagline would be unreadable that small.
+const SIDEBAR = process.argv.includes("--sidebar");
+const W = SIDEBAR ? 600 : 3000;
+const H = SIDEBAR ? 200 : 1000;
 
 // A few loose droplets drifting up behind the mascot: [x, y, size, opacity].
 const drops = [
@@ -23,7 +26,20 @@ const drop = ([x, y, s, o]) =>
 const cup = `<svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="#0c2f86" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
   <path d="M4 9h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 10.5h1.5a2.5 2.5 0 0 1 0 5H17"/><path d="M8 3.5c-.6.8-.6 1.7 0 2.5M11.5 3.5c-.6.8-.6 1.7 0 2.5"/></svg>`;
 
-const html = `<!doctype html><html><head><style>
+const sidebarHtml = `<!doctype html><html><head><style>
+  body { margin:0; width:${W}px; height:${H}px; overflow:hidden; font-family:-apple-system,"SF Pro Display","Helvetica Neue",sans-serif; }
+  .field { position:absolute; inset:0; background:linear-gradient(160deg,#3d8bff 0%,#1a5ce0 48%,#0c2f86 100%); }
+  .lines { position:absolute; inset:0; background:repeating-linear-gradient(90deg,transparent 0 58px,rgba(255,255,255,.07) 58px 61px); }
+  .glow { position:absolute; left:-10px; top:-80px; width:360px; height:360px; border-radius:50%;
+    background:radial-gradient(circle,rgba(127,224,255,.4) 0%,rgba(127,224,255,.1) 45%,transparent 70%); }
+  .row { position:absolute; inset:0; display:flex; align-items:center; padding-left:4px; }
+  h1 { margin:0 0 0 -34px; color:#fff; font-size:84px; line-height:1; font-weight:800; letter-spacing:-3px; text-shadow:0 4px 14px rgba(6,32,92,.35); }
+</style></head><body>
+  <div class="field"></div><div class="lines"></div><div class="glow"></div>
+  <div class="row">${mascot(200, "s", "flex:none")}<h1>Waterboy</h1></div>
+</body></html>`;
+
+const html = SIDEBAR ? sidebarHtml : `<!doctype html><html><head><style>
   body { margin:0; width:${W}px; height:${H}px; overflow:hidden; font-family:-apple-system,"SF Pro Display","Helvetica Neue",sans-serif; }
   .field { position:absolute; inset:0; background:linear-gradient(160deg,#3d8bff 0%,#1a5ce0 48%,#0c2f86 100%); }
   /* yard lines, like the icon's field stripes */
@@ -58,8 +74,8 @@ app.whenReady().then(async () => {
   await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
   await new Promise((r) => setTimeout(r, 600));
   const png = (await win.webContents.capturePage({ x: 0, y: 0, width: W, height: H })).resize({ width: W, height: H, quality: "best" }).toPNG();
-  const out = path.join(__dirname, "../build/banner.png");
-  fs.writeFileSync(out, png);
-  console.log(`wrote build/banner.png (${W}×${H})`);
+  const rel = SIDEBAR ? "renderer/sidebar-banner.png" : "build/banner.png";
+  fs.writeFileSync(path.join(__dirname, "..", rel), png);
+  console.log(`wrote ${rel} (${W}×${H})`);
   app.quit();
 });

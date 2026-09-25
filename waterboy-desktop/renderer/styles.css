@@ -1,6 +1,7 @@
 :root {
   color-scheme: light dark;
   --sidebar-w: 220px;
+  --rail-w: 76px;
   --bg: #ececec;
   --sidebar-tint: rgba(234, 234, 236, 0.78);
   --card: #ffffff;
@@ -74,12 +75,23 @@ input, textarea, select, button { font: inherit; color: inherit; }
   border-right: 1px solid var(--divider);
   display: flex;
   flex-direction: column;
-  transition: margin-left 0.2s ease;
+  overflow: hidden;
+  transition: width 0.2s ease;
 }
-.app.collapsed .sidebar { margin-left: calc(-1 * var(--sidebar-w)); }
-.sidebar-top { height: 52px; -webkit-app-region: drag; display: flex; align-items: center; padding-left: 84px; }
-.app.collapsed .sidebar-top { visibility: hidden; }
-.nav-label { font-size: 11px; font-weight: 600; color: var(--faint); padding: 10px 18px 4px; }
+/* Collapsed: a narrow rail (wide enough for the window buttons) with the icon and page icons. */
+.app.collapsed .sidebar { width: var(--rail-w); }
+.sidebar-top { height: 52px; flex: none; -webkit-app-region: drag; }
+.brand { padding: 0 12px 12px; flex: none; }
+.brand img { display: block; -webkit-user-drag: none; }
+.brand-banner { width: 100%; aspect-ratio: 3 / 1; border-radius: 10px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18); }
+.brand .brand-icon { display: none; width: 40px; height: 40px; margin: 0 auto; }
+.app.collapsed .brand { padding: 0 0 12px; }
+.app.collapsed .brand .brand-banner { display: none; }
+.app.collapsed .brand .brand-icon { display: block; }
+.app.collapsed .nav a { justify-content: center; padding: 0; }
+.app.collapsed .nav a span,
+.app.collapsed .nav .badge { display: none; }
+.app.collapsed .sidebar-foot { justify-content: center; padding: 12px 0 16px; font-size: 0; }
 .nav { padding: 0 10px; display: flex; flex-direction: column; gap: 2px; }
 .nav a {
   display: flex; align-items: center; gap: 9px;
@@ -104,7 +116,7 @@ input, textarea, select, button { font: inherit; color: inherit; }
 .main.titled .toolbar h1 { opacity: 1; }
 .toolbar .spacer { flex: 1; }
 .toolbar button { -webkit-app-region: no-drag; }
-.app.collapsed .toolbar { padding-left: 120px; } /* clear the traffic lights and the sidebar toggle (80–108px) */
+.app.collapsed .toolbar { padding-left: 44px; } /* clear the sidebar toggle (fixed at 80–108px; the rail is 76px) */
 .icon-btn {
   width: 28px; height: 28px; border: 0; background: transparent; border-radius: 6px;
   display: grid; place-items: center; color: var(--muted); cursor: default;
