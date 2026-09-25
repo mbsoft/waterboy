@@ -10,7 +10,7 @@ import fs from "node:fs";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig } from "../src/config.ts";
 import { State } from "../src/bot/state.ts";
-import { fantasyMcpServer } from "../src/fantasy/fantasy.ts";
+import { fantasyMcpServer } from "../src/fantasy/tools.ts";
 import { schedulerMcpServer } from "../src/bot/scheduler.ts";
 import { makeConditions } from "../src/bot/conditions.ts";
 

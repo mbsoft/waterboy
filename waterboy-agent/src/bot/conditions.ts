@@ -1,7 +1,7 @@
 import type { Config } from "../config.ts";
 import { log } from "../config.ts";
 import type { State, ScheduledTask } from "./state.ts";
-import { latestCompletedWeek } from "../fantasy/fantasy.ts";
+import { latestCompletedWeek } from "../fantasy/roundup.ts";
 
 /**
  * A condition gates a scheduled task: the cron schedule decides how often to *check*,

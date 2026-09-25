@@ -4,7 +4,7 @@ import type { Config } from "../config.ts";
 import { log } from "../config.ts";
 import type { State } from "../bot/state.ts";
 import { schedulerMcpServer, SCHEDULER_TOOLS } from "../bot/scheduler.ts";
-import { fantasyMcpServer, FANTASY_TOOLS } from "../fantasy/fantasy.ts";
+import { fantasyMcpServer, FANTASY_TOOLS } from "../fantasy/tools.ts";
 import type { Conditions } from "../bot/conditions.ts";
 import type { AgentRequest, AgentResponse, AgentRunner } from "./types.ts";
 

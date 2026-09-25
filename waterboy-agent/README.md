@@ -209,6 +209,19 @@ with SIP left on. Build it once with `../waterboy-imessage/build.sh`; the instal
 
 ## Development
 
+```
+src/
+  index.ts          the service (launchd runs this)      mcpServer.ts  fantasy + scheduler tools over stdio (ChatGPT)
+  repl.ts doctor.ts terminal chat and setup checks       config.ts     config.json      paths.ts  source vs. build locations
+  bot/              message queue and replies (bot), slash commands, prompts (+ POLICY_VERSION), formatting,
+                    state.db, scheduler and its conditions
+  messages/         reading chat.db, attachments and voice, sending (AppleScript), the iMessage helper
+                    (typing, tapbacks, threaded replies)
+  assistants/       the runner interface (types), Claude, ChatGPT (Codex)
+  fantasy/          config, ESPN client, name matching, roundup, matchup previews, waivers, the agent tools,
+                    source names; data/ (Sleeper, nflverse, Vegas, rankings, trade values); startSit/ (+ card)
+```
+
 ```bash
 npm run typecheck && npm test   # tests run against a synthetic chat.db
 npm run build                   # dist/index.mjs, the compiled service that ships inside Waterboy.app

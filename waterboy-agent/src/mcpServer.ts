@@ -15,7 +15,7 @@ import path from "node:path";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig } from "./config.ts";
 import { State } from "./bot/state.ts";
-import { fantasyMcpServer } from "./fantasy/fantasy.ts";
+import { fantasyMcpServer } from "./fantasy/tools.ts";
 import { schedulerMcpServer } from "./bot/scheduler.ts";
 import { makeConditions } from "./bot/conditions.ts";
 import { setNflverseDataDir } from "./fantasy/data/nflverse.ts";

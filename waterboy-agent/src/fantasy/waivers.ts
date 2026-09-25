@@ -5,7 +5,7 @@
  * so it can be tested without ESPN.
  */
 import { myTeam, type FantasyConfig } from "./config.ts";
-import { nflWeekComplete } from "./fantasy.ts";
+import { nflWeekComplete } from "./roundup.ts";
 import { fetchWeek, findTeam, type RawWeekLeague } from "./matchup.ts";
 import { nameKey } from "./names.ts";
 import { fmtCount, scoringFromEspn, sleeperProjections, sleeperProjector, sleeperTrending, sleeperTeam } from "./data/sleeper.ts";
