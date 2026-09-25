@@ -436,6 +436,42 @@
       return [row, h("div", { class: "row-extra" }, extras)];
     });
 
+    // "Add person": someone who hasn't texted yet (or an update to someone listed).
+    const addForm = h("div", { class: "add-person", hidden: true });
+    const openAdd = () => {
+      const name = h("input", { type: "text", placeholder: "Name", "aria-label": "Name" });
+      const handle = h("input", { type: "text", placeholder: "Phone number or email", "aria-label": "Phone number or email", class: "mono" });
+      const access = h("select", { "aria-label": "Access" }, h("option", { value: "full" }, "Everything"), h("option", { value: "fantasy" }, "Fantasy football only"));
+      const team = hasFantasy
+        ? h("select", { "aria-label": "Fantasy team" }, h("option", { value: "" }, "No team"), (cfgTeams ?? []).map((t) => h("option", { value: t.name }, t.name)))
+        : null;
+      const close = () => {
+        addForm.hidden = true;
+        addForm.replaceChildren();
+      };
+      const add = button("Add", async () => {
+        const r = await api.addPerson({ name: name.value, handle: handle.value, access: access.value, team: team?.value || null });
+        saved(r.updated ? `Updated ${r.name}` : `${r.name} (${r.handle}) can now text the agent`);
+        render();
+      }, { primary: true });
+      for (const input of [name, handle]) input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") add.click();
+        if (e.key === "Escape") close();
+      });
+      addForm.replaceChildren(
+        h("div", { class: "form" },
+          h("label", {}, "Name"), name,
+          h("label", {}, "Phone or email"), handle,
+          h("div", { class: "hint" }, "The number or Apple Account email they text from. US numbers can be 10 digits; add + and the country code otherwise."),
+          h("label", {}, "Access"), access,
+          ...(team ? [h("label", {}, "Fantasy team"), team] : []),
+        ),
+        h("div", { class: "inline", style: "justify-content:flex-end;margin-top:12px" }, button("Cancel", close), add),
+      );
+      addForm.hidden = false;
+      name.focus();
+    };
+
     const groupRows = conv.groups.map((g) => {
       const members = g.members.map((m) => m.name || m.handle);
       const shown = members.slice(0, 4).join(", ");
@@ -459,10 +495,11 @@
       pageHead("Conversations", "Choose who can talk to the agent."),
       restartBanner(),
       card(
-        h("h3", {}, "Direct messages"),
+        h("div", { class: "card-head" }, h("h3", {}, "Direct messages"), button("Add person", openAdd, { iconName: "plus" })),
+        addForm,
         h("p", { class: "desc" }, "Allowed people can text the agent. With Everything they can use all its tools and files; with Fantasy football only, their chat works like the league group and anything else gets a polite no. Admins can pause the agent and manage scheduled posts in group chats."),
         directRows.length ? h("div", { class: "rows" }, directRows) : h("div", { class: "empty" }, icon("message", 18), "No conversations yet."),
-        h("p", { class: "note" }, `Can't find someone? Have them send a message to this Mac once. The list updates every 5 minutes while the agent is running${conv.indexUpdatedAt ? ` (last updated ${relTime(conv.indexUpdatedAt)})` : ""}.`),
+        h("p", { class: "note" }, `Can't find someone? Add them with Add person, or have them send a message to this Mac once. The list updates every 5 minutes while the agent is running${conv.indexUpdatedAt ? ` (last updated ${relTime(conv.indexUpdatedAt)})` : ""}.`),
       ),
       card(
         h("h3", {}, "Group conversations"),

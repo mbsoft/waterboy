@@ -116,3 +116,49 @@ test("the ChatGPT account is read from Waterboy's Codex home without exposing to
   assert.deepEqual(acct, { signedIn: true, plan: "plus" });
   assert.ok(!JSON.stringify(acct).includes("secret"));
 });
+
+test("phone numbers and emails are cleaned up the way Messages uses them", () => {
+  const { cleanHandle } = require("../lib/agent");
+  assert.equal(cleanHandle("(614) 555-0142"), "+16145550142");
+  assert.equal(cleanHandle("1-614-555-0142"), "+16145550142");
+  assert.equal(cleanHandle("+44 20 7946 0958"), "+442079460958");
+  assert.equal(cleanHandle("  Suze@Example.com "), "suze@example.com");
+  assert.throws(() => cleanHandle("555-0142"), /isn't a phone number/);
+  assert.throws(() => cleanHandle("suze@"), /isn't a valid email/);
+});
+
+test("adding a person allows them with a name, access level and team, without duplicates", async () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const agent = require("../lib/agent");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wb-agent-"));
+  const file = path.join(dir, "config.json");
+  fs.writeFileSync(file, JSON.stringify({ allowedChats: ["+16145550100"], contacts: {}, fantasy: { espnLeagueId: "1", teams: {} } }));
+  const prev = process.env.IMESSAGE_AGENT_DIR;
+  process.env.IMESSAGE_AGENT_DIR = dir;
+  try {
+    const r = await agent.addPerson({ name: " Suze ", handle: "(614) 555-0142", access: "fantasy", team: "Suze's Castaways" });
+    assert.deepEqual(r, { handle: "+16145550142", name: "Suze", access: "fantasy", team: "Suze's Castaways", updated: false });
+    let cfg = JSON.parse(fs.readFileSync(file, "utf8"));
+    assert.deepEqual(cfg.allowedChats, ["+16145550100", "+16145550142"]);
+    assert.equal(cfg.contacts["+16145550142"], "Suze");
+    assert.equal(cfg.chatAccess["+16145550142"], "fantasy");
+    assert.equal(cfg.fantasy.teams["+16145550142"], "Suze's Castaways");
+
+    // Same person in another format: updated in place, not added twice.
+    const again = await agent.addPerson({ name: "Suze W.", handle: "614.555.0142", access: "full" });
+    assert.equal(again.updated, true);
+    cfg = JSON.parse(fs.readFileSync(file, "utf8"));
+    assert.equal(cfg.allowedChats.length, 2);
+    assert.equal(cfg.contacts["+16145550142"], "Suze W.");
+    assert.equal(cfg.chatAccess, undefined); // back to full access
+    assert.equal(cfg.fantasy.teams["+16145550142"], undefined);
+
+    await assert.rejects(agent.addPerson({ name: "", handle: "6145550143" }), /Enter a name/);
+    await assert.rejects(agent.addPerson({ name: "X", handle: "6145550143", access: "admin" }), /Unknown access level/);
+  } finally {
+    if (prev === undefined) delete process.env.IMESSAGE_AGENT_DIR;
+    else process.env.IMESSAGE_AGENT_DIR = prev;
+  }
+});

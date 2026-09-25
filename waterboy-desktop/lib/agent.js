@@ -340,6 +340,57 @@ async function setTeam(handle, team) {
 }
 
 /** Team names from the ESPN league, for the team picker. */
+/**
+ * A phone number or email as Messages uses it: "(614) 555-0142" → "+16145550142", emails lowercased.
+ * Throws on anything that isn't one.
+ */
+function cleanHandle(raw) {
+  const s = String(raw ?? "").trim();
+  if (s.includes("@")) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) throw new Error(`"${s}" isn't a valid email address.`);
+    return s.toLowerCase();
+  }
+  const digits = s.replace(/\D/g, "");
+  if (s.startsWith("+") && digits.length >= 8 && digits.length <= 15) return `+${digits}`;
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  throw new Error(`"${s}" isn't a phone number. Use 10 digits, or +country code for numbers outside the US.`);
+}
+
+/**
+ * Add someone who can text the agent (or update them if they're already listed): allowed, named,
+ * with an access level and optionally their fantasy team. One config write.
+ */
+async function addPerson({ name, handle, access = "full", team = null } = {}) {
+  const clean = cleanHandle(handle);
+  const label = String(name ?? "").trim();
+  if (!label) throw new Error("Enter a name.");
+  if (!["full", "fantasy"].includes(access)) throw new Error(`Unknown access level ${access}`);
+  let existed = false;
+  await updateConfig((cfg) => {
+    if (team && !cfg.fantasy) throw new Error("Fantasy football isn't configured, so there's no team to set.");
+    const allowed = cfg.allowedChats ?? [];
+    const key = allowed.find((a) => !a.includes(";") && sameHandle(a, clean)) ?? clean;
+    existed = allowed.includes(key);
+    if (!existed) cfg.allowedChats = [...allowed, key];
+    cfg.contacts = cfg.contacts ?? {};
+    cfg.contacts[findKey(cfg.contacts, key) ?? key] = label;
+    const accessKey = findKey(cfg.chatAccess, key);
+    if (access === "fantasy") (cfg.chatAccess = cfg.chatAccess ?? {})[accessKey ?? key] = "fantasy";
+    else if (accessKey) {
+      delete cfg.chatAccess[accessKey];
+      if (!Object.keys(cfg.chatAccess).length) delete cfg.chatAccess;
+    }
+    if (cfg.fantasy) {
+      const teams = (cfg.fantasy.teams = cfg.fantasy.teams ?? {});
+      const teamKey = findKey(teams, key);
+      if (team) teams[teamKey ?? key] = String(team);
+      else if (teamKey) delete teams[teamKey];
+    }
+  });
+  return { handle: clean, name: label, access, team: team || null, updated: existed };
+}
+
 async function fantasyTeams() {
   const cfg = await getConfig();
   const f = cfg.fantasy;
@@ -800,6 +851,8 @@ module.exports = {
   logs,
   conversations,
   setAllowed,
+  addPerson,
+  cleanHandle,
   setContactName,
   setAdmin,
   setTeam,

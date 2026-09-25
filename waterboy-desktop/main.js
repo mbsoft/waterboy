@@ -36,6 +36,7 @@ const API = {
   logs: () => agent.logs(),
   conversations: () => agent.conversations(),
   setAllowed: (key, on) => agent.setAllowed(key, on),
+  addPerson: (person) => agent.addPerson(person),
   setContactName: (handle, name) => agent.setContactName(handle, name),
   setAdmin: (handle, on) => agent.setAdmin(handle, on),
   setTeam: (handle, team) => agent.setTeam(handle, team),
