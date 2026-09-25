@@ -55,6 +55,9 @@ const API = {
   connections: () => agent.connections(),
   removeExtraTool: (name) => agent.removeExtraTool(name),
   setConnector: (key, level) => agent.setConnector(key, level),
+  // ChatGPT sign-in for the ChatGPT assistant (runs the bundled `codex login`, which opens the browser).
+  chatgptSignIn: () => agent.chatgptSignIn(),
+  chatgptSignOut: () => agent.chatgptSignOut(),
   // Only the agent's own files and folders can be opened.
   open: async (what) => {
     const loc = await agent.locate();

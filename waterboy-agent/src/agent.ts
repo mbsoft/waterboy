@@ -33,6 +33,8 @@ export interface AgentResponse {
   text: string;
   sessionId: string | null;
   costUsd?: number;
+  /** ChatGPT provider: tokens used this turn (there's no dollar cost on a ChatGPT plan). */
+  tokens?: { input: number; cached: number; output: number };
   denied?: string[];
 }
 

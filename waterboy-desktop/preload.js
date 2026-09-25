@@ -5,7 +5,7 @@ const names = [
   "overview", "start", "pause", "restart", "logs", "conversations", "setAllowed", "setContactName", "setAdmin",
   "setTeam", "setAccess", "fantasyTeams", "automations", "createAutomation", "updateAutomation", "setAutomationEnabled", "deleteAutomation",
   "describeSchedule", "memories", "saveMemory", "resetSession", "settings", "saveSettings", "connections",
-  "removeExtraTool", "setConnector", "open", "version", "installService", "openCoffee",
+  "removeExtraTool", "setConnector", "open", "version", "installService", "openCoffee", "chatgptSignIn", "chatgptSignOut",
 ];
 
 const api = {};

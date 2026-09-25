@@ -236,11 +236,13 @@ export class Bot {
     const profile = this.profileFor(q);
     let sessionId = chat.sessionId;
     const policyKey = `policy:${chatGuid}`;
-    if (this.state.get(policyKey) !== POLICY_VERSION[profile]) {
+    // Sessions from one provider can't be resumed by the other, so the provider is part of the policy.
+    const policy = POLICY_VERSION[profile] + (this.cfg.provider === "claude" ? "" : `+${this.cfg.provider}`);
+    if (this.state.get(policyKey) !== policy) {
       if (sessionId) log(`[bot] ${q.label}: policy changed, starting a fresh session`);
       sessionId = null;
       this.state.setSession(chatGuid, null);
-      this.state.set(policyKey, POLICY_VERSION[profile]);
+      this.state.set(policyKey, policy);
     }
     // The time goes in the message, not the system prompt (which is frozen per session).
     prompt = `[${new Date().toString()}]\n${prompt}`;
@@ -268,6 +270,7 @@ export class Bot {
     }
     if (res.sessionId && res.sessionId !== sessionId) this.state.setSession(chatGuid, res.sessionId);
     if (res.costUsd !== undefined) log(`[bot] ${q.label}: turn cost $${res.costUsd.toFixed(4)} (API-equivalent)`);
+    if (res.tokens) log(`[bot] ${q.label}: turn used ${res.tokens.input + res.tokens.output} tokens (${res.tokens.cached} cached)`);
 
     const text = res.text.trim();
     if (text && text !== "NO_REPLY") await this.reply(q, text);

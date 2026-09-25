@@ -114,6 +114,8 @@ function setup(overrides: Partial<Config> = {}) {
     fantasy: null,
     groupAdmins: ["+16145551234"],
     chatAccess: {},
+    provider: "claude",
+    chatgpt: { model: null },
     ...overrides,
   } satisfies Config;
   const state = new State(dataDir);

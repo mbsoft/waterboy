@@ -5,6 +5,7 @@ import { MessagesDb } from "./messagesDb.ts";
 import { State } from "./state.ts";
 import { Bot } from "./bot.ts";
 import { ClaudeAgentRunner } from "./agent.ts";
+import { CodexAgentRunner, chatgptAccount, verifyLockdown } from "./codex.ts";
 import { AppleScriptSender, ConsoleSender } from "./sender.ts";
 import { startScheduler } from "./scheduler.ts";
 import { makeConditions } from "./conditions.ts";
@@ -36,7 +37,8 @@ try {
 const state = new State(cfg.dataDir);
 const sender = cfg.dryRun ? new ConsoleSender() : new AppleScriptSender(cfg.outboxStagingDir);
 const conditions = makeConditions(cfg, state);
-const bot = new Bot(cfg, state, new ClaudeAgentRunner(cfg, state, conditions), sender);
+const runner = cfg.provider === "chatgpt" ? new CodexAgentRunner(cfg) : new ClaudeAgentRunner(cfg, state, conditions);
+const bot = new Bot(cfg, state, runner, sender);
 
 // Start from "now" on first launch so we never answer old history.
 let cursor = Number(state.get("lastRowId") ?? NaN);
@@ -48,6 +50,13 @@ if (!Number.isFinite(cursor)) {
 log(`[main] ${cfg.agentName} agent started. Watching ${cfg.chatDbPath} from ROWID ${cursor}.`);
 log(`[main] allowlisted chats: ${cfg.allowedChats.length ? cfg.allowedChats.join(", ") : "(none — nothing will be answered)"}`);
 if (cfg.dryRun) log("[main] DRY RUN: replies are printed, not sent.");
+if (cfg.provider === "chatgpt") {
+  const acct = chatgptAccount(cfg);
+  log(`[main] assistant: ChatGPT (${acct.signedIn ? `signed in${acct.plan ? `, ${acct.plan} plan` : ""}` : "NOT signed in: sign in from the Waterboy app"})`);
+  verifyLockdown(cfg).then((unreviewed) => {
+    if (unreviewed.length) log(`[main] group and fantasy chats are off: unreviewed Codex features ${unreviewed.join(", ")}`);
+  });
+} else log("[main] assistant: Claude");
 
 let polling = false;
 const poll = () => {

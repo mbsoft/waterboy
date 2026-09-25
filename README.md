@@ -1,6 +1,6 @@
 # Waterboy
 
-A Claude assistant you text over iMessage, running entirely on your Mac.
+An assistant you text over iMessage, running on your Mac, with Claude or ChatGPT writing the replies.
 
 | Folder | What it is |
 |---|---|
@@ -23,5 +23,7 @@ Waterboy is released under the [MIT License](LICENSE).
 The Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`) and the Claude Code binary it includes are not
 covered by that license. They're © Anthropic PBC, all rights reserved, and subject to
 [Anthropic's legal agreements](https://code.claude.com/docs/en/legal-and-compliance). The desktop
-installer bundles them as part of the service. Other dependencies (Electron, croner, zod and more)
-keep their own open-source licenses, mostly MIT.
+installer bundles them as part of the service. The Codex SDK and CLI used for the ChatGPT assistant
+(`@openai/codex-sdk`, `@openai/codex`) are Apache-2.0, © OpenAI, and using them with a ChatGPT
+sign-in is subject to OpenAI's terms. Other dependencies (Electron, croner, zod and more) keep
+their own open-source licenses, mostly MIT.

@@ -6,7 +6,7 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { execFile } = require("node:child_process");
+const { execFile, spawn } = require("node:child_process");
 const { promisify } = require("node:util");
 const { DatabaseSync } = require("node:sqlite");
 const { Cron } = require("croner");
@@ -169,10 +169,14 @@ async function readiness() {
   const envFile = path.join(loc.dataDir, "env");
   const env = fs.existsSync(envFile) ? fs.readFileSync(envFile, "utf8") : "";
 
-  // Claude Code sign-in: a setup-token in the service env file, or Claude Code's own login in
-  // the Keychain (checked without reading the secret).
+  // Sign-in for the chosen assistant. Claude: a setup-token in the service env file, or Claude
+  // Code's own login in the Keychain (checked without reading the secret). ChatGPT: Waterboy's own
+  // Codex home (see chatgptAccount).
   let claude = { ok: false, detail: "Not signed in" };
-  if (/^\s*CLAUDE_CODE_OAUTH_TOKEN=\S+/m.test(env)) claude = { ok: true, detail: "Long-lived token" };
+  if (providerOf(cfg) === "chatgpt") {
+    const acct = chatgptAccount(loc);
+    claude = acct.signedIn ? { ok: true, detail: `Signed in${acct.plan ? ` (${planName(acct.plan)} plan)` : ""}` } : { ok: false, detail: "Not signed in" };
+  } else if (/^\s*CLAUDE_CODE_OAUTH_TOKEN=\S+/m.test(env)) claude = { ok: true, detail: "Long-lived token" };
   else if (/^\s*ANTHROPIC_API_KEY=\S+/m.test(env)) claude = { ok: true, detail: "API key (billed to the API)" };
   else {
     const found = await run("/usr/bin/security", ["find-generic-password", "-s", "Claude Code-credentials"])
@@ -192,6 +196,7 @@ async function readiness() {
 
   const n = (cfg.allowedChats ?? []).length;
   return {
+    provider: providerOf(cfg),
     claude,
     messages,
     conversations: { ok: n > 0, detail: n ? `${n} allowed` : "None allowed" },
@@ -546,8 +551,13 @@ async function resetSession(guid) {
 
 /** Fields the Settings page may change, with validation. Anything else in config.json is left alone. */
 const SETTINGS = {
+  provider: (v) => {
+    if (!["claude", "chatgpt"].includes(v)) throw new Error(`Unknown assistant ${v}`);
+    return v;
+  },
   agentName: (v) => String(v).trim() || "Claude",
   model: (v) => (v ? String(v) : null),
+  "chatgpt.model": (v) => (v ? String(v) : null),
   groupTriggers: (v) => (Array.isArray(v) ? v : String(v).split(",")).map((x) => x.trim()).filter(Boolean),
   respondToAllInGroups: Boolean,
   allowBash: Boolean,
@@ -575,6 +585,8 @@ async function settings() {
   const loc = await locate();
   const cfg = await getConfig();
   return {
+    provider: providerOf(cfg),
+    chatgpt: { model: cfg.chatgpt?.model ?? null, models: chatgptModels(loc), ...chatgptAccount(loc) },
     agentName: cfg.agentName ?? "Claude",
     model: cfg.model ?? null,
     groupTriggers: cfg.groupTriggers ?? [],
@@ -626,10 +638,12 @@ async function connections() {
     { name: "Scheduler", detail: "Reminders and recurring tasks (every chat)" },
     ...(cfg.fantasy ? [{ name: "Fantasy football", detail: `ESPN league ${cfg.fantasy.espnLeagueId}${cfg.fantasy.sleeper === false ? "" : " + Sleeper"} (every chat)` }] : []),
     ...(cfg.fantasy && cfg.fantasy.nflverse !== false ? [{ name: "NFL usage stats", detail: "nflverse snaps, targets, expected points and injury reports, updated daily" }] : []),
-    { name: "Files & web", detail: "Read/write in the chat folder, web search and fetch (1:1 chats only)" },
-    ...(cfg.allowBash ? [{ name: "Shell", detail: "Runs commands on this Mac (1:1 chats only)" }] : []),
+    providerOf(cfg) === "chatgpt"
+      ? { name: "Files, photos & web", detail: "Edit files in the chat folder, view photos, web search (1:1 chats only)" }
+      : { name: "Files & web", detail: "Read/write in the chat folder, web search and fetch (1:1 chats only)" },
+    ...(cfg.allowBash ? [{ name: "Shell", detail: `Runs commands on this Mac${providerOf(cfg) === "chatgpt" ? " in a sandbox (writes only to the chat folder, no network)" : ""} (1:1 chats only)` }] : []),
   ];
-  return { servers, extraTools: cfg.extraAllowedTools ?? [], builtIn };
+  return { provider: providerOf(cfg), servers, extraTools: cfg.extraAllowedTools ?? [], builtIn };
 }
 
 // claude.ai connectors (they come with the Claude sign-in; the agent may only call the tools
@@ -667,6 +681,83 @@ async function removeExtraTool(name) {
   await updateConfig((cfg) => {
     cfg.extraAllowedTools = (cfg.extraAllowedTools ?? []).filter((t) => t !== name);
   });
+}
+
+// ---------- ChatGPT (Codex) ----------
+
+const providerOf = (cfg) => (cfg?.provider === "chatgpt" ? "chatgpt" : "claude");
+const PLAN_NAMES = { free: "Free", go: "Go", plus: "Plus", pro: "Pro", team: "Business", business: "Business", edu: "Edu", enterprise: "Enterprise" };
+const planName = (p) => PLAN_NAMES[p] ?? p;
+
+/** Waterboy's own Codex home (same as the service's codexHome): its ChatGPT sign-in and settings. */
+const codexHome = (loc) => path.join(loc.dataDir, "codex");
+
+/** The signed-in ChatGPT account (plan only; the tokens are never read out). */
+function chatgptAccount(loc) {
+  try {
+    const auth = JSON.parse(fs.readFileSync(path.join(codexHome(loc), "auth.json"), "utf8"));
+    const payload = String(auth.tokens?.id_token ?? "").split(".")[1] ?? "";
+    const claims = payload ? JSON.parse(Buffer.from(payload, "base64url").toString()) : {};
+    return { signedIn: auth.auth_mode === "chatgpt" && !!auth.tokens, plan: claims["https://api.openai.com/auth"]?.chatgpt_plan_type ?? null };
+  } catch {
+    return { signedIn: false, plan: null };
+  }
+}
+
+/** Models Codex lists for this account (its models_cache.json, written after the first turn). */
+function chatgptModels(loc) {
+  const cache = readJson(path.join(codexHome(loc), "models_cache.json"));
+  return (cache?.models ?? []).filter((m) => m.visibility === "list" && m.slug).map((m) => ({ id: m.slug, name: m.display_name || m.slug }));
+}
+
+/** The `codex` CLI bundled with the service (node_modules/@openai/codex-darwin-<arch>). */
+async function codexBinary() {
+  const loc = await locate();
+  const arch = process.arch === "arm64" ? "arm64" : "x64";
+  const triple = arch === "arm64" ? "aarch64-apple-darwin" : "x86_64-apple-darwin";
+  const bin = path.join(loc.project, "node_modules", `@openai/codex-darwin-${arch}`, "vendor", triple, "bin", "codex");
+  if (!fs.existsSync(bin)) throw new Error("This copy of the agent doesn't include ChatGPT support (the codex CLI is missing). Run npm install in the agent project.");
+  return { bin, home: codexHome(loc) };
+}
+
+function ensureCodexHome(home) {
+  fs.mkdirSync(home, { recursive: true, mode: 0o700 });
+  const file = path.join(home, "config.toml");
+  if (!fs.existsSync(file))
+    fs.writeFileSync(file, '# Written by Waterboy. Codex settings for each turn are passed on the command line instead.\ncli_auth_credentials_store = "file"\nforced_login_method = "chatgpt"\n');
+}
+
+let signingIn = null;
+/**
+ * Sign in with ChatGPT: runs `codex login`, which opens the browser and waits for the redirect to
+ * localhost:1455. Resolves once it finishes (or after 5 minutes). Only one at a time.
+ */
+async function chatgptSignIn() {
+  if (signingIn) return signingIn;
+  const { bin, home } = await codexBinary();
+  ensureCodexHome(home);
+  signingIn = new Promise((resolve, reject) => {
+    const child = spawn(bin, ["login"], { env: { ...process.env, CODEX_HOME: home }, stdio: ["ignore", "pipe", "pipe"] });
+    let out = "";
+    child.stdout.on("data", (d) => (out += d));
+    child.stderr.on("data", (d) => (out += d));
+    const timer = setTimeout(() => child.kill(), 5 * 60_000);
+    child.on("error", reject);
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      const loc = { dataDir: path.dirname(home) };
+      if (code === 0 && chatgptAccount(loc).signedIn) resolve(chatgptAccount(loc));
+      else reject(new Error(code === null ? "Sign-in timed out." : `Sign-in didn't finish${/Error|error/.test(out) ? `: ${out.trim().split("\n").pop()}` : "."}`));
+    });
+  }).finally(() => (signingIn = null));
+  return signingIn;
+}
+
+async function chatgptSignOut() {
+  const { bin, home } = await codexBinary();
+  await run(bin, ["logout"], { env: { ...process.env, CODEX_HOME: home } }).catch(() => {});
+  fs.rmSync(path.join(home, "auth.json"), { force: true });
+  return chatgptAccount({ dataDir: path.dirname(home) });
 }
 
 // ---------- overview ----------
@@ -718,6 +809,9 @@ module.exports = {
   connections,
   removeExtraTool,
   setConnector,
+  chatgptSignIn,
+  chatgptSignOut,
+  chatgptAccount,
   connectorLevel,
   normalizeHandle,
   chatDirName,

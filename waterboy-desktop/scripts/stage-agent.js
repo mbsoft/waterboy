@@ -4,6 +4,7 @@
  *
  * For each architecture, build/agent/<arch>/agent/ gets
  *   index.mjs            the service, compiled from src/ by esbuild (npm packages left external)
+ *   mcpServer.mjs        Waterboy's tools as stdio MCP servers, for the ChatGPT (Codex) assistant
  *   node_modules/        production dependencies for that architecture (the Agent SDK's Claude binary is per-arch)
  *   package.json, package-lock.json, run.sh, config.example.json
  * electron-builder copies it to Waterboy.app/Contents/Resources/agent (extraResources in electron-builder.yml).
@@ -34,6 +35,7 @@ for (const arch of arches) {
   fs.mkdirSync(dir, { recursive: true });
   const copy = (from, to = path.basename(from)) => fs.copyFileSync(path.join(AGENT, from), path.join(dir, to));
   copy("dist/index.mjs");
+  copy("dist/mcpServer.mjs");
   copy("package.json");
   copy("package-lock.json");
   copy("config.example.json");
@@ -56,5 +58,12 @@ for (const arch of arches) {
   const file = execFileSync("/usr/bin/file", ["-b", claude]).toString();
   const want = arch === "arm64" ? "arm64" : "x86_64";
   if (!file.includes(want)) throw new Error(`${arch}: the Claude binary is ${file.trim()}, expected ${want}`);
+
+  // The ChatGPT assistant runs this one (Codex CLI), also per-arch.
+  const triple = arch === "arm64" ? "aarch64-apple-darwin" : "x86_64-apple-darwin";
+  const codex = path.join(dir, `node_modules/@openai/codex-darwin-${arch}/vendor/${triple}/bin/codex`);
+  if (!fs.existsSync(codex)) throw new Error(`${arch}: ${codex} is missing`);
+  const codexFile = execFileSync("/usr/bin/file", ["-b", codex]).toString();
+  if (!codexFile.includes(want)) throw new Error(`${arch}: the Codex binary is ${codexFile.trim()}, expected ${want}`);
 }
 console.log(`Staged the agent for ${arches.join(", ")} in ${path.relative(process.cwd(), OUT) || OUT}`);

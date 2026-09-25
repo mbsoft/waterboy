@@ -291,7 +291,7 @@
       setupBanner(),
       restartBanner(),
       card(h("h3", {}, `${name} status`), h("div", { class: "status" }, statusBody)),
-      card(h("div", { class: "readiness" }, h("h3", {}, "Setup readiness"), h("div", { class: "checks" }, check("Claude Code", r.claude), check("Messages", r.messages), check("Conversations", r.conversations)))),
+      card(h("div", { class: "readiness" }, h("h3", {}, "Setup readiness"), h("div", { class: "checks" }, check(r.provider === "chatgpt" ? "ChatGPT" : "Claude Code", r.claude), check("Messages", r.messages), check("Conversations", r.conversations)))),
       card(
         h("h3", {}, "Today"),
         h(
@@ -343,6 +343,7 @@
       ),
       card(
         h("h3", {}, "Extra allowed tools"),
+        c.provider === "chatgpt" ? h("p", { class: "desc" }, "Claude only. With ChatGPT, 1:1 chats can use every tool of the MCP servers above.") : null,
         h("p", { class: "desc" }, "Individual tools from connectors like Google Calendar that the agent may call without asking."),
         c.extraTools.length
           ? h(
@@ -789,6 +790,55 @@
     model.value = s.model ?? "";
     model.addEventListener("change", () => save({ model: model.value || null }, "Model saved").catch((e) => toast(e.message, true)));
 
+    // ChatGPT: the plan's models come from Codex's model list (known after the first reply).
+    const g = s.chatgpt;
+    const gptModels = [["", "ChatGPT plan default"], ...g.models.map((m) => [m.id, m.name])];
+    const gptModel = h("select", {}, gptModels.map(([v, l]) => h("option", { value: v }, l)));
+    if (g.model && !gptModels.some(([v]) => v === g.model)) gptModel.append(h("option", { value: g.model }, g.model));
+    gptModel.value = g.model ?? "";
+    gptModel.addEventListener("change", () => save({ "chatgpt.model": gptModel.value || null }, "Model saved").catch((e) => toast(e.message, true)));
+
+    const provider = h("select", { "aria-label": "Assistant" }, h("option", { value: "claude" }, "Claude"), h("option", { value: "chatgpt" }, "ChatGPT"));
+    provider.value = s.provider;
+    provider.addEventListener("change", async () => {
+      try {
+        await save({ provider: provider.value }, `Assistant set to ${provider.selectedOptions[0].text}`);
+        render();
+      } catch (e) {
+        toast(e.message, true);
+        provider.value = s.provider;
+      }
+    });
+    const planLabel = (p) => ({ free: "Free", go: "Go", plus: "Plus", pro: "Pro", team: "Business", business: "Business", edu: "Edu", enterprise: "Enterprise" })[p] ?? p;
+    const account = g.signedIn
+      ? h("div", { class: "inline" },
+          h("span", { class: "toggle-label" }, icon("check", 16), `Signed in${g.plan ? ` · ${planLabel(g.plan)} plan` : ""}`),
+          button("Sign out", async () => {
+            await api.chatgptSignOut();
+            toast("Signed out of ChatGPT");
+            render();
+          }))
+      : h("div", { class: "inline" },
+          h("span", { class: "toggle-label", style: "color:var(--warn)" }, icon("alert", 16), "Not signed in"),
+          button("Sign in with ChatGPT", async (b) => {
+            b.textContent = "Finish signing in in your browser…";
+            try {
+              const acct = await api.chatgptSignIn();
+              toast(`Signed in to ChatGPT${acct.plan ? ` (${planLabel(acct.plan)} plan)` : ""}`);
+            } finally {
+              render();
+            }
+          }, { primary: true }));
+    const assistantRows =
+      s.provider === "chatgpt"
+        ? [
+            h("label", {}, "ChatGPT account"), account,
+            h("div", { class: "hint" }, "Opens your browser. Waterboy keeps its own ChatGPT sign-in, separate from the ChatGPT and Codex apps. Replies count toward your ChatGPT plan's limits; Free and Go have the smallest, and busy group chats can run into them."),
+            h("label", {}, "Model"), gptModel,
+            h("div", { class: "hint" }, g.models.length ? "Models available on your ChatGPT plan." : "More models appear here after the first reply."),
+          ]
+        : [h("label", {}, "Model"), model, h("div", { class: "hint" }, "Uses your Claude Code sign-in.")];
+
     const f = s.fantasy;
     let fantasyCard = null;
     if (f) {
@@ -817,12 +867,13 @@
       pageHead("Settings", "Choose how the agent behaves on this Mac."),
       restartBanner(),
       card(
-        h("h3", {}, "Agent"),
+        h("h3", {}, "Assistant"),
         h("div", { class: "form" },
           h("label", {}, "Name"), textSetting("agentName", s.agentName),
           h("div", { class: "hint" }, "What the agent calls itself in replies."),
-          h("label", {}, "Model"), model,
-          h("div", { class: "hint" }, "Uses your Claude sign-in. Changes apply after a restart."),
+          h("label", {}, "Assistant"), provider,
+          h("div", { class: "hint" }, "Who writes the replies. Switching starts fresh conversations (memory is kept). Changes apply after a restart."),
+          ...assistantRows,
         ),
       ),
       card(
@@ -841,8 +892,10 @@
             h("option", { value: "read" }, "Read only"),
             h("option", { value: "full" }, "Read and edit"));
           level.value = s.connectors.googleCalendar;
+          level.disabled = s.provider === "chatgpt";
           const hint = h("div", { class: "hint" });
           const describe = () => {
+            if (s.provider === "chatgpt") return (hint.textContent = "");
             hint.textContent = {
               off: "The agent can't see your calendar.",
               read: "The agent can check your schedule, find events and suggest free times.",
@@ -864,7 +917,9 @@
           return h("div", { class: "form" },
             h("label", {}, "Access"), level, describe && hint,
             h("p", { class: "note full", style: "margin:0" },
-              "Uses the Google Calendar connector on your Claude account (claude.ai → Settings → Connectors) and only works in 1:1 chats with Everything access. Group chats and fantasy-only people never get it."),
+              s.provider === "chatgpt"
+                ? "Only available with Claude as the assistant: it uses the Google Calendar connector on your Claude account."
+                : "Uses the Google Calendar connector on your Claude account (claude.ai → Settings → Connectors) and only works in 1:1 chats with Everything access. Group chats and fantasy-only people never get it."),
           );
         })(),
       ),
@@ -879,6 +934,7 @@
         h("h3", {}, "Limits and safety"),
         h("div", { class: "form" },
           h("label", {}, "Max steps per reply"), textSetting("maxTurns", String(s.maxTurns), { style: "max-width:90px" }),
+          s.provider === "chatgpt" ? h("div", { class: "hint" }, "Claude only. ChatGPT replies are limited by the reply timeout.") : null,
           h("label", {}, "Reply timeout (min)"), (() => {
             let minutes = String(Math.round(s.turnTimeoutMs / 60000));
             const input = h("input", { type: "text", value: minutes, style: "max-width:90px" });
@@ -892,7 +948,10 @@
             return h("div", { class: "inline" }, input, b);
           })(),
           h("label", {}, "Shell commands"), h("span", { class: "toggle-label" }, toggle(s.allowBash, (on) => save({ allowBash: on }), "Allow shell commands"), "Let the agent run commands on this Mac"),
-          h("div", { class: "hint", style: s.allowBash ? "color:var(--warn)" : "" }, "Anyone in an allowed 1:1 conversation could then run commands here. Leave off unless you need it."),
+          h("div", { class: "hint", style: s.allowBash ? "color:var(--warn)" : "" },
+            s.provider === "chatgpt"
+              ? "Anyone in an allowed 1:1 conversation could then run commands here. With ChatGPT they run in a sandbox that can read this Mac but only write to the chat folder, without network access. Leave off unless you need it."
+              : "Anyone in an allowed 1:1 conversation could then run commands here. Leave off unless you need it."),
         ),
       ),
       fantasyCard,

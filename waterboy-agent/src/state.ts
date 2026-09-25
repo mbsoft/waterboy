@@ -30,6 +30,7 @@ export class State {
     this.db = new DatabaseSync(path.join(dataDir, "state.db"));
     this.db.exec(`
       PRAGMA journal_mode = WAL;
+      PRAGMA busy_timeout = 5000;
       CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);
       CREATE TABLE IF NOT EXISTS chats (
         chat_guid TEXT PRIMARY KEY,

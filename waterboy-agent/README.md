@@ -79,6 +79,8 @@ On first start the service begins at the newest message, so it never answers old
 
 | key | meaning |
 |---|---|
+| `provider` | `"claude"` (default: Claude Agent SDK on your Claude Code login) or `"chatgpt"` (Codex SDK on a ChatGPT sign-in; see below) |
+| `chatgpt.model` | Model for the ChatGPT assistant; `null` means your ChatGPT plan's default |
 | `allowedChats` | Phone numbers or emails (1:1 chats); group display names, `chat_identifier`s or GUIDs (groups). Phone numbers match on their last 10 digits. |
 | `contacts` | Handle → name map, used to label senders in groups |
 | `groupTriggers` / `respondToAllInGroups` | When the agent speaks in group chats |
@@ -88,6 +90,35 @@ On first start the service begins at the newest message, so it never answers old
 | `loadUserClaudeSettings` | Also load `~/.claude/settings.json` (your user-level MCP servers, hooks, etc.) |
 | `model` | Model override; `null` means Claude Code's default |
 | `voice` | whisper.cpp binary and model path |
+
+## ChatGPT as the assistant
+
+With `"provider": "chatgpt"` the replies come from ChatGPT instead of Claude, through the Codex SDK
+(`@openai/codex-sdk`, pinned to an exact version) and whatever ChatGPT account is signed in, Free
+plan included. Sign in from the desktop app (Settings → Assistant → Sign in with ChatGPT), which
+runs `codex login` against Waterboy's own Codex home, `~/.imessage-agent/codex`. It never uses
+`~/.codex`, so your own Codex settings, plugins and history stay out of it.
+
+- **Tools.** Codex only takes external MCP servers, so the fantasy and scheduler tools run as
+  stdio servers (`src/mcpServer.ts`), started for each turn with the chat's context. Report text
+  a fantasy tool posts is relayed back through a file and sent as soon as the tool finishes.
+- **Group and fantasy-only chats** are locked down by configuration (`src/codex.ts`): the shell,
+  image viewing, web search, the ChatGPT account's apps and plugins, sub-agents, goals, browsers
+  and Computer Use are all off, Codex's own instructions are replaced with the fantasy-only
+  policy, and the sandbox is read-only. What's left is the fantasy and scheduler tools, a clock,
+  and a file-edit tool the read-only sandbox blocks. On start the service checks that the installed
+  Codex turns on no features that haven't been reviewed (`REVIEWED_DEFAULT_ON`); if it does, group
+  and fantasy turns stop with an error until they are. Review them whenever you upgrade Codex.
+- **1:1 chats** get file edits in the chat folder (memory, the outbox), photos, live web search and
+  your `mcpServers`; the shell only with `allowBash`, and then sandboxed (writes only in the chat
+  folder, no network). `maxTurns`, `extraAllowedTools`, `loadUserClaudeSettings` and the Google
+  Calendar connector are Claude-only.
+- **Usage** counts toward your ChatGPT plan's limits; the log shows tokens per turn instead of a
+  cost. Free and Go have the smallest limits.
+- Switching provider starts a fresh conversation in every chat (memory is kept).
+
+OpenAI recommends API keys for automated Codex use. Running Waterboy on a ChatGPT sign-in is for
+your own personal use on your own Mac.
 
 ## Group chats are fantasy-only
 

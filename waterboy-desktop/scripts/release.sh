@@ -106,6 +106,10 @@ for app in dist/mac*/"Waterboy.app"; do
   [ -x "$agent/run.sh" ] && [ -f "$agent/index.mjs" ] || die "$app has no bundled agent."
   claude=$(ls "$agent"/node_modules/@anthropic-ai/claude-agent-sdk-darwin-*/claude)
   codesign --verify --strict "$claude"
+  # ChatGPT assistant: the tool server and the Codex CLI (still OpenAI-signed).
+  [ -f "$agent/mcpServer.mjs" ] || die "$app has no mcpServer.mjs."
+  codex=$(ls "$agent"/node_modules/@openai/codex-darwin-*/vendor/*/bin/codex)
+  codesign --verify --strict "$codex"
   ELECTRON_RUN_AS_NODE=1 "$app/Contents/MacOS/Waterboy" -e 'require("node:sqlite")' 2>/dev/null \
     || [ "$(uname -m)" != "$(lipo -archs "$app/Contents/MacOS/Waterboy")" ] || die "$app can't run the service (ELECTRON_RUN_AS_NODE disabled?)."
 done

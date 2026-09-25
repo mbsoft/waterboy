@@ -40,9 +40,11 @@ mac:
   entitlementsInherit: build/entitlements.mac.plist
   # Notarizes the app when APPLE_* credentials are in the environment (scripts/release.sh requires them).
   notarize: true
-  # The Agent SDK's Claude binary is already signed and notarized by Anthropic; keep that signature.
+  # The Agent SDK's Claude binary and the Codex CLI (with its helpers and libraries) are already
+  # signed with the hardened runtime by Anthropic and OpenAI; keep those signatures.
   signIgnore:
     - "Resources/agent/node_modules/@anthropic-ai/claude-agent-sdk-darwin-[^/]+/claude$"
+    - "Resources/agent/node_modules/@openai/codex-darwin-[^/]+/vendor/"
   minimumSystemVersion: "12.0"
   extendInfo:
     # Shown when the bundled service first sends a message through Messages.

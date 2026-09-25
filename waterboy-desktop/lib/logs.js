@@ -11,7 +11,7 @@ const LINE = /^(\d{4}-\d{2}-\d{2}T[\d:.]+Z) \[(\w+)\] (.*)$/;
  */
 function parseLog(text) {
   const events = [];
-  const openTurns = []; // turn-start times waiting for their "turn cost" line
+  const openTurns = []; // turn-start times waiting for their "turn cost"/"turn used" line
   for (const raw of text.split("\n")) {
     const m = raw.match(LINE);
     if (!m) continue;
@@ -21,10 +21,12 @@ function parseLog(text) {
     if ((x = msg.match(/^(.+?) agent started\. Watching/))) e = { kind: "start", title: "Agent started", detail: `${x[1]} is watching Messages` };
     else if (/SIGTERM received|SIGINT received/.test(msg)) e = { kind: "stop", title: "Agent stopping", detail: "Finishing in-flight replies" };
     else if (/^allowlisted chats:/.test(msg)) continue;
+    else if ((x = msg.match(/^assistant: (Claude|ChatGPT)(?: \((.+)\))?$/))) e = { kind: "info", title: `Assistant: ${x[1]}`, detail: x[2] ?? "" };
+    else if ((x = msg.match(/^group and fantasy chats are off: (.+)$/))) e = { kind: "error", title: "Group chats paused", detail: `Codex turned on features Waterboy hasn't reviewed: ${x[1].replace(/^unreviewed Codex features /, "")}` };
     else if ((x = msg.match(/^session (\S+) \(auth: (\w+), model: (.+)\)$/))) {
       openTurns.push(Date.parse(at));
       e = { kind: "turn", title: "Working on a reply", detail: x[3], model: x[3] };
-    } else if ((x = msg.match(/^(.+): turn cost \$([\d.]+)/))) {
+    } else if ((x = msg.match(/^(.+): turn (?:cost \$[\d.]+|used \d+ tokens)/))) {
       const started = openTurns.shift();
       const seconds = started ? Math.round((Date.parse(at) - started) / 100) / 10 : null;
       e = { kind: "reply", title: "Reply delivered", chat: x[1], seconds, detail: [x[1], seconds !== null ? `${seconds} s` : null].filter(Boolean).join(" · ") };

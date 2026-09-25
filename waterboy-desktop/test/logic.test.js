@@ -87,3 +87,32 @@ test("automations: edit in place, keeping the next run unless the schedule chang
     delete process.env.IMESSAGE_AGENT_DIR;
   }
 });
+
+test("ChatGPT turns, the assistant line and the lockdown stop become events", () => {
+  const ev = parseLog(`2026-09-25T17:00:00.000Z [main] assistant: ChatGPT (signed in, free plan)
+2026-09-25T17:00:01.000Z [main] group and fantasy chats are off: unreviewed Codex features shiny_new_tool
+2026-09-25T17:01:00.000Z [agent] session 01a0d989 (auth: chatgpt, model: ChatGPT default)
+2026-09-25T17:01:08.700Z [bot] Suze: turn used 19848 tokens (14592 cached)`);
+  assert.deepEqual(ev.map((e) => e.kind), ["info", "error", "turn", "reply"]);
+  assert.equal(ev[0].title, "Assistant: ChatGPT");
+  assert.equal(ev[0].detail, "signed in, free plan");
+  assert.equal(ev[1].title, "Group chats paused");
+  assert.match(ev[1].detail, /shiny_new_tool/);
+  assert.equal(ev[3].chat, "Suze");
+  assert.equal(ev[3].seconds, 8.7);
+});
+
+test("the ChatGPT account is read from Waterboy's Codex home without exposing tokens", () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const { chatgptAccount } = require("../lib/agent");
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "wb-"));
+  assert.deepEqual(chatgptAccount({ dataDir }), { signedIn: false, plan: null });
+  fs.mkdirSync(path.join(dataDir, "codex"));
+  const claims = Buffer.from(JSON.stringify({ "https://api.openai.com/auth": { chatgpt_plan_type: "plus" } })).toString("base64url");
+  fs.writeFileSync(path.join(dataDir, "codex/auth.json"), JSON.stringify({ auth_mode: "chatgpt", tokens: { id_token: `h.${claims}.s`, access_token: "secret" } }));
+  const acct = chatgptAccount({ dataDir });
+  assert.deepEqual(acct, { signedIn: true, plan: "plus" });
+  assert.ok(!JSON.stringify(acct).includes("secret"));
+});

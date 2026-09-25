@@ -31,8 +31,9 @@ npm run icon            # regenerate build/icon.icns + icon.png from scripts/mak
 ```
 
 Both projects need `npm install` first (staging uses the agent's esbuild). The Agent SDK's Claude
-binary is per-architecture (~200 MB each), so the arm64 and x64 builds each get their own
-`node_modules`; they're only reinstalled when the agent's `package-lock.json` changes.
+binary (~200 MB) and the Codex CLI for the ChatGPT assistant (~330 MB) are per-architecture, so the
+arm64 and x64 builds each get their own `node_modules`; they're only reinstalled when the agent's
+`package-lock.json` changes. Both binaries keep their vendors' own signatures (`signIgnore`).
 
 `npm run release` (see `scripts/release.sh`) refuses to build unless it has:
 
@@ -85,7 +86,7 @@ browser through `shell.openExternal`; the renderer never gets the URL.
 | Memory | View, edit or erase each conversation's `MEMORY.md`; start a fresh conversation (like `/new`) | `~/.imessage-agent/chats/*/MEMORY.md`, `state.db` |
 | Automations | List, turn on/off, delete and create scheduled tasks | `state.db` `tasks` |
 | Logs | Readable activity feed from `agent.log` (filters, pages) plus recent `agent.err.log` lines | logs folder |
-| Settings | Agent name, model, group wake words, voice transcription, limits, shell access, fantasy league | `config.json` |
+| Settings | Agent name, assistant (Claude or ChatGPT) and model, ChatGPT sign-in, group wake words, voice transcription, limits, shell access, fantasy league | `config.json`, `~/.imessage-agent/codex` (ChatGPT sign-in) |
 
 Config changes take effect when the agent restarts; the app shows a "Restart now" banner
 whenever `config.json` is newer than the running service. Pause unloads the launchd job, so

@@ -1,4 +1,6 @@
 {
+  "provider": "claude",
+  "chatgpt": { "model": null },
   "agentName": "Claude",
 
   "allowedChats": [

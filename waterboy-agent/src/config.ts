@@ -9,7 +9,17 @@ export interface VoiceConfig {
   modelPath: string;
 }
 
+/** Which assistant answers: Claude (Claude Agent SDK, Claude Code sign-in) or ChatGPT (Codex SDK, ChatGPT sign-in). */
+export type Provider = "claude" | "chatgpt";
+
+export interface ChatGptConfig {
+  /** Codex model override; null = the default for the signed-in ChatGPT plan. */
+  model: string | null;
+}
+
 export interface Config {
+  provider: Provider;
+  chatgpt: ChatGptConfig;
   agentName: string;
   /** Phone numbers / emails (1:1 chats) and chat GUIDs, identifiers or display names (group chats). */
   allowedChats: string[];
@@ -54,6 +64,8 @@ export function expandHome(p: string): string {
 }
 
 const DEFAULTS: Config = {
+  provider: "claude",
+  chatgpt: { model: null },
   agentName: "Claude",
   allowedChats: [],
   contacts: {},
@@ -93,7 +105,12 @@ export function loadConfig(file = process.env.IMESSAGE_AGENT_CONFIG ?? "config.j
     ...DEFAULTS,
     ...raw,
     voice: { ...DEFAULTS.voice, ...(raw.voice ?? {}) },
+    chatgpt: { ...DEFAULTS.chatgpt, ...(raw.chatgpt ?? {}) },
   };
+  if (cfg.provider !== "claude" && cfg.provider !== "chatgpt") {
+    console.warn(`[config] unknown provider ${JSON.stringify(cfg.provider)}, using claude`);
+    cfg.provider = "claude";
+  }
   if (process.env.IMESSAGE_AGENT_DRY_RUN === "1") cfg.dryRun = true;
   cfg.dataDir = expandHome(cfg.dataDir);
   cfg.outboxStagingDir = expandHome(cfg.outboxStagingDir);
