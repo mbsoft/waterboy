@@ -39,6 +39,28 @@ export interface FantasyConfig {
   tradeCards?: boolean;
   /** Send a player comparison image with comparisons and start/sit answers (default true). */
   compareCards?: boolean;
+  /** Live scoring alerts while games are being played (see fantasy/live.ts). */
+  liveAlerts?: LiveAlertConfig;
+}
+
+/**
+ * Who gets live scoring alerts and how big a move it takes. People opt in by handle, the same
+ * phone numbers / emails used by `teams` and `contacts`; nobody is alerted by default.
+ */
+export interface LiveAlertConfig {
+  /** Master switch (default false). */
+  enabled?: boolean;
+  /** Percentage move in a team's projected final that fires an alert (default 5). */
+  thresholdPct?: number;
+  /** How often to check while games are live, in minutes (default 5). */
+  checkMinutes?: number;
+  /**
+   * Handles allowed to subscribe, or "*" for anyone with a team in `teams`. Each subscriber is
+   * alerted about their own matchup, resolved through `teams`.
+   */
+  subscribers?: string[];
+  /** Smallest per-player move worth listing in the alert, in points (default 1). */
+  minPlayerPoints?: number;
 }
 
 /** The team "me" refers to this turn (see FantasyConfig.me). */

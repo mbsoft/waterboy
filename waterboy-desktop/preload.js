@@ -3,9 +3,9 @@ const { contextBridge, ipcRenderer } = require("electron");
 // window.agent.<name>(...args) → the matching handler in main.js. Rejects with the error message.
 const names = [
   "overview", "start", "pause", "restart", "logs", "conversations", "setAllowed", "addPerson", "setContactName", "setAdmin",
-  "setTeam", "setAccess", "fantasyTeams", "automations", "createAutomation", "updateAutomation", "setAutomationEnabled", "deleteAutomation",
+  "setTeam", "setAccess", "fantasyTeams", "setAlertSubscriber", "alertPlan", "createAlertAutomations", "automations", "createAutomation", "updateAutomation", "setAutomationEnabled", "deleteAutomation",
   "describeSchedule", "memories", "saveMemory", "resetSession", "settings", "saveSettings", "connections",
-  "removeExtraTool", "setConnector", "open", "version", "installService", "openCoffee", "chatgptSignIn", "chatgptSignOut",
+  "removeExtraTool", "setConnector", "open", "version", "installService", "openSupport", "chatgptSignIn", "chatgptSignOut",
 ];
 
 const api = {};

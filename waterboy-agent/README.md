@@ -183,6 +183,32 @@ These sources are free but unofficial and can change without notice; if one is u
 
 - **Waiver wire report:** "waiver report", "who should I pick up?", or "waivers for Kathy". The report covers the best available players at each position for the upcoming week (projection, % rostered and trend, waivers vs free agent, injury), trending adds, and the league's recent adds and drops. With a team, it adds add/drop suggestions: when a free agent projects at least 2 points above that team's weakest player at the position, it suggests the swap (or stashing an injured player instead). To get it weekly, ask for "the waiver report here every Tuesday at 6pm".
 
+- **Live scoring alerts:** off by default. Turn them on with a `liveAlerts` block in the `fantasy` config, then, in the chat that should receive them, text "alert me when my projected score swings during games". That creates a scheduled task with the `fantasy_scoring_swing` condition: every few minutes on game days it checks whether any NFL game is in progress and, if so, compares your matchup's projected finals against the previous check. A move of more than `thresholdPct` on either side is texted straight away; anything smaller is silent, and the baseline resets after each alert so a swing fires once as it happens rather than every tick.
+
+  ```json
+  "liveAlerts": {
+    "enabled": true,
+    "thresholdPct": 5,
+    "checkMinutes": 5,
+    "subscribers": ["+16145551234"],
+    "minPlayerPoints": 1
+  }
+  ```
+
+  `subscribers` is the opt-in list (phone numbers / emails, or `"*"` for anyone with a team in `fantasy.teams`); nobody is alerted without it, and group chats are skipped because there is no single subscriber to resolve a matchup for. Each person is alerted about their own matchup, both sides. The alert text is built in code (`src/fantasy/live.ts`) and sent verbatim, so a mid-game alert costs no model call and reads the same every time:
+
+  ```
+  🏈 Week 4 live update
+
+  Brownie Poos  118.4 → 133.5  (+12.8%) · live 40.2
+     J. Chase  8.2 → 20.1  (+11.9)
+     B. Robinson  11 → 7.4  (−3.6)
+
+  vs Team Kathy  121.8 → 122  (+0.2%)
+
+  Win probability 44% → 61%
+  ```
+
 The roundup text itself (results, standings with movement and playoff line, highlights) is computed in code (`src/fantasy.ts`), so the numbers don't depend on the model. If ESPN hasn't officially finalized the week yet, results are decided by points; stat corrections later in the week can occasionally change a close game.
 
 ## Files
@@ -233,8 +259,9 @@ src/
   messages/         reading chat.db, attachments and voice, sending (AppleScript), the iMessage helper
                     (typing, tapbacks, threaded replies)
   assistants/       the runner interface (types), Claude, ChatGPT (Codex)
-  fantasy/          config, ESPN client, name matching, roundup, matchup previews, waivers, the agent tools,
-                    source names; data/ (Sleeper, nflverse, Vegas, rankings, trade values); startSit/ (+ card)
+  fantasy/          config, ESPN client, name matching, roundup, matchup previews, waivers, live scoring
+                    alerts, the agent tools, source names; data/ (Sleeper, nflverse, Vegas, rankings,
+                    trade values); startSit/ (+ card)
 ```
 
 ```bash

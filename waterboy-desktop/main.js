@@ -7,8 +7,8 @@ const { redactPage, namesToRedact } = require("./lib/redact");
 
 app.setName("Waterboy");
 
-// "Buy me a coffee" link: the `funding` URL in package.json (the About page hides the card without one).
-const COFFEE_URL = (() => {
+// "Buy me a beer" link: the `funding` URL in package.json (the About page hides the card without one).
+const SUPPORT_URL = (() => {
   const f = require("./package.json").funding;
   const url = typeof f === "string" ? f : f?.url;
   return /^https:\/\//.test(url ?? "") ? url : null;
@@ -42,6 +42,9 @@ const API = {
   setTeam: (handle, team) => agent.setTeam(handle, team),
   setAccess: (handle, level) => agent.setAccess(handle, level),
   fantasyTeams: () => agent.fantasyTeams(),
+  setAlertSubscriber: (handle, on) => agent.setAlertSubscriber(handle, on),
+  alertPlan: () => agent.alertPlan(),
+  createAlertAutomations: () => agent.createAlertAutomations(),
   automations: () => agent.automations(),
   createAutomation: (t) => agent.createAutomation(t),
   updateAutomation: (id, t) => agent.updateAutomation(id, t),
@@ -67,10 +70,10 @@ const API = {
     const err = await shell.openPath(target);
     if (err) throw new Error(err);
   },
-  version: () => ({ app: app.getVersion(), electron: process.versions.electron, node: process.versions.node, coffee: !!COFFEE_URL }),
-  openCoffee: async () => {
-    if (!COFFEE_URL) throw new Error("No Buy Me a Coffee link is set.");
-    await shell.openExternal(COFFEE_URL);
+  version: () => ({ app: app.getVersion(), electron: process.versions.electron, node: process.versions.node, support: !!SUPPORT_URL }),
+  openSupport: async () => {
+    if (!SUPPORT_URL) throw new Error("No Buy Me a Coffee link is set.");
+    await shell.openExternal(SUPPORT_URL);
   },
 };
 

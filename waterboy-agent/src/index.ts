@@ -104,7 +104,11 @@ const nflverseTimer =
     : null;
 
 const pollTimer = setInterval(poll, cfg.pollIntervalMs);
-const schedTimer = startScheduler(state, (t, ctx) => bot.runTask(t, ctx), conditions);
+const schedTimer = startScheduler(
+  state,
+  (t, ctx, verbatim) => (verbatim && ctx ? bot.notify(t.chatGuid, ctx) : bot.runTask(t, ctx)),
+  conditions,
+);
 
 const shutdown = async (sig: string) => {
   log(`[main] ${sig} received, finishing in-flight turns…`);

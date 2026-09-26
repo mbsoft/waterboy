@@ -168,3 +168,172 @@ test("typing-indicator helper lines become events", () => {
 2026-09-25T18:00:01.000Z [imessage] typing indicators on (helper 0.1.0)`);
   assert.deepEqual(ev.map((e) => [e.kind, e.title]), [["error", "Typing indicators need Accessibility"], ["info", "Typing indicators on"]]);
 });
+
+test("live alerts: settings, clamping and per-person subscriptions", async () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const agent = require("../lib/agent");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-alerts-"));
+  const file = path.join(dir, "config.json");
+  const read = () => JSON.parse(fs.readFileSync(file, "utf8"));
+  fs.writeFileSync(file, JSON.stringify({
+    dataDir: dir,
+    allowedChats: [],
+    contacts: { "+16145550142": "Suze" },
+    fantasy: { espnLeagueId: "1", teams: { "+16145550142": "Suze's Castaways", "kathy@example.com": "Team Kathy" } },
+  }));
+  const prev = process.env.IMESSAGE_AGENT_DIR;
+  process.env.IMESSAGE_AGENT_DIR = dir;
+  try {
+    // Defaults before anything is configured: off, nobody subscribed, but both team owners listed.
+    let a = agent.liveAlerts(read());
+    assert.deepEqual([a.enabled, a.everyone, a.thresholdPct, a.checkMinutes, a.minPlayerPoints], [false, false, 5, 5, 1]);
+    assert.deepEqual(a.people.map((p) => [p.name ?? p.handle, p.team, p.subscribed]),
+      [["Suze", "Suze's Castaways", false], ["kathy@example.com", "Team Kathy", false]]);
+
+    // A three-level key creates the nested object.
+    await agent.saveSettings({ "fantasy.liveAlerts.enabled": true, "fantasy.liveAlerts.thresholdPct": 8 });
+    assert.deepEqual(read().fantasy.liveAlerts, { enabled: true, thresholdPct: 8 });
+
+    // Out-of-range and junk values are clamped, not written through.
+    await agent.saveSettings({ "fantasy.liveAlerts.thresholdPct": 500, "fantasy.liveAlerts.checkMinutes": 0 });
+    assert.equal(read().fantasy.liveAlerts.thresholdPct, 100);
+    assert.equal(read().fantasy.liveAlerts.checkMinutes, 1);
+    await agent.saveSettings({ "fantasy.liveAlerts.thresholdPct": "abc" });
+    assert.equal(read().fantasy.liveAlerts.thresholdPct, 5, "junk falls back to the default");
+    // minPlayerPoints keeps one decimal; the others round to whole numbers.
+    await agent.saveSettings({ "fantasy.liveAlerts.minPlayerPoints": 2.46, "fantasy.liveAlerts.checkMinutes": 4.6 });
+    assert.equal(read().fantasy.liveAlerts.minPlayerPoints, 2.5);
+    assert.equal(read().fantasy.liveAlerts.checkMinutes, 5);
+
+    // Subscribing matches a handle in any format, and unsubscribing removes exactly one person.
+    await agent.setAlertSubscriber("614.555.0142", true);
+    await agent.setAlertSubscriber("kathy@example.com", true);
+    assert.deepEqual(read().fantasy.liveAlerts.subscribers, ["614.555.0142", "kathy@example.com"]);
+    a = agent.liveAlerts(read());
+    assert.deepEqual(a.people.map((p) => p.subscribed), [true, true], "matched despite the different format");
+    await agent.setAlertSubscriber("+16145550142", false);
+    assert.deepEqual(read().fantasy.liveAlerts.subscribers, ["kathy@example.com"]);
+
+    // "*" is its own entry and does not disturb the named ones.
+    await agent.setAlertSubscriber("*", true);
+    assert.deepEqual(read().fantasy.liveAlerts.subscribers, ["kathy@example.com", "*"]);
+    assert.equal(agent.liveAlerts(read()).everyone, true);
+    await agent.setAlertSubscriber("*", false);
+    assert.deepEqual(read().fantasy.liveAlerts.subscribers, ["kathy@example.com"]);
+
+    // A setting the page doesn't own is still refused.
+    await assert.rejects(agent.saveSettings({ "fantasy.liveAlerts.somethingElse": 1 }), /can't be changed here/);
+  } finally {
+    if (prev === undefined) delete process.env.IMESSAGE_AGENT_DIR;
+    else process.env.IMESSAGE_AGENT_DIR = prev;
+  }
+});
+
+test("live alerts can't be configured without a league", async () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const agent = require("../lib/agent");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-noleague-"));
+  const file = path.join(dir, "config.json");
+  fs.writeFileSync(file, JSON.stringify({ dataDir: dir, allowedChats: [] }));
+  const prev = process.env.IMESSAGE_AGENT_DIR;
+  process.env.IMESSAGE_AGENT_DIR = dir;
+  try {
+    await agent.saveSettings({ "fantasy.liveAlerts.enabled": true });
+    assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).fantasy, undefined, "no league, no fantasy block");
+    await assert.rejects(agent.setAlertSubscriber("+16145550142", true), /isn't configured/);
+  } finally {
+    if (prev === undefined) delete process.env.IMESSAGE_AGENT_DIR;
+    else process.env.IMESSAGE_AGENT_DIR = prev;
+  }
+});
+
+test("live alert automations: one per subscriber, never duplicated", async () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const { DatabaseSync } = require("node:sqlite");
+  const agent = require("../lib/agent");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-alertauto-"));
+  const guid = (h) => `any;-;${h}`;
+  fs.writeFileSync(path.join(dir, "config.json"), JSON.stringify({
+    dataDir: dir,
+    // Dale is subscribed but never allowed, so he has nowhere to receive an alert.
+    allowedChats: ["+16145550142", "kathy@example.com"],
+    contacts: { "+16145550142": "Suze", "+16145550143": "Dale", "kathy@example.com": "Kathy" },
+    fantasy: {
+      espnLeagueId: "1",
+      teams: { "+16145550142": "Castaways", "+16145550143": "Bucko", "kathy@example.com": "Team Kathy" },
+      liveAlerts: { enabled: true, checkMinutes: 10, subscribers: ["+16145550142", "+16145550143"] },
+    },
+  }));
+  fs.writeFileSync(path.join(dir, "chats-index.json"), JSON.stringify({
+    chats: [
+      { guid: guid("+16145550142"), identifier: "+16145550142", isGroup: false, lastMessageAt: null },
+      { guid: guid("+16145550143"), identifier: "+16145550143", isGroup: false, lastMessageAt: null },
+      { guid: guid("kathy@example.com"), identifier: "kathy@example.com", isGroup: false, lastMessageAt: null },
+    ],
+  }));
+  const db = new DatabaseSync(path.join(dir, "state.db"));
+  db.exec(`CREATE TABLE tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_guid TEXT NOT NULL, schedule TEXT NOT NULL, prompt TEXT NOT NULL,
+    description TEXT NOT NULL, next_run INTEGER, enabled INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL, condition TEXT);
+    CREATE TABLE chats (chat_guid TEXT PRIMARY KEY, session_id TEXT, paused INTEGER NOT NULL DEFAULT 0, label TEXT);`);
+  db.close();
+  const prev = process.env.IMESSAGE_AGENT_DIR;
+  process.env.IMESSAGE_AGENT_DIR = dir;
+  try {
+    // Kathy has a team and an allowed chat but isn't subscribed, so she isn't in the plan at all.
+    let plan = await agent.alertPlan();
+    assert.deepEqual(plan.map((p) => [p.name, p.allowed, p.hasAutomation]), [["Suze", true, false], ["Dale", false, false]]);
+
+    const r = await agent.createAlertAutomations();
+    assert.deepEqual(r.created, ["Suze"]);
+    assert.deepEqual(r.skipped, ["Dale has no allowed conversation"]);
+
+    const rows = await agent.automations();
+    assert.equal(rows.length, 1);
+    assert.deepEqual([rows[0].chatGuid, rows[0].schedule, rows[0].condition, rows[0].enabled],
+      [guid("+16145550142"), "*/10 * * * 0,1,4", "fantasy_scoring_swing", true]);
+    assert.ok(rows[0].nextRun, "the first check is scheduled");
+
+    // Running it again is a no-op rather than a second automation for the same person.
+    const again = await agent.createAlertAutomations();
+    assert.deepEqual(again.created, []);
+    assert.deepEqual(again.skipped, ["Suze already has one", "Dale has no allowed conversation"]);
+    assert.equal((await agent.automations()).length, 1);
+    assert.equal((await agent.alertPlan())[0].hasAutomation, true);
+
+    // Switching to "everyone" pulls Kathy in; only the newcomer is created.
+    await agent.setAlertSubscriber("*", true);
+    const all = await agent.createAlertAutomations();
+    assert.deepEqual(all.created, ["Kathy"]);
+    assert.equal((await agent.automations()).length, 2);
+  } finally {
+    if (prev === undefined) delete process.env.IMESSAGE_AGENT_DIR;
+    else process.env.IMESSAGE_AGENT_DIR = prev;
+  }
+});
+
+test("live alert automations need alerts on and someone subscribed", async () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const agent = require("../lib/agent");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-alertoff-"));
+  const file = path.join(dir, "config.json");
+  const write = (fantasy) => fs.writeFileSync(file, JSON.stringify({ dataDir: dir, allowedChats: [], fantasy }));
+  write({ espnLeagueId: "1", teams: {}, liveAlerts: { enabled: false } });
+  const prev = process.env.IMESSAGE_AGENT_DIR;
+  process.env.IMESSAGE_AGENT_DIR = dir;
+  try {
+    await assert.rejects(agent.createAlertAutomations(), /Turn live scoring alerts on first/);
+    write({ espnLeagueId: "1", teams: {}, liveAlerts: { enabled: true } });
+    await assert.rejects(agent.createAlertAutomations(), /Nobody is subscribed/);
+  } finally {
+    if (prev === undefined) delete process.env.IMESSAGE_AGENT_DIR;
+    else process.env.IMESSAGE_AGENT_DIR = prev;
+  }
+});

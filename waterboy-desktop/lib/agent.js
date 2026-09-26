@@ -185,11 +185,14 @@ async function readiness() {
     if (found) claude = { ok: true, detail: "Signed in" };
   }
 
-  // Messages access: the service can only write the chat index if it can read chat.db.
+  // Messages access: the service can only write the chat index if it can read chat.db. A past
+  // failure stays in the error log after the user grants access, so an index written since the
+  // last error means access works now.
   const err = tail(loc.errFile, 4000);
   const idx = readJson(loc.chatIndex);
+  const denied = /Full Disk Access|Cannot read .*chat\.db/i.test(err.split("\n").slice(-6).join("\n"));
   let messages;
-  if (/Full Disk Access|Cannot read .*chat\.db/i.test(err.split("\n").slice(-6).join("\n")))
+  if (denied && !(mtime(loc.chatIndex) > mtime(loc.errFile)))
     messages = { ok: false, detail: "Needs Full Disk Access" };
   else if (idx) messages = { ok: true, detail: "Ready" };
   else messages = { ok: false, detail: "Waiting for the agent" };
@@ -201,6 +204,15 @@ async function readiness() {
     messages,
     conversations: { ok: n > 0, detail: n ? `${n} allowed` : "None allowed" },
   };
+}
+
+/** Last-modified time in ms, or 0 when the file is missing. */
+function mtime(file) {
+  try {
+    return fs.statSync(file).mtimeMs;
+  } catch {
+    return 0;
+  }
 }
 
 function tail(file, bytes) {
@@ -460,8 +472,11 @@ function nextRunFor(schedule) {
   return next ? next.getTime() : null;
 }
 
+/** The condition that drives live scoring alerts (see waterboy-agent/src/bot/conditions.ts). */
+const ALERT_CONDITION = "fantasy_scoring_swing";
+
 /** Named gates the service checks before a run (waterboy-agent src/conditions.ts). */
-const CONDITIONS = ["fantasy_week_final"];
+const CONDITIONS = ["fantasy_week_final", ALERT_CONDITION];
 
 function checkAutomation({ chatGuid, schedule, prompt, condition }) {
   if (!chatGuid || !schedule?.trim() || !prompt?.trim()) throw new Error("Pick a conversation, a schedule and an instruction.");
@@ -631,7 +646,19 @@ const SETTINGS = {
   "fantasy.startSitCards": Boolean,
   "fantasy.tradeCards": Boolean,
   "fantasy.compareCards": Boolean,
+  "fantasy.liveAlerts.enabled": Boolean,
+  "fantasy.liveAlerts.thresholdPct": (v) => clampNum(v, 1, 100, 5),
+  "fantasy.liveAlerts.checkMinutes": (v) => clampNum(v, 1, 60, 5),
+  "fantasy.liveAlerts.minPlayerPoints": (v) => clampNum(v, 0, 50, 1, 1),
 };
+
+/** A number from the UI, clamped to a sane range and rounded to `decimals`. */
+function clampNum(v, min, max, fallback, decimals = 0) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  const p = 10 ** decimals;
+  return Math.min(max, Math.max(min, Math.round(n * p) / p));
+}
 
 /** When the service last downloaded nflverse data (its daily sync writes <dataDir>/nflverse). */
 function nflverseStatus(loc, cfg) {
@@ -675,9 +702,104 @@ async function settings() {
           tradeCards: cfg.fantasy.tradeCards !== false,
           compareCards: cfg.fantasy.compareCards !== false,
           nflverseUpdatedAt: nflverseStatus(loc, cfg).updatedAt,
+          liveAlerts: liveAlerts(cfg),
         }
       : null,
   };
+}
+
+/**
+ * Live scoring alerts, with the people who could receive one. Only someone with a fantasy team
+ * can be alerted (their matchup is what gets watched), so the candidates are the `fantasy.teams`
+ * entries; "everyone" is the "*" subscriber the service understands.
+ */
+function liveAlerts(cfg) {
+  const a = cfg.fantasy?.liveAlerts ?? {};
+  const subs = Array.isArray(a.subscribers) ? a.subscribers : [];
+  const contacts = cfg.contacts ?? {};
+  const teams = cfg.fantasy?.teams ?? {};
+  return {
+    enabled: !!a.enabled,
+    thresholdPct: a.thresholdPct ?? 5,
+    checkMinutes: a.checkMinutes ?? 5,
+    minPlayerPoints: a.minPlayerPoints ?? 1,
+    everyone: subs.includes("*"),
+    people: Object.entries(teams).map(([handle, team]) => ({
+      handle,
+      name: contacts[findKey(contacts, handle)] ?? null,
+      team: String(team),
+      subscribed: subs.some((x) => x !== "*" && sameHandle(x, handle)),
+    })),
+  };
+}
+
+/**
+ * The automation one subscriber needs. It only checks on NFL game days (Sun/Mon/Thu) — the
+ * condition itself is silent when nothing is being played, so checking the rest of the week
+ * would just be wasted requests. The prompt is never used: a verbatim condition writes the
+ * message itself and the agent never runs.
+ */
+function alertTask(guid, checkMinutes) {
+  return {
+    chatGuid: guid,
+    description: "Live scoring alerts",
+    schedule: `*/${checkMinutes} * * * 0,1,4`,
+    prompt: "Post the live scoring update for this chat.",
+    condition: ALERT_CONDITION,
+  };
+}
+
+/**
+ * Who should have a live-alert automation and who already does. Each subscriber gets one in their
+ * own 1:1 chat ("*" means everyone with a fantasy team); someone with no allowed conversation has
+ * nowhere to receive it.
+ */
+async function alertPlan() {
+  const cfg = await getConfig();
+  if (!cfg.fantasy) return [];
+  const a = liveAlerts(cfg);
+  const wanted = a.people.filter((p) => a.everyone || p.subscribed);
+  if (!wanted.length) return []; // nobody subscribed: no reason to touch the chat index or state.db
+  const conv = await conversations();
+  const rows = await withDb((db) => db.prepare("SELECT chat_guid FROM tasks WHERE condition = ? AND enabled = 1").all(ALERT_CONDITION));
+  const tasked = new Set(rows.map((r) => r.chat_guid));
+  return wanted.map((p) => {
+    const d = conv.direct.find((x) => sameHandle(x.handle, p.handle));
+    return { ...p, guid: d?.guid ?? null, allowed: !!d?.allowed, hasAutomation: !!d?.guid && tasked.has(d.guid) };
+  });
+}
+
+/** Create the live-alert automations that are missing. Reports per person, and never duplicates. */
+async function createAlertAutomations() {
+  const cfg = await getConfig();
+  if (!cfg.fantasy?.liveAlerts?.enabled) throw new Error("Turn live scoring alerts on first.");
+  const minutes = liveAlerts(cfg).checkMinutes;
+  const plan = await alertPlan();
+  if (!plan.length) throw new Error("Nobody is subscribed to live scoring alerts yet.");
+  const created = [];
+  const skipped = [];
+  for (const p of plan) {
+    const who = p.name ?? p.handle;
+    if (p.hasAutomation) skipped.push(`${who} already has one`);
+    else if (!p.guid || !p.allowed) skipped.push(`${who} has no allowed conversation`);
+    else {
+      await createAutomation(alertTask(p.guid, minutes));
+      created.push(who);
+    }
+  }
+  return { created, skipped };
+}
+
+/** Add or remove one person from fantasy.liveAlerts.subscribers ("*" = everyone with a team). */
+async function setAlertSubscriber(handle, on) {
+  await updateConfig((cfg) => {
+    if (!cfg.fantasy) throw new Error("Fantasy football isn't configured.");
+    cfg.fantasy.liveAlerts = cfg.fantasy.liveAlerts ?? {};
+    const list = Array.isArray(cfg.fantasy.liveAlerts.subscribers) ? cfg.fantasy.liveAlerts.subscribers : [];
+    const rest = list.filter((x) => (handle === "*" ? x !== "*" : !sameHandle(x, handle)));
+    cfg.fantasy.liveAlerts.subscribers = on ? [...rest, handle] : rest;
+  });
+  return settings();
 }
 
 async function saveSettings(patch) {
@@ -686,14 +808,18 @@ async function saveSettings(patch) {
       const clean = SETTINGS[key];
       if (!clean) throw new Error(`Setting ${key} can't be changed here.`);
       const v = clean(value);
-      const [a, b] = key.split(".");
-      if (!b) cfg[a] = v;
-      else {
-        if (a === "fantasy" && !cfg.fantasy && b !== "espnLeagueId") continue;
-        cfg[a] = cfg[a] ?? {};
-        if (v === undefined) delete cfg[a][b];
-        else cfg[a][b] = v;
+      const path = key.split(".");
+      const leaf = path.pop();
+      if (!path.length) {
+        cfg[leaf] = v;
+        continue;
       }
+      // Fantasy settings only apply once a league exists (espnLeagueId is what creates one).
+      if (path[0] === "fantasy" && !cfg.fantasy && leaf !== "espnLeagueId") continue;
+      let node = cfg;
+      for (const step of path) node = node[step] = node[step] ?? {};
+      if (v === undefined) delete node[leaf];
+      else node[leaf] = v;
     }
   });
   return settings();
@@ -883,6 +1009,12 @@ module.exports = {
   overview,
   settings,
   saveSettings,
+  setAlertSubscriber,
+  alertPlan,
+  createAlertAutomations,
+  alertTask,
+  liveAlerts,
+  clampNum,
   connections,
   removeExtraTool,
   setConnector,
