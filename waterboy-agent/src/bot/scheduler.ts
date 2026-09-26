@@ -101,10 +101,13 @@ export const SCHEDULER_TOOLS = [
   "mcp__scheduler__cancel_task",
 ];
 
-/** Poll for due tasks, evaluate any condition, and hand runnable ones to `run`. */
+/**
+ * Poll for due tasks, evaluate any condition, and hand runnable ones to `run`. A condition marked
+ * `verbatim` skips the agent: its text is the message, and `run` is called with verbatim = true.
+ */
 export function startScheduler(
   state: State,
-  run: (t: ScheduledTask, context?: string) => void,
+  run: (t: ScheduledTask, context?: string, verbatim?: boolean) => void,
   conditions: Conditions = {},
   intervalMs = 20_000,
 ) {
@@ -129,6 +132,7 @@ export function startScheduler(
       }
       state.updateTaskRun(t.id, next); // advance first so a crash can't cause a re-fire loop
       let context: string | undefined;
+      let verbatim = false;
       if (t.condition) {
         const cond = conditions[t.condition];
         if (!cond) {
@@ -139,13 +143,14 @@ export function startScheduler(
           const c = await cond.check(t);
           if (c === null) continue; // not yet — check again at the next scheduled time
           context = c;
+          verbatim = !!cond.verbatim;
         } catch (e) {
           log(`[scheduler] condition ${t.condition} failed for #${t.id}:`, (e as Error).message);
           continue;
         }
       }
-      log(`[scheduler] firing task #${t.id} (${t.description})`);
-      run(t, context);
+      log(`[scheduler] firing task #${t.id} (${t.description})${verbatim ? " [verbatim]" : ""}`);
+      run(t, context, verbatim);
     }
   };
   void tick();

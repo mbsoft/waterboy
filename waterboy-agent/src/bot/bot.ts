@@ -12,7 +12,10 @@ import { MEMORY_FILE, MAX_MEMORY_CHARS, POLICY_VERSION, fantasyPrompt, fullPromp
 import { runCommand } from "./commands.ts";
 import { parseReaction, type MessageActions, type TypingIndicators } from "../messages/helper.ts";
 
-type Job = { kind: "messages"; msgs: IncomingMessage[] } | { kind: "task"; task: ScheduledTask; context?: string };
+type Job =
+  | { kind: "messages"; msgs: IncomingMessage[] }
+  | { kind: "task"; task: ScheduledTask; context?: string }
+  | { kind: "notice"; text: string };
 
 interface ChatQueue {
   target: ChatTarget;
@@ -163,6 +166,19 @@ export class Bot {
     void this.drain(q);
   }
 
+  /**
+   * Text `text` to a chat as-is, with no agent turn. Used by verbatim conditions (live scoring
+   * alerts), where the message is already formatted and a model call would only add latency,
+   * cost and wording drift.
+   */
+  notify(chatGuid: string, text: string) {
+    const q =
+      this.queues.get(chatGuid) ??
+      this.queueFor({ chatGuid, isGroup: chatGuid.includes(";+;"), sender: chatGuid.split(";").pop() ?? null });
+    q.jobs.push({ kind: "notice", text });
+    void this.drain(q);
+  }
+
   /** Resolves once every queue is idle (used by tests / shutdown). */
   async idle() {
     while ([...this.queues.values()].some((q) => q.running || q.jobs.length)) await new Promise((r) => setTimeout(r, 25));
@@ -199,6 +215,13 @@ export class Bot {
     const chatGuid = q.target.chatGuid;
     const chat = this.state.chat(chatGuid);
     const dir = this.chatDir(chatGuid);
+
+    // A notice is already written: send it and skip the agent entirely (still honouring /pause).
+    if (job.kind === "notice") {
+      if (chat.paused) return;
+      await this.reply(q, job.text, false);
+      return;
+    }
 
     let prompt: string;
     if (job.kind === "messages") {
