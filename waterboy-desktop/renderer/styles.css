@@ -201,6 +201,7 @@ input, textarea, select, button { font: inherit; color: inherit; }
 .pill { font-size: 11px; font-weight: 500; padding: 1px 7px; border-radius: 10px; background: rgba(127, 127, 127, 0.14); color: var(--muted); white-space: nowrap; }
 .pill.accent { background: var(--accent-soft); color: var(--accent); }
 .pill.warn { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+.pill.ok { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
 
 /* ---------- controls ---------- */
 
@@ -245,6 +246,10 @@ select:focus, input:focus, textarea:focus { border-color: var(--link); box-shado
 .form > label { color: var(--text); }
 .form .hint { grid-column: 2; color: var(--faint); font-size: 12px; margin-top: -6px; }
 .form .full { grid-column: 1 / -1; }
+/* Settings → Live scoring alerts: a disabled section still reads, it just can't be changed. */
+.form.disabled { opacity: 0.5; pointer-events: none; }
+.form > label.sub { padding-left: 14px; color: var(--muted); font-size: 13px; }
+.unit { color: var(--muted); font-size: 13px; margin: 0 4px 0 -4px; }
 .inline { display: flex; gap: 8px; align-items: center; }
 .inline > input[type="text"] { flex: 1; }
 
@@ -280,6 +285,21 @@ pre.errors { margin: 6px 0 0; padding: 10px 12px; border-radius: 8px; background
 
 .about-hero { display: flex; align-items: center; gap: 16px; }
 .app-icon { width: 64px; height: 64px; flex: none; }
+
+/* About → Support Waterboy. The button matches Buy Me a Coffee's own styling (see bmcButton in
+   app.js): BMC's #5F7FFF, a black outline and white Arial text, so it reads as their button
+   without loading their remote script. */
+.support { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 14px; flex-wrap: wrap; }
+.support-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.support-scan { margin: 0; }
+.support-qr { width: 116px; height: 116px; flex: none; border-radius: 10px; background: #fff; padding: 6px; border: 1px solid var(--card-border); }
+.bmc-btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 10px; cursor: pointer; background: #5F7FFF; border: 1px solid #000; color: #fff; font-family: Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18); }
+.bmc-btn:hover:not(:disabled) { filter: brightness(0.96); }
+.bmc-btn:active:not(:disabled) { transform: translateY(1px); }
+.bmc-btn:disabled { opacity: 0.6; cursor: default; }
+.bmc-emoji { font-size: 20px; line-height: 1; }
+.bmc-text { font-weight: 600; }
+
 .kv { display: grid; grid-template-columns: 130px 1fr; gap: 6px 14px; margin-top: 8px; }
 .kv dt { color: var(--muted); }
 .kv dd { margin: 0; font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; user-select: text; }

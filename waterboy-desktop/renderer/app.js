@@ -65,6 +65,28 @@
     return b;
   }
 
+  // Buy Me a Coffee's official button is a remote script (cdnjs.buymeacoffee.com). The renderer's
+  // CSP is script-src 'self' and a desktop app should not run third-party code next to the IPC
+  // bridge, so this draws the same button from BMC's own attributes (#FFDD00, black outline and
+  // text, Arial, the 🍺 emoji) and opens the link in the browser instead.
+  function bmcButton() {
+    const b = h("button", { class: "bmc-btn", title: "buymeacoffee.com/jgauntlettk" },
+      h("span", { class: "bmc-emoji" }, "\u{1F37A}"),
+      h("span", { class: "bmc-text" }, "'Beer me!'"),
+    );
+    b.addEventListener("click", async () => {
+      b.disabled = true;
+      try {
+        await api.openSupport();
+      } catch (e) {
+        toast(e.message, true);
+      } finally {
+        b.disabled = false;
+      }
+    });
+    return b;
+  }
+
   function toast(text, error = false) {
     const t = h("div", { class: `toast${error ? " error" : ""}` }, icon(error ? "alert" : "check", 16), h("div", {}, text));
     $("#toasts").append(t);
@@ -585,7 +607,10 @@
   RENDER.automations = async () => {
     const [tasks, conv] = await Promise.all([api.automations(), api.conversations()]);
     const active = tasks.filter((t) => t.enabled);
-    const conditionText = { fantasy_week_final: "When every NFL game of the week is final" };
+    const conditionText = {
+      fantasy_week_final: "When every NFL game of the week is final",
+      fantasy_scoring_swing: "When the projected score swings during games",
+    };
     const rows = tasks.map((t) => {
       let confirm = false;
       const del = h("button", { class: "icon-btn", title: "Delete", "aria-label": `Delete ${t.description}` }, icon("trash", 15));
@@ -703,7 +728,10 @@
       preview.textContent = sched ? await api.describeSchedule(sched).catch(() => "") : "";
     };
     for (const el of [preset, time, cron]) el.addEventListener("input", update);
-    const condition = h("select", {}, h("option", { value: "" }, "Every time it's scheduled"), h("option", { value: "fantasy_week_final" }, "Only once every NFL game of the week is final"));
+    const condition = h("select", {},
+      h("option", { value: "" }, "Every time it's scheduled"),
+      h("option", { value: "fantasy_week_final" }, "Only once every NFL game of the week is final"),
+      h("option", { value: "fantasy_scoring_swing" }, "Only when live scoring swings past the alert threshold"));
     condition.value = existing?.condition ?? "";
     const prompt = h("textarea", { rows: 4, placeholder: 'What should the agent do? e.g. "Send me the weather and my calendar for today."' });
     prompt.value = existing?.prompt ?? "";
@@ -801,7 +829,7 @@
   };
 
   RENDER.settings = async () => {
-    const [s, teams] = await Promise.all([api.settings(), api.fantasyTeams().catch(() => [])]);
+    const [s, teams, plan] = await Promise.all([api.settings(), api.fantasyTeams().catch(() => []), api.alertPlan().catch(() => [])]);
     const save = async (patch, msg) => {
       await api.saveSettings(patch);
       saved(msg);
@@ -822,6 +850,21 @@
       input.addEventListener("input", () => (b.disabled = input.value === String(value)));
       input.addEventListener("keydown", (e) => e.key === "Enter" && !b.disabled && b.click());
       return h("div", { class: "inline" }, input, b);
+    };
+    // A number with a unit suffix ("5 %"), saved on Enter or the Save button.
+    const numSetting = (key, value, unit, attrs = {}) => {
+      let saved0 = String(value);
+      const input = h("input", { type: "text", value: saved0, style: "max-width:70px", ...attrs });
+      const b = button("Save", async () => {
+        await save({ [key]: Number(input.value) });
+        saved0 = input.value;
+        b.disabled = true;
+      });
+      b.disabled = true;
+      const ok = () => input.value.trim() !== "" && Number.isFinite(Number(input.value));
+      input.addEventListener("input", () => (b.disabled = input.value === saved0 || !ok()));
+      input.addEventListener("keydown", (e) => e.key === "Enter" && !b.disabled && b.click());
+      return h("div", { class: "inline" }, input, h("span", { class: "unit" }, unit), b);
     };
     const models = [
       ["", "Claude Code default"],
@@ -886,6 +929,7 @@
 
     const f = s.fantasy;
     let fantasyCard = null;
+    let alertsCard = null;
     if (f) {
       const mine = h("select", {}, h("option", { value: "" }, "Not set"), teams.map((t) => h("option", { value: t.id }, t.name)));
       mine.value = f.myTeamId ?? "";
@@ -911,6 +955,7 @@
           h("label", {}, "Dynasty league"), h("span", { class: "toggle-label" }, toggle(f.dynasty, (on) => save({ "fantasy.dynasty": on }), "Dynasty league"), "Value players for future seasons too (trade values)"),
         ),
       );
+      alertsCard = liveAlertsCard(f.liveAlerts, plan, save, numSetting);
     }
 
     return h(
@@ -1019,8 +1064,97 @@
         ),
       ),
       fantasyCard,
+      alertsCard,
     );
   };
+
+  /**
+   * Live scoring alerts (fantasy.liveAlerts in the service config). Only people with a fantasy
+   * team can subscribe: the alert watches their own matchup, so without a team there is nothing
+   * to watch. Everything below the master toggle is disabled while alerts are off.
+   */
+  function liveAlertsCard(a, plan, save, numSetting) {
+    // Subscribing is only half of it: each person also needs an automation in their own chat,
+    // which is what actually runs the check. Flag anyone subscribed without one.
+    const byHandle = new Map(plan.map((p) => [p.handle, p]));
+    const missing = plan.filter((p) => !p.hasAutomation && p.guid && p.allowed);
+    const unreachable = plan.filter((p) => !p.guid || !p.allowed);
+    const statusFor = (handle) => {
+      const p = byHandle.get(handle);
+      if (!p) return null;
+      if (p.hasAutomation) return h("span", { class: "pill ok" }, "scheduled");
+      if (!p.guid || !p.allowed) return h("span", { class: "pill warn" }, "no conversation");
+      return h("span", { class: "pill" }, "not scheduled");
+    };
+    const rows = [];
+    let createBtn;
+    const everyone = toggle(a.everyone, async (on) => {
+      await api.setAlertSubscriber("*", on);
+      saved(on ? "Everyone with a team gets live alerts" : "Live alerts are now per person");
+      render();
+    }, "Everyone with a team");
+    rows.push(
+      h("label", {}, "Who gets alerts"),
+      h("span", { class: "toggle-label" }, everyone, "Everyone with a fantasy team"),
+    );
+    if (!a.everyone) {
+      rows.push(
+        h("div", { class: "hint" }, a.people.length ? "Or pick people one at a time:" : "Nobody has a fantasy team yet \u2014 set teams in Conversations first."),
+      );
+      for (const p of a.people) {
+        const label = p.name ?? p.handle;
+        rows.push(
+          h("label", { class: "sub" }, label),
+          h("span", { class: "toggle-label" },
+            toggle(p.subscribed, async (on) => {
+              await api.setAlertSubscriber(p.handle, on);
+              saved(on ? `${label} will get live alerts` : `${label} won't get live alerts`);
+              render();
+            }, `Live alerts for ${label}`),
+            p.team,
+            statusFor(p.handle)),
+        );
+      }
+    }
+    const body = h("div", { class: `form${a.enabled ? "" : " disabled"}` },
+      h("label", {}, "Alert threshold"), numSetting("fantasy.liveAlerts.thresholdPct", a.thresholdPct, "%"),
+      h("div", { class: "hint" }, "How far a team's projected final has to move since the last check before anyone is texted. Smaller means more messages."),
+      h("label", {}, "Check every"), numSetting("fantasy.liveAlerts.checkMinutes", a.checkMinutes, "min"),
+      h("div", { class: "hint" }, "Only while NFL games are being played. Between games nothing is fetched and nothing is sent."),
+      h("label", {}, "List players moving"), numSetting("fantasy.liveAlerts.minPlayerPoints", a.minPlayerPoints, "pts"),
+      h("div", { class: "hint" }, "Smallest per-player change worth naming in the alert."),
+      ...rows,
+      h("span"),
+      h("div", { class: "inline", style: "margin-top:4px" },
+        createBtn = button(missing.length > 1 ? `Create ${missing.length} alert automations` : "Create alert automation", async () => {
+          const r = await api.createAlertAutomations();
+          toast(r.created.length ? `Scheduled live alerts for ${r.created.join(", ")}` : r.skipped.join("; ") || "Nothing to create");
+          render();
+        }, { primary: true, iconName: "calendar" }),
+      ),
+      h("div", { class: "hint" },
+        !plan.length
+          ? "Turn someone on above first, then create the automation that runs their check."
+          : missing.length
+            ? `Adds a check every ${a.checkMinutes} min on Sun/Mon/Thu to ${missing.length === 1 ? "this person's" : "each person's"} conversation. It shows up under Automations, where you can pause or delete it.`
+            : unreachable.length
+              ? "Everyone reachable is scheduled. The rest need an allowed 1:1 conversation first (see Conversations)."
+              : "Everyone subscribed is scheduled. Manage or pause these under Automations."),
+    );
+    if (!missing.length) createBtn.disabled = true; // nothing to add
+    if (!a.enabled) for (const el of body.querySelectorAll("input, select, button")) el.disabled = true;
+    return card(
+      h("div", { class: "card-head" },
+        h("h3", {}, "Live scoring alerts"),
+        h("span", { class: "toggle-label" }, toggle(a.enabled, async (on) => {
+          await save({ "fantasy.liveAlerts.enabled": on });
+          render();
+        }, "Live scoring alerts"), a.enabled ? "On" : "Off"),
+      ),
+      h("p", { class: "desc" }, "While games are being played, Waterboy watches each subscriber's matchup and texts them when the projected score swings. The message is written by Waterboy itself, so it costs nothing per alert."),
+      body,
+    );
+  }
 
   RENDER.about = async () => {
     const [v, o] = await Promise.all([api.version(), Promise.resolve(state.overview)]);
@@ -1033,11 +1167,17 @@
         h("div", { class: "about-hero" }, h("img", { class: "app-icon", src: "brand.png", alt: "" }), h("div", {}, h("h3", { style: "margin:0;font-size:17px" }, "Waterboy"), h("div", { class: "desc", style: "margin:2px 0 0" }, `Version ${v.app} · Electron ${v.electron}`))),
         h("p", { style: "margin:14px 0 0" }, `A control panel for ${o?.agentName ?? "your agent"}, the assistant that answers iMessages on this Mac. The agent itself runs as a background service, so it keeps working when this window is closed.`),
       ),
-      v.coffee
+      v.support
         ? card(
             h("h3", {}, "Support Waterboy"),
-            h("p", { class: "desc" }, "Waterboy is made by one person in their spare time. If it's useful to you, you can buy them a coffee."),
-            h("div", { class: "inline", style: "margin-top:12px" }, button("Buy me a coffee", () => api.openCoffee(), { primary: true, iconName: "coffee" })),
+            h("p", { class: "desc" }, "Waterboy is made by one person in their spare time. If it's useful to you, you can buy them a beer."),
+            h("div", { class: "support" },
+              h("div", { class: "support-actions" },
+                bmcButton(),
+                h("p", { class: "desc support-scan" }, "Or scan the code with your phone."),
+              ),
+              h("img", { class: "support-qr", src: "support-qr.png", alt: "QR code linking to buymeacoffee.com/jgauntlettk", width: "116", height: "116" }),
+            ),
           )
         : null,
       card(
