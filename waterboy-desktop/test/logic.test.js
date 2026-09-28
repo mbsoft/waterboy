@@ -337,3 +337,17 @@ test("live alert automations need alerts on and someone subscribed", async () =>
     else process.env.IMESSAGE_AGENT_DIR = prev;
   }
 });
+
+test("reply times: the logged duration wins, and an unfinished turn never pairs with a later reply", () => {
+  const ev = parseLog(`2026-09-27T08:00:00.000Z [agent] session a (auth: none, model: m)
+2026-09-27T08:00:05.000Z [bot] Suze: something went wrong
+2026-09-28T12:00:01.920Z [agent] session b (auth: none, model: m)
+2026-09-28T12:00:23.392Z [bot] Jimmie: turn cost $5.7668 (API-equivalent)
+2026-09-28T13:43:48.582Z [agent] session b (auth: none, model: m)
+2026-09-28T13:44:01.939Z [bot] Jimmie: turn cost $6.7348 (API-equivalent) in 13.2s
+2026-09-28T13:50:24.663Z [agent] session b (auth: none, model: m)
+2026-09-28T13:50:37.686Z [bot] Jimmie: turn used 19848 tokens (14592 cached) in 13.0s`);
+  // The first turn (08:00) never logged a cost: it must not become a 28-hour reply.
+  assert.deepEqual(ev.filter((e) => e.kind === "reply").map((e) => e.seconds), [21.5, 13.2, 13]);
+  assert.equal(summarize(ev, new Date("2026-09-28T18:00:00Z")).avgSeconds, 15.9);
+});

@@ -259,6 +259,7 @@ export class Bot {
     const attachments: string[] = []; // images from tools (start/sit cards), sent after the reply
     void typing?.begin(chatGuid);
     let res;
+    const started = Date.now();
     try {
       res = await this.agent.run({
         chatGuid,
@@ -283,8 +284,10 @@ export class Bot {
       await typing?.end(chatGuid);
     }
     if (res.sessionId && res.sessionId !== sessionId) this.state.setSession(chatGuid, res.sessionId);
-    if (res.costUsd !== undefined) log(`[bot] ${q.label}: turn cost $${res.costUsd.toFixed(4)} (API-equivalent)`);
-    if (res.tokens) log(`[bot] ${q.label}: turn used ${res.tokens.input + res.tokens.output} tokens (${res.tokens.cached} cached)`);
+    // "in 13.4s" is the turn's duration; the desktop app's reply-time statistic reads it.
+    const took = `in ${((Date.now() - started) / 1000).toFixed(1)}s`;
+    if (res.costUsd !== undefined) log(`[bot] ${q.label}: turn cost $${res.costUsd.toFixed(4)} (API-equivalent) ${took}`);
+    if (res.tokens) log(`[bot] ${q.label}: turn used ${res.tokens.input + res.tokens.output} tokens (${res.tokens.cached} cached) ${took}`);
 
     const text = res.text.trim();
     const trigger = job.kind === "messages" ? job.msgs.at(-1) : undefined;

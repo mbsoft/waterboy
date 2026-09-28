@@ -11,7 +11,11 @@ const LINE = /^(\d{4}-\d{2}-\d{2}T[\d:.]+Z) \[(\w+)\] (.*)$/;
  */
 function parseLog(text) {
   const events = [];
-  const openTurns = []; // turn-start times waiting for their "turn cost"/"turn used" line
+  // Turn-start times waiting for their "turn cost"/"turn used" line, for logs written before the
+  // service recorded each turn's duration ("… in 13.4s"). A start with no end (an error, a
+  // restart mid-turn) must not be paired with a later reply, so only recent starts count.
+  const openTurns = [];
+  const MAX_TURN_MS = 15 * 60_000; // replies time out after 10 minutes by default
   for (const raw of text.split("\n")) {
     const m = raw.match(LINE);
     if (!m) continue;
@@ -30,8 +34,11 @@ function parseLog(text) {
       openTurns.push(Date.parse(at));
       e = { kind: "turn", title: "Working on a reply", detail: x[3], model: x[3] };
     } else if ((x = msg.match(/^(.+): turn (?:cost \$[\d.]+|used \d+ tokens)/))) {
+      const end = Date.parse(at);
+      while (openTurns.length && end - openTurns[0] > MAX_TURN_MS) openTurns.shift(); // stale: that turn never finished
       const started = openTurns.shift();
-      const seconds = started ? Math.round((Date.parse(at) - started) / 100) / 10 : null;
+      const logged = msg.match(/ in ([\d.]+)s$/);
+      const seconds = logged ? Number(logged[1]) : started !== undefined ? Math.round((end - started) / 100) / 10 : null;
       e = { kind: "reply", title: "Reply delivered", chat: x[1], seconds, detail: [x[1], seconds !== null ? `${seconds} s` : null].filter(Boolean).join(" · ") };
     } else if ((x = msg.match(/^ignoring message from non-allowlisted chat (\S+) \(sender (\S+), name (.+)\)$/))) {
       e = { kind: "ignored", title: "Message ignored", chat: x[1], detail: `${x[3] !== "-" ? x[3] : x[2]} isn't allowed yet` };
