@@ -57,3 +57,17 @@ test("REACT answers become reaction keys", async () => {
   assert.equal(parseReaction("Reacting is fun"), null);
   assert.equal(parseReaction("NO_REPLY"), null);
 });
+
+test("typing pauses after a failure instead of retrying every refresh", async () => {
+  const calls: string[] = [];
+  let fail = true;
+  const t = new TypingIndicators({ request: async (_op: string, p: Record<string, unknown> = {}) => (calls.push(`${p.chat} ${p.on ? "on" : "off"}`), { id: 1, ok: !fail }) }, 10, 60);
+  await t.begin("A"); // fails: paused
+  await new Promise((r) => setTimeout(r, 35)); // keep-alive ticks while paused send nothing
+  assert.deepEqual(calls, ["A on"]);
+  fail = false; // Messages recovers while typing is paused
+  await new Promise((r) => setTimeout(r, 40)); // pause over
+  await t.refresh("A");
+  await t.end("A");
+  assert.ok(calls.length >= 3 && calls.at(-1) === "A off", calls.join(", "));
+});

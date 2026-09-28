@@ -111,8 +111,13 @@ export class TypingIndicators {
   private chain: Promise<void> = Promise.resolve();
   private keepAlive: NodeJS.Timeout | null = null;
   private warned = false;
+  /**
+   * After a failure (Messages unresponsive, the Mac locked, …) typing pauses for a while instead of
+   * retrying every refresh: each retry makes the helper launch a fresh hidden Messages copy.
+   */
+  private pausedUntil = 0;
 
-  constructor(private bridge: TypingTransport, private refreshMs = 25_000) {}
+  constructor(private bridge: TypingTransport, private refreshMs = 25_000, private pauseMs = 10 * 60_000) {}
 
   /** A turn started in this chat: show typing there (it's now the newest). */
   begin(chat: string): Promise<void> {
@@ -161,10 +166,13 @@ export class TypingIndicators {
   }
 
   private async send(chat: string, on: boolean) {
+    if (Date.now() < this.pausedUntil) return;
     const r = await this.bridge.request("typing", { chat, on });
-    if (!r.ok && !this.warned) {
+    if (r.ok) return;
+    this.pausedUntil = Date.now() + this.pauseMs;
+    if (!this.warned) {
       this.warned = true; // once per process; replies still go out without the indicator
-      log(`[imessage] typing indicator unavailable: ${r.error}`);
+      log(`[imessage] typing indicator unavailable (pausing it for ${Math.round(this.pauseMs / 60_000)} min after failures): ${r.error}`);
     }
   }
 }

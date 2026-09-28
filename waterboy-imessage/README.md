@@ -14,7 +14,7 @@ The service (`../waterboy-agent/src/imessage.ts`) starts it once and talks to it
 stdin/stdout:
 
 ```
-{"id":1,"op":"ping"}                                          → {"id":1,"ok":true,"version":"0.2.0","accessibility":"authorized"}
+{"id":1,"op":"ping"}                                          → {"id":1,"ok":true,"version":"0.3.0","accessibility":"authorized"}
 {"id":2,"op":"typing","chat":"any;-;+16145550142","on":true}  → {"id":2,"ok":true}
 {"id":3,"op":"react","chat":"…","message":"<GUID>","reaction":"like"}  → {"id":3,"ok":true}   (heart, like, dislike, laugh, emphasize, question, or one emoji)
 {"id":4,"op":"reply","chat":"…","message":"<GUID>","text":"…"}        → {"id":4,"ok":true}   (threaded reply)

@@ -12,10 +12,18 @@
 //   {"id":4,"op":"reply","chat":"…","message":"<message GUID>","text":"…"}   (threaded reply) → {"id":4,"ok":true}
 //   any failure                                            → {"id":N,"ok":false,"error":"…"}
 // Requests run one at a time, in order. Closing stdin (or SIGTERM) quits the hidden Messages and exits.
+//
+// Hidden Messages copies: when the library finds its copy unhealthy it launches a new one and asks
+// the old one to quit, but an unresponsive copy ignores that (and a launch that outlasts the
+// library's timeout is never tracked at all), so copies piled up. The helper therefore records
+// every Messages copy that appears while it's running a library call, keeps only the newest,
+// force-quits the rest, and saves the list so the next run can clean up after a crash.
+// The person's own Messages (already running, or opened outside a call) is never touched.
+import AppKit
 import Foundation
 import IMessage
 
-let version = "0.2.0"
+let version = "0.3.0"
 
 func reply(_ object: [String: Any]) {
     guard var data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]) else { return }
@@ -44,6 +52,61 @@ if MacPermissions.getAuthStatus(.accessibility) != .authorized, ProcessInfo.proc
     MacPermissions.askForAccessibilityAccess()
 }
 
+// ---------- hidden Messages copies ----------
+
+let messagesBundleID = "com.apple.MobileSMS"
+let ownedFile = (dataDir as NSString).appendingPathComponent("secondary-messages.json")
+
+struct Owned: Codable { let pid: Int32; let launched: Double } // launch time, seconds since 1970
+
+func runningMessages() -> [NSRunningApplication] {
+    NSRunningApplication.runningApplications(withBundleIdentifier: messagesBundleID)
+}
+
+/// The copies this helper launched, oldest first.
+var owned: [Owned] = []
+
+func saveOwned() {
+    if let data = try? JSONEncoder().encode(owned) { try? data.write(to: URL(fileURLWithPath: ownedFile)) }
+}
+
+/// The running app for a recorded copy, if it's still that same process (guards against pid reuse).
+func app(for o: Owned) -> NSRunningApplication? {
+    runningMessages().first { $0.processIdentifier == o.pid && abs(($0.launchDate?.timeIntervalSince1970 ?? 0) - o.launched) < 2 }
+}
+
+func forceQuit(_ o: Owned) {
+    guard let a = app(for: o) else { return }
+    if !a.forceTerminate() { kill(o.pid, SIGKILL) }
+}
+
+/// Force-quit every recorded copy except the newest (the one the library is using), or all of them.
+func reap(keepNewest: Bool) {
+    owned = owned.filter { app(for: $0) != nil }
+    let doomed = keepNewest ? Array(owned.dropLast()) : owned
+    doomed.forEach(forceQuit)
+    owned = keepNewest ? Array(owned.suffix(1)) : []
+    saveOwned()
+}
+
+/// Run a library call, recording any Messages copy that appears meanwhile as ours.
+func tracking<T>(_ work: () async throws -> T) async throws -> T {
+    let before = Set(runningMessages().map(\.processIdentifier))
+    defer {
+        let new = runningMessages().filter { !before.contains($0.processIdentifier) }
+        owned += new.map { Owned(pid: $0.processIdentifier, launched: $0.launchDate?.timeIntervalSince1970 ?? Date().timeIntervalSince1970) }
+        owned.sort { $0.launched < $1.launched }
+        reap(keepNewest: true)
+    }
+    return try await work()
+}
+
+// Copies left by a previous run that crashed or was killed.
+if let data = FileManager.default.contents(atPath: ownedFile), let previous = try? JSONDecoder().decode([Owned].self, from: data) {
+    previous.forEach(forceQuit)
+}
+saveOwned()
+
 let api: PlatformAPI
 do {
     api = try PlatformAPI(accountID: "waterboy")
@@ -53,7 +116,8 @@ do {
 }
 
 func shutdown() async -> Never {
-    try? await api.dispose() // also quits the hidden Messages instance
+    try? await api.dispose() // asks the hidden Messages copy to quit…
+    reap(keepNewest: false) // …and makes sure every copy we launched is gone
     exit(0)
 }
 
@@ -66,22 +130,23 @@ func handle(_ req: Request) async -> [String: Any] {
     do {
         switch req.op {
         case "ping":
-            return ["id": req.id, "ok": true, "version": version, "accessibility": MacPermissions.getAuthStatus(.accessibility).rawValue]
+            reap(keepNewest: true)
+            return ["id": req.id, "ok": true, "version": version, "accessibility": MacPermissions.getAuthStatus(.accessibility).rawValue, "hiddenCopies": owned.count]
         case "typing":
             guard let chat = req.chat, !chat.isEmpty else { throw BridgeError("typing needs a chat") }
-            try await api.sendActivityIndicator(type: req.on == false ? "none" : "typing", threadID: chat)
+            try await tracking { try await api.sendActivityIndicator(type: req.on == false ? "none" : "typing", threadID: chat) }
             return ["id": req.id, "ok": true]
         case "react":
             guard let chat = req.chat, let message = req.message, let reaction = req.reaction, !reaction.isEmpty else {
                 throw BridgeError("react needs chat, message and reaction")
             }
-            try await api.addReaction(threadID: chat, messageID: message, reactionKey: reaction)
+            try await tracking { try await api.addReaction(threadID: chat, messageID: message, reactionKey: reaction) }
             return ["id": req.id, "ok": true]
         case "reply":
             guard let chat = req.chat, let message = req.message, let text = req.text, !text.isEmpty else {
                 throw BridgeError("reply needs chat, message and text")
             }
-            _ = try await api.sendMessage(threadID: chat, text: text, filePath: nil, quotedMessageID: message)
+            _ = try await tracking { try await api.sendMessage(threadID: chat, text: text, filePath: nil, quotedMessageID: message) }
             return ["id": req.id, "ok": true]
         default:
             throw BridgeError("unknown op \(req.op)")
