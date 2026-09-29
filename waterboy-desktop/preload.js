@@ -5,7 +5,7 @@ const names = [
   "overview", "start", "pause", "restart", "logs", "conversations", "setAllowed", "addPerson", "setContactName", "setAdmin",
   "setTeam", "setAccess", "fantasyTeams", "setAlertSubscriber", "alertPlan", "createAlertAutomations", "automations", "createAutomation", "updateAutomation", "setAutomationEnabled", "deleteAutomation",
   "describeSchedule", "memories", "saveMemory", "resetSession", "settings", "saveSettings", "connections",
-  "removeExtraTool", "setConnector", "open", "version", "installService", "openSupport", "chatgptSignIn", "chatgptSignOut",
+  "removeExtraTool", "setConnector", "open", "version", "installService", "installUpdate", "openSupport", "chatgptSignIn", "chatgptSignOut",
   "testLeague", "saveLeague", "openPrivacy",
 ];
 

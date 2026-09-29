@@ -3,6 +3,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 const agent = require("./lib/agent");
 const service = require("./lib/service");
+const updates = require("./lib/updates");
 const { redactPage, namesToRedact } = require("./lib/redact");
 
 app.setName("Waterboy");
@@ -18,6 +19,8 @@ const SUPPORT_URL = (() => {
 const BUNDLE = app.isPackaged ? service.bundle({ resourcesPath: process.resourcesPath, execPath: process.execPath, version: app.getVersion() }) : null;
 let setup = { state: BUNDLE ? "checking" : "unbundled" };
 let ensuring = null; // the launch-time install/update, which the first overview waits for
+// App updates from GitHub Releases; null when running from source.
+const UPDATER = updates.enabled({ isPackaged: app.isPackaged }) ? updates.createUpdater({ autoUpdater: require("electron-updater").autoUpdater }) : null;
 
 // System Settings → Privacy & Security panes the setup steps link to.
 const PRIVACY_PANES = {
@@ -30,7 +33,12 @@ const PRIVACY_PANES = {
 const API = {
   overview: async () => {
     await ensuring;
-    return { ...(await agent.overview()), setup: { ...setup, bundled: !!BUNDLE } };
+    return { ...(await agent.overview()), setup: { ...setup, bundled: !!BUNDLE }, update: UPDATER?.status() ?? null };
+  },
+  // Quit, install the downloaded update and relaunch (which moves the service to the new version).
+  installUpdate: () => {
+    if (!UPDATER) throw new Error("Updates are only available in the installed app.");
+    UPDATER.install();
   },
   // Switch to (or install) the service bundled with this app.
   installService: async () => {
@@ -198,6 +206,7 @@ app.whenReady().then(() => {
       (r) => (setup = r),
       (e) => (setup = { state: "error", error: e.message }),
     );
+  UPDATER?.start();
 });
 app.on("window-all-closed", () => app.quit());
 app.on("activate", () => {
