@@ -321,7 +321,53 @@
       setupBanner(),
       restartBanner(),
       card(h("h3", {}, `${name} status`), h("div", { class: "status" }, statusBody)),
-      card(h("div", { class: "readiness" }, h("h3", {}, "Setup readiness"), h("div", { class: "checks" }, check(r.provider === "chatgpt" ? "ChatGPT" : "Claude Code", r.claude), check("Messages", r.messages), check("Conversations", r.conversations)))),
+      r.sending?.failing
+        ? h(
+            "div",
+            { class: "banner warn" },
+            icon("alert", 18),
+            h(
+              "div",
+              { class: "grow" },
+              `Sending through Messages is failing: ${r.sending.detail}. After a macOS update, allow ${name} again under System Settings → Privacy & Security → Automation → Messages, then restart ${name}.`,
+            ),
+          )
+        : null,
+      card(
+        h(
+          "div",
+          { class: "readiness" },
+          h("h3", {}, "Setup readiness"),
+          h(
+            "div",
+            { class: "checks" },
+            check(r.provider === "chatgpt" ? "ChatGPT" : "Claude Code", r.claude),
+            check("Messages", r.messages),
+            // The banner above carries the full failure detail
+            check("Sending", r.sending ? (r.sending.failing ? { ok: false, detail: "Failing" } : r.sending) : { ok: true, detail: "Not checked yet" }),
+            check("Conversations", r.conversations),
+          ),
+        ),
+        // The service's own checks (the ones `npm run doctor` runs): only what needs attention
+        r.checks?.attention.length
+          ? h(
+              "div",
+              { class: "attention" },
+              ...r.checks.attention.map((c) =>
+                h(
+                  "div",
+                  { class: "attention-row" },
+                  // Everything listed needs attention; optional items are grey rather than orange
+                  h("span", { class: c.ok ? "muted-icon" : "bad-icon" }, icon("alert", 17)),
+                  h("div", {}, h("div", { class: "label" }, c.label), h("div", { class: "detail" }, c.hint ? `${c.detail}. ${c.hint}` : c.detail)),
+                ),
+              ),
+            )
+          : null,
+        r.checks
+          ? h("p", { class: "note" }, r.checks.attention.length ? `Service checks from ${stamp(new Date(r.checks.checkedAt).toISOString())}.` : `All ${r.checks.total} service checks passed (${stamp(new Date(r.checks.checkedAt).toISOString())}).`)
+          : null,
+      ),
       card(
         h("h3", {}, "Today"),
         h(

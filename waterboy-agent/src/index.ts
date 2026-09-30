@@ -13,6 +13,8 @@ import { startNflverseSync } from "./fantasy/data/nflverse.ts";
 import { setRankingsDataDir } from "./fantasy/data/rankings.ts";
 import { startIMessageHelper } from "./messages/helper.ts";
 import { SchemaTooNewError } from "./schema.ts";
+import { checkMessagesAutomation, runChecks } from "./health/checks.ts";
+import { HealthReporter, MonitoredSender } from "./health/sendHealth.ts";
 
 /** Data from a newer Waterboy: say so plainly and stop, rather than misread it */
 function exitIfTooNew(e: unknown): never {
@@ -58,7 +60,11 @@ try {
 } catch (e) {
   exitIfTooNew(e);
 }
-const sender = cfg.dryRun ? new ConsoleSender() : new AppleScriptSender(cfg.outboxStagingDir);
+// Setup checks and send health, published to health.json for the Dashboard
+const health = new HealthReporter(cfg.dataDir);
+const sender = cfg.dryRun
+  ? new ConsoleSender()
+  : new MonitoredSender(new AppleScriptSender(cfg.outboxStagingDir), health.send);
 const conditions = makeConditions(cfg, state);
 const runner = cfg.provider === "chatgpt" ? new CodexAgentRunner(cfg) : new ClaudeAgentRunner(cfg, state, conditions);
 // Typing indicators, tapbacks and threaded replies (all best-effort; plain sends work without it).
@@ -123,6 +129,24 @@ const nflverseTimer =
     ? startNflverseSync(cfg.dataDir, () => cfg.fantasy?.season ?? new Date().getFullYear())
     : null;
 
+// Setup checks now and every 30 minutes; a no-send probe of Messages every
+// 10 minutes, so a macOS update that breaks sending shows up before a reply fails
+const refreshChecks = () =>
+  void runChecks(cfg)
+    .then((checks) => {
+      health.setChecks(checks);
+      const automation = checks.find((c) => c.id === "automation");
+      if (automation) health.send.recordProbe(automation);
+    })
+    .catch((e) => log("[health] checks failed:", (e as Error).message));
+const probeSending = () =>
+  void checkMessagesAutomation()
+    .then((r) => health.send.recordProbe(r))
+    .catch(() => {});
+refreshChecks();
+const checksTimer = setInterval(refreshChecks, 30 * 60_000);
+const probeTimer = cfg.dryRun ? null : setInterval(probeSending, 10 * 60_000);
+
 const pollTimer = setInterval(poll, cfg.pollIntervalMs);
 const schedTimer = startScheduler(
   state,
@@ -135,6 +159,8 @@ const shutdown = async (sig: string) => {
   clearInterval(pollTimer);
   clearInterval(schedTimer);
   clearInterval(indexTimer);
+  clearInterval(checksTimer);
+  if (probeTimer) clearInterval(probeTimer);
   if (nflverseTimer) clearInterval(nflverseTimer);
   await Promise.race([bot.idle(), new Promise((r) => setTimeout(r, 15_000))]);
   await helper?.bridge.stop(); // quits the hidden Messages instance

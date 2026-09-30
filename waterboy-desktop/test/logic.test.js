@@ -351,3 +351,34 @@ test("reply times: the logged duration wins, and an unfinished turn never pairs 
   assert.deepEqual(ev.filter((e) => e.kind === "reply").map((e) => e.seconds), [21.5, 13.2, 13]);
   assert.equal(summarize(ev, new Date("2026-09-28T18:00:00Z")).avgSeconds, 15.9);
 });
+
+test("sending readiness follows the service's health.json", () => {
+  const { sendingReadiness, serviceChecks } = require("../lib/agent");
+  const now = Date.parse("2026-09-30T12:00:00Z");
+  const fresh = (send, extra = {}) => ({ version: 1, updatedAt: now - 60_000, checks: [], send, ...extra });
+
+  assert.deepEqual(sendingReadiness(null, now), { ok: true, failing: false, detail: "Not checked yet" });
+  assert.equal(sendingReadiness({ ...fresh({ status: "failing" }), updatedAt: now - 3600_000 }, now).failing, false);
+
+  const failing = sendingReadiness(fresh({ status: "failing", consecutiveFailures: 3, lastFailure: { at: now, message: "x", timedOut: true }, probe: null }), now);
+  assert.deepEqual(failing, { ok: false, failing: true, detail: "The last 3 sends failed. Messages didn't respond" });
+
+  const probe = sendingReadiness(fresh({ status: "failing", consecutiveFailures: 0, lastFailure: null, probe: { at: now, ok: false, detail: "Not authorized (-1743)" } }), now);
+  assert.equal(probe.detail, "Not authorized (-1743)");
+
+  assert.equal(sendingReadiness(fresh({ status: "degraded", consecutiveFailures: 1, lastFailure: { at: now, message: "x" } }), now).ok, true);
+  assert.match(sendingReadiness(fresh({ status: "ok", lastOkAt: now }), now).detail, /^Working/);
+
+  const checks = serviceChecks(
+    fresh({ status: "ok" }, {
+      checks: [
+        { id: "node", label: "Node", status: "pass", detail: "ok", required: true },
+        { id: "automation", label: "Messages automation", status: "fail", detail: "denied", hint: "Allow it", required: true },
+        { id: "tool:ffmpeg", label: "ffmpeg", status: "warn", detail: "Not found", required: false },
+      ],
+    }),
+    now,
+  );
+  assert.equal(checks.total, 3);
+  assert.deepEqual(checks.attention.map((c) => [c.label, c.ok]), [["Messages automation", false], ["ffmpeg", true]]);
+});

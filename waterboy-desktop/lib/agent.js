@@ -198,11 +198,54 @@ async function readiness() {
   else messages = { ok: false, detail: "Waiting for the agent" };
 
   const n = (cfg.allowedChats ?? []).length;
+  const health = readJson(path.join(loc.dataDir, "health.json"));
   return {
     provider: providerOf(cfg),
     claude,
     messages,
     conversations: { ok: n > 0, detail: n ? `${n} allowed` : "None allowed" },
+    sending: sendingReadiness(health),
+    checks: serviceChecks(health),
+  };
+}
+
+/** The service rewrites health.json at least every 10 min while it runs */
+const HEALTH_STALE_MS = 30 * 60_000;
+
+const clock = (ms) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+/**
+ * Sending through Messages, from the service's health.json (records every
+ * send and probes Messages every 10 min without sending). `failing` also
+ * drives the Dashboard banner.
+ */
+function sendingReadiness(health, now = Date.now()) {
+  const send = health?.send;
+  if (!send) return { ok: true, failing: false, detail: "Not checked yet" };
+  if (now - (health.updatedAt ?? 0) > HEALTH_STALE_MS) return { ok: true, failing: false, detail: "Not checked recently (is the service running?)" };
+  if (send.status === "failing") {
+    const why = send.probe && !send.probe.ok
+      ? send.probe.detail
+      : send.lastFailure?.timedOut
+        ? "Messages didn't respond"
+        : send.lastFailure?.message ?? "Sends are failing";
+    const count = send.consecutiveFailures > 1 ? `The last ${send.consecutiveFailures} sends failed. ` : "";
+    return { ok: false, failing: true, detail: `${count}${why}` };
+  }
+  if (send.status === "degraded") return { ok: true, failing: false, detail: `One send failed at ${clock(send.lastFailure.at)}; retrying on the next reply` };
+  if (send.status === "ok") return { ok: true, failing: false, detail: send.lastOkAt ? `Working (last sent ${clock(send.lastOkAt)})` : "Messages responds" };
+  return { ok: true, failing: false, detail: "No sends yet" };
+}
+
+/** The service's setup checks (the same ones `npm run doctor` runs) that need attention */
+function serviceChecks(health, now = Date.now()) {
+  if (!Array.isArray(health?.checks) || now - (health.updatedAt ?? 0) > HEALTH_STALE_MS) return null;
+  return {
+    checkedAt: health.updatedAt,
+    total: health.checks.length,
+    attention: health.checks
+      .filter((c) => c.status !== "pass")
+      .map((c) => ({ label: c.label, detail: c.detail, hint: c.hint ?? null, ok: c.status !== "fail" || !c.required })),
   };
 }
 
@@ -979,6 +1022,8 @@ async function overview() {
 }
 
 module.exports = {
+  sendingReadiness,
+  serviceChecks,
   locate,
   getConfig,
   updateConfig,
