@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { FantasyConfig } from "./fantasy/config.ts";
+import { migrateConfig } from "./schema.ts";
 
 export interface VoiceConfig {
   enabled: boolean;
@@ -106,7 +107,11 @@ const DEFAULTS: Config = {
 export function loadConfig(file = process.env.IMESSAGE_AGENT_CONFIG ?? "config.json"): Config {
   let raw: Partial<Config> = {};
   if (fs.existsSync(file)) {
-    raw = JSON.parse(fs.readFileSync(file, "utf8"));
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+    // Throws SchemaTooNewError for a config.json from a newer build
+    const { config, changed } = migrateConfig(parsed, path.basename(file));
+    if (changed) writeJsonAtomically(file, config);
+    raw = config as Partial<Config>;
   } else {
     console.warn(`[config] ${file} not found, using defaults (no chats allowed!)`);
   }
@@ -128,6 +133,13 @@ export function loadConfig(file = process.env.IMESSAGE_AGENT_CONFIG ?? "config.j
   cfg.voice.modelPath = expandHome(cfg.voice.modelPath);
   fs.mkdirSync(cfg.dataDir, { recursive: true });
   return cfg;
+}
+
+/** Write through a temp file and rename, so a crash never leaves half a config.json */
+function writeJsonAtomically(file: string, data: unknown) {
+  const tmp = `${file}.tmp`;
+  fs.writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`);
+  fs.renameSync(tmp, file);
 }
 
 /** Normalise a phone number / email for comparison. Phones compare on their last 10 digits. */

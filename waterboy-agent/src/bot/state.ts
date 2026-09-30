@@ -1,5 +1,63 @@
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
+import { SchemaTooNewError, STATE_SCHEMA_VERSION } from "../schema.ts";
+
+/**
+ * state.db migrations: index i takes `PRAGMA user_version` i to i + 1.
+ * Append only; never edit a step that has shipped. Databases from before
+ * versioning are at 0, whatever tables they already have, so every step
+ * must be safe to run on data that already has its change.
+ */
+const STATE_MIGRATIONS: ((db: DatabaseSync) => void)[] = [
+  // 0 -> 1: the original tables
+  (db) =>
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);
+      CREATE TABLE IF NOT EXISTS chats (
+        chat_guid TEXT PRIMARY KEY,
+        session_id TEXT,
+        paused INTEGER NOT NULL DEFAULT 0,
+        label TEXT
+      );
+      CREATE TABLE IF NOT EXISTS tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_guid TEXT NOT NULL,
+        schedule TEXT NOT NULL,
+        prompt TEXT NOT NULL,
+        description TEXT NOT NULL,
+        next_run INTEGER,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL
+      );
+    `),
+  // 1 -> 2: task conditions (fantasy_week_final, fantasy_scoring_swing)
+  (db) => {
+    const cols = (db.prepare("PRAGMA table_info(tasks)").all() as { name: string }[]).map((c) => c.name);
+    if (!cols.includes("condition")) db.exec("ALTER TABLE tasks ADD COLUMN condition TEXT");
+  },
+];
+
+if (STATE_MIGRATIONS.length !== STATE_SCHEMA_VERSION) {
+  throw new Error(`STATE_SCHEMA_VERSION (${STATE_SCHEMA_VERSION}) must equal the number of state migrations (${STATE_MIGRATIONS.length})`);
+}
+
+/** Brings state.db up to STATE_SCHEMA_VERSION, one transaction per step */
+export function migrateState(db: DatabaseSync, file = "state.db"): { from: number; to: number } {
+  const from = Number((db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version);
+  if (from > STATE_SCHEMA_VERSION) throw new SchemaTooNewError(file, from, STATE_SCHEMA_VERSION);
+  for (let v = from; v < STATE_SCHEMA_VERSION; v++) {
+    db.exec("BEGIN");
+    try {
+      STATE_MIGRATIONS[v](db);
+      db.exec(`PRAGMA user_version = ${v + 1}`);
+      db.exec("COMMIT");
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    }
+  }
+  return { from, to: STATE_SCHEMA_VERSION };
+}
 
 export interface ChatState {
   chatGuid: string;
@@ -28,29 +86,9 @@ export class State {
 
   constructor(dataDir: string) {
     this.db = new DatabaseSync(path.join(dataDir, "state.db"));
-    this.db.exec(`
-      PRAGMA journal_mode = WAL;
-      PRAGMA busy_timeout = 5000;
-      CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);
-      CREATE TABLE IF NOT EXISTS chats (
-        chat_guid TEXT PRIMARY KEY,
-        session_id TEXT,
-        paused INTEGER NOT NULL DEFAULT 0,
-        label TEXT
-      );
-      CREATE TABLE IF NOT EXISTS tasks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        chat_guid TEXT NOT NULL,
-        schedule TEXT NOT NULL,
-        prompt TEXT NOT NULL,
-        description TEXT NOT NULL,
-        next_run INTEGER,
-        enabled INTEGER NOT NULL DEFAULT 1,
-        created_at INTEGER NOT NULL
-      );
-    `);
-    const cols = (this.db.prepare("PRAGMA table_info(tasks)").all() as { name: string }[]).map((c) => c.name);
-    if (!cols.includes("condition")) this.db.exec("ALTER TABLE tasks ADD COLUMN condition TEXT");
+    this.db.exec("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;");
+    // Throws SchemaTooNewError for a state.db from a newer build
+    migrateState(this.db);
   }
 
   get(k: string): string | null {

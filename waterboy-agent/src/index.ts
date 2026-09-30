@@ -12,8 +12,23 @@ import { makeConditions } from "./bot/conditions.ts";
 import { startNflverseSync } from "./fantasy/data/nflverse.ts";
 import { setRankingsDataDir } from "./fantasy/data/rankings.ts";
 import { startIMessageHelper } from "./messages/helper.ts";
+import { SchemaTooNewError } from "./schema.ts";
 
-const cfg = loadConfig();
+/** Data from a newer Waterboy: say so plainly and stop, rather than misread it */
+function exitIfTooNew(e: unknown): never {
+  if (e instanceof SchemaTooNewError) {
+    console.error(`Waterboy can't start: ${e.message}`);
+    process.exit(1);
+  }
+  throw e;
+}
+
+let cfg: ReturnType<typeof loadConfig>;
+try {
+  cfg = loadConfig();
+} catch (e) {
+  exitIfTooNew(e);
+}
 if (process.argv.includes("--dry-run")) cfg.dryRun = true;
 setRankingsDataDir(cfg.dataDir);
 
@@ -37,7 +52,12 @@ try {
   process.exit(1);
 }
 
-const state = new State(cfg.dataDir);
+let state: State;
+try {
+  state = new State(cfg.dataDir);
+} catch (e) {
+  exitIfTooNew(e);
+}
 const sender = cfg.dryRun ? new ConsoleSender() : new AppleScriptSender(cfg.outboxStagingDir);
 const conditions = makeConditions(cfg, state);
 const runner = cfg.provider === "chatgpt" ? new CodexAgentRunner(cfg) : new ClaudeAgentRunner(cfg, state, conditions);
