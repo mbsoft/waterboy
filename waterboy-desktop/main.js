@@ -3,6 +3,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 const agent = require("./lib/agent");
 const service = require("./lib/service");
+const updates = require("./lib/updates");
 const { redactPage, namesToRedact } = require("./lib/redact");
 
 app.setName("Waterboy");
@@ -18,12 +19,26 @@ const SUPPORT_URL = (() => {
 const BUNDLE = app.isPackaged ? service.bundle({ resourcesPath: process.resourcesPath, execPath: process.execPath, version: app.getVersion() }) : null;
 let setup = { state: BUNDLE ? "checking" : "unbundled" };
 let ensuring = null; // the launch-time install/update, which the first overview waits for
+// App updates from GitHub Releases; null when running from source.
+const UPDATER = updates.enabled({ isPackaged: app.isPackaged }) ? updates.createUpdater({ autoUpdater: require("electron-updater").autoUpdater }) : null;
+
+// System Settings → Privacy & Security panes the setup steps link to.
+const PRIVACY_PANES = {
+  fullDiskAccess: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles",
+  automation: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation",
+  accessibility: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+};
 
 // The renderer can call exactly these, nothing else.
 const API = {
   overview: async () => {
     await ensuring;
-    return { ...(await agent.overview()), setup: { ...setup, bundled: !!BUNDLE } };
+    return { ...(await agent.overview()), setup: { ...setup, bundled: !!BUNDLE }, update: UPDATER?.status() ?? null };
+  },
+  // Quit, install the downloaded update and relaunch (which moves the service to the new version).
+  installUpdate: () => {
+    if (!UPDATER) throw new Error("Updates are only available in the installed app.");
+    UPDATER.install();
   },
   // Switch to (or install) the service bundled with this app.
   installService: async () => {
@@ -62,6 +77,14 @@ const API = {
   // ChatGPT sign-in for the ChatGPT assistant (runs the bundled `codex login`, which opens the browser).
   chatgptSignIn: () => agent.chatgptSignIn(),
   chatgptSignOut: () => agent.chatgptSignOut(),
+  // First-run setup: the ESPN league (test before saving) and the privacy panes to grant access in.
+  testLeague: (league) => agent.testLeague(league),
+  saveLeague: (league) => agent.saveLeague(league),
+  openPrivacy: async (pane) => {
+    const url = PRIVACY_PANES[pane];
+    if (!url) throw new Error(`Unknown privacy pane ${pane}`);
+    await shell.openExternal(url);
+  },
   // Only the agent's own files and folders can be opened.
   open: async (what) => {
     const loc = await agent.locate();
@@ -128,6 +151,7 @@ function createWindow() {
  *   CAPTURE_SCROLL=bottom  end of long pages   CAPTURE_FULL=1  whole page, not just the window
  *   CAPTURE_REDACT=1   scramble + blur phone numbers, emails, names and memory (see lib/redact.js)
  *   CAPTURE_CLICK=sel  click an element before capturing
+ *   CAPTURE_PAGES=setup-2  a first-run setup step (0-4)
  */
 async function capture(win, dir) {
   fs.mkdirSync(dir, { recursive: true });
@@ -141,7 +165,13 @@ async function capture(win, dir) {
   for (const theme of themes) {
     nativeTheme.themeSource = theme;
     for (const p of pages) {
-      await win.webContents.executeJavaScript(`location.hash = "#${p}"`);
+      const setupStep = /^setup-(\d)$/.exec(p)?.[1];
+      if (setupStep) {
+        // Leave #setup first so the next step renders even when the previous capture was a step too.
+        await win.webContents.executeJavaScript(`localStorage.setItem("setupStep", "${setupStep}"); location.hash = "#about"`);
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      await win.webContents.executeJavaScript(`location.hash = "#${setupStep ? "setup" : p}"`);
       await new Promise((r) => setTimeout(r, 1800));
       // CAPTURE_SCROLL=bottom shows the end of long pages.
       if (process.env.CAPTURE_SCROLL === "bottom") {
@@ -176,6 +206,7 @@ app.whenReady().then(() => {
       (r) => (setup = r),
       (e) => (setup = { state: "error", error: e.message }),
     );
+  UPDATER?.start();
 });
 app.on("window-all-closed", () => app.quit());
 app.on("activate", () => {

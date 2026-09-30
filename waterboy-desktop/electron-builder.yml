@@ -62,4 +62,12 @@ dmg:
     - { x: 140, y: 190, type: file }
     - { x: 400, y: 190, type: link, path: /Applications }
 
-publish: null
+# The update feed (electron-updater reads it from app-update.yml inside the app). The release job uploads
+# latest-mac.yml, the zips and their blockmaps to the GitHub Release for the tag. The app downloads
+# updates without a token, so the releases must be readable anonymously: a public repo, or point this at
+# a public releases-only repo.
+publish:
+  provider: github
+  owner: mbsoft
+  repo: waterboy
+  releaseType: release

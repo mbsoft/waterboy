@@ -18,7 +18,8 @@
     "stage-agent": "node scripts/stage-agent.js"
   },
   "dependencies": {
-    "croner": "^10.0.1"
+    "croner": "^10.0.1",
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
     "electron": "^44.4.5",

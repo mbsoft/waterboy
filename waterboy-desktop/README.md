@@ -46,8 +46,34 @@ arm64 and x64 builds each get their own `node_modules`; they're only reinstalled
 
 It then runs the app's and the agent's tests, stages the agent, builds `Waterboy-<version>-arm64.dmg` / `-x64.dmg` (plus .zip),
 signs the app with the hardened runtime (the Claude binary keeps Anthropic's own signature), notarizes and staples the app and each DMG, checks
-them with `codesign`, `spctl` and `stapler`, checks the bundled service is present, and writes checksums. Bump `version` in
-`package.json` for each release.
+them with `codesign`, `spctl` and `stapler`, checks the bundled service is present, and writes checksums.
+
+### Releasing (CI)
+
+The desktop app and the service share one version, and each release is a git tag. From the repo root:
+
+```bash
+# 1. Write the notes under "## [Unreleased]" in CHANGELOG.md, then:
+node scripts/version.mjs bump 0.3.0     # sets both package.json versions, dates the CHANGELOG, commits, tags v0.3.0
+git push origin HEAD v0.3.0
+```
+
+The tag runs `.github/workflows/release.yml`, which runs `npm run release` with the signing
+certificate and notarization key from the repository's Actions secrets (listed at the top of that
+file) and uploads the DMGs, zips, `latest-mac.yml` and `SHA256SUMS.txt` to a **draft** GitHub
+Release, with the CHANGELOG section as its notes. Publishing the draft is the go-live step. A tag
+with a suffix (`v0.3.0-beta.1`) becomes a prerelease, which installed apps don't update to. Every
+push and pull request also runs `.github/workflows/ci.yml`: the tests, the helper build, and an
+unsigned app for both architectures.
+
+### Updates
+
+The installed app checks the GitHub Releases feed (`publish` in `electron-builder.yml`) on launch
+and every 6 hours, downloads a new version in the background, and shows "Restart to update" on the
+Dashboard (`lib/updates.js`). It never installs on its own when quitting: the relaunch after an
+update is what moves the service to the new version (see below), so replacing the bundle
+under a running service is avoided. The feed has to be readable without a token, so the releases
+need to live in a public repository. Set `WATERBOY_NO_UPDATES=1` to turn update checks off.
 
 ### What happens on the user's Mac
 
@@ -80,7 +106,8 @@ browser through `shell.openExternal`; the renderer never gets the URL.
 
 | Page | What it does | Where it reads/writes |
 |---|---|---|
-| Dashboard | Running/paused status with Start, Pause and Restart; setup readiness (Claude sign-in, Messages access, allowed chats); today's replies, reply time, ignored messages, problems | `launchctl`, `~/.imessage-agent/env`, Keychain (existence check only), logs |
+| Dashboard | Running/paused status with Start, Pause and Restart; setup readiness (Claude sign-in, Messages access, sending, allowed chats) and service checks needing attention; a banner when sending fails; today's replies, reply time, ignored messages, problems | `launchctl`, `~/.imessage-agent/env`, Keychain (existence check only), `health.json`, logs |
+| Setup | First-launch walkthrough: permissions (opens the Privacy & Security panes), sign-in, first allowed chat, ESPN league + espn_s2/SWID with Test connection (same request as `league_status`). Cookie values are written to config.json but never sent to the renderer | `config.json`, `health.json`, ESPN |
 | Connections | Built-in tools, MCP servers and extra allowed tools | `config.json` |
 | Conversations | Allow or block each person or group, rename contacts, mark admins, set each person's fantasy team | `config.json` (`allowedChats`, `contacts`, `groupAdmins`, `fantasy.teams`), `chats-index.json` |
 | Memory | View, edit or erase each conversation's `MEMORY.md`; start a fresh conversation (like `/new`) | `~/.imessage-agent/chats/*/MEMORY.md`, `state.db` |

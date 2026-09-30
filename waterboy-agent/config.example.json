@@ -1,4 +1,5 @@
 {
+  "schemaVersion": 1,
   "provider": "claude",
   "chatgpt": { "model": null },
   "agentName": "Claude",

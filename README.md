@@ -118,7 +118,8 @@ Limits are enforced by **which tools exist for a given turn**, not by instructio
 
 | Page | What it does |
 |---|---|
-| Dashboard | Running/paused status with Start, Pause, Restart; setup readiness (sign-in, Messages access, allowed chats); today's replies, reply time, ignored messages, problems |
+| Dashboard | Running/paused status with Start, Pause, Restart; setup readiness (sign-in, Messages access, sending, allowed chats) and any service checks needing attention; a banner when sending through Messages fails; today's replies, reply time, ignored messages, problems |
+| Setup | Opens on first launch: permissions (Full Disk Access, Automation, optional Accessibility), sign-in, the first allowed chat, and the ESPN league with a test connection. Run it again from the Dashboard |
 | Connections | Built-in tools, MCP servers, extra allowed tools |
 | Conversations | Allow or block each person or group, rename contacts, mark admins, set each person's fantasy team and access level |
 | Memory | View, edit or erase each chat's `MEMORY.md`; start a fresh conversation |

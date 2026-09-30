@@ -79,6 +79,7 @@ On first start the service begins at the newest message, so it never answers old
 
 | key | meaning |
 |---|---|
+| `schemaVersion` | Written by the service; don't edit (see [Upgrades and rollback](#upgrades-and-rollback)) |
 | `provider` | `"claude"` (default: Claude Agent SDK on your Claude Code login) or `"chatgpt"` (Codex SDK on a ChatGPT sign-in; see below) |
 | `chatgpt.model` | Model for the ChatGPT assistant; `null` means your ChatGPT plan's default |
 | `allowedChats` | Phone numbers or emails (1:1 chats); group display names, `chat_identifier`s or GUIDs (groups). Phone numbers match on their last 10 digits. |
@@ -221,6 +222,19 @@ The roundup text itself (results, standings with movement and playoff line, high
     inbox/  outbox/sent/   received files / files sent back
   logs/
 ```
+
+## Upgrades and rollback
+
+`config.json` (`schemaVersion`) and `state.db` (SQLite `user_version`) are versioned. On start, the
+service migrates older files forward, so upgrading needs nothing from you.
+
+A build never runs on files a newer one has migrated. It stops with a message such as
+"state.db is at schema version 3, but this Waterboy build only understands up to 2" in
+`logs/agent.err.log` instead of misreading them. To roll back, either reinstall the newer build, or
+restore `config.json` and `state.db` from before the upgrade (quit the service first).
+
+When a change needs a migration, add a step to `CONFIG_MIGRATIONS` (`src/schema.ts`) or
+`STATE_MIGRATIONS` (`src/bot/state.ts`) and bump the matching version. Steps are append-only.
 
 ## Typing indicators, tapbacks and threaded replies
 

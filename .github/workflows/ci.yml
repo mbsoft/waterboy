@@ -1,0 +1,96 @@
+# Every push and pull request: tests, the Swift helper build, and an unsigned app for both architectures.
+# Signed releases are release.yml (pushing a vX.Y.Z tag).
+# macOS 26 runners: the helper's dependency (BetterSwiftAX) uses accessibility constants that only the
+# macOS 26 SDK (Xcode 26) declares.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: waterboy-agent/.nvmrc
+          cache: npm
+          cache-dependency-path: |
+            waterboy-agent/package-lock.json
+            waterboy-desktop/package-lock.json
+      - name: Versions agree
+        run: node scripts/version.mjs check && node --test scripts/version.test.mjs
+      - name: Agent
+        working-directory: waterboy-agent
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm test
+      - name: Desktop
+        working-directory: waterboy-desktop
+        run: |
+          npm ci --no-audit --no-fund
+          npm test
+
+  helper:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: waterboy-imessage/.build
+          key: swiftpm-${{ runner.os }}-${{ hashFiles('waterboy-imessage/Package.resolved', 'waterboy-imessage/Package.swift') }}
+      - name: Build the typing-indicator helper (arm64 + x86_64)
+        run: waterboy-imessage/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: waterboy-imessage
+          path: waterboy-imessage/dist/waterboy-imessage
+          retention-days: 7
+
+  pack:
+    needs: helper
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: waterboy-desktop/.nvmrc
+          cache: npm
+          cache-dependency-path: |
+            waterboy-agent/package-lock.json
+            waterboy-desktop/package-lock.json
+      - uses: actions/download-artifact@v4
+        with:
+          name: waterboy-imessage
+          path: waterboy-imessage/dist
+      - run: chmod +x waterboy-imessage/dist/waterboy-imessage
+      - name: Install
+        run: |
+          (cd waterboy-agent && npm ci --no-audit --no-fund)
+          (cd waterboy-desktop && npm ci --no-audit --no-fund)
+      # stage-agent fails if either architecture is missing its Claude or Codex binary.
+      - name: Stage the service
+        working-directory: waterboy-desktop
+        run: npm run stage-agent
+      - name: Build the unsigned app (arm64 + x64)
+        working-directory: waterboy-desktop
+        run: npx electron-builder --mac dir --arm64 --x64 --publish never -c.mac.identity=null -c.mac.notarize=false
+      - name: Smoke test the bundled service
+        working-directory: waterboy-desktop
+        run: |
+          for app in dist/mac*/Waterboy.app; do
+            agent="$app/Contents/Resources/agent"
+            test -x "$agent/run.sh" && test -f "$agent/index.mjs" && test -f "$agent/mcpServer.mjs"
+            test -x "$agent/bin/waterboy-imessage"
+            test -f "$app/Contents/Resources/app-update.yml"
+          done
+          # The runner is Apple silicon: the arm64 app has to be able to run the service (node:sqlite, ESM).
+          ELECTRON_RUN_AS_NODE=1 dist/mac-arm64/Waterboy.app/Contents/MacOS/Waterboy -e 'require("node:sqlite")'

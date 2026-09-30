@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { FantasyConfig } from "./fantasy/config.ts";
+import { migrateConfig } from "./schema.ts";
 
 export interface VoiceConfig {
   enabled: boolean;
@@ -64,6 +65,15 @@ export interface Config {
   threadedReplies: "auto" | "always" | "off";
 }
 
+/** The data folder a config file points at, even when the file can't be loaded (best effort) */
+export function dataDirOf(file = CONFIG_FILE): string {
+  try {
+    const raw = JSON.parse(fs.readFileSync(file, "utf8")) as { dataDir?: unknown };
+    if (typeof raw.dataDir === "string" && raw.dataDir) return expandHome(raw.dataDir);
+  } catch {}
+  return expandHome(DEFAULTS.dataDir);
+}
+
 export function expandHome(p: string): string {
   if (p === "~") return os.homedir();
   if (p.startsWith("~/")) return path.join(os.homedir(), p.slice(2));
@@ -103,10 +113,20 @@ const DEFAULTS: Config = {
   threadedReplies: "auto",
 };
 
-export function loadConfig(file = process.env.IMESSAGE_AGENT_CONFIG ?? "config.json"): Config {
+export const CONFIG_FILE = process.env.IMESSAGE_AGENT_CONFIG ?? "config.json";
+
+/**
+ * Reads config.json, migrating it to the current schema. The service saves the migrated file;
+ * `write: false` (doctor) migrates in memory only and leaves the file alone.
+ */
+export function loadConfig(file = CONFIG_FILE, { write = true }: { write?: boolean } = {}): Config {
   let raw: Partial<Config> = {};
   if (fs.existsSync(file)) {
-    raw = JSON.parse(fs.readFileSync(file, "utf8"));
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+    // Throws SchemaTooNewError for a config.json from a newer build
+    const { config, changed } = migrateConfig(parsed, path.basename(file));
+    if (changed && write) writeJsonAtomically(file, config);
+    raw = config as Partial<Config>;
   } else {
     console.warn(`[config] ${file} not found, using defaults (no chats allowed!)`);
   }
@@ -128,6 +148,13 @@ export function loadConfig(file = process.env.IMESSAGE_AGENT_CONFIG ?? "config.j
   cfg.voice.modelPath = expandHome(cfg.voice.modelPath);
   fs.mkdirSync(cfg.dataDir, { recursive: true });
   return cfg;
+}
+
+/** Write through a temp file and rename, so a crash never leaves half a config.json */
+function writeJsonAtomically(file: string, data: unknown) {
+  const tmp = `${file}.tmp`;
+  fs.writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`);
+  fs.renameSync(tmp, file);
 }
 
 /** Normalise a phone number / email for comparison. Phones compare on their last 10 digits. */
