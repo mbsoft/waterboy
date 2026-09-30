@@ -246,6 +246,18 @@
       }, { primary: true }),
     );
   }
+  // A downloaded app update, waiting for a restart.
+  function updateBanner() {
+    const u = state.overview?.update;
+    if (u?.state !== "ready") return null;
+    return h(
+      "div",
+      { class: "banner" },
+      icon("restart", 18),
+      h("div", { class: "grow" }, `Waterboy ${u.version} is ready. Restart the app to update; the agent restarts on the new version too.`),
+      button("Restart to update", () => api.installUpdate(), { primary: true }),
+    );
+  }
   const saved = (what = "Saved") => toast(state.overview?.status.running ? `${what}. Restart the agent to apply.` : what);
 
   // ---------- pages ----------
@@ -331,6 +343,7 @@
       { class: "page" },
       pageHead("Dashboard", "See the agent's status, readiness and today's activity."),
       setupBanner(),
+      updateBanner(),
       restartBanner(),
       card(h("h3", {}, `${name} status`), h("div", { class: "status" }, statusBody)),
       r.sending?.failing
