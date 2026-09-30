@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { loadConfig, log } from "./config.ts";
+import { dataDirOf, loadConfig, log, type Config } from "./config.ts";
 import { MessagesDb } from "./messages/messagesDb.ts";
 import { State } from "./bot/state.ts";
 import { Bot } from "./bot/bot.ts";
@@ -15,21 +15,29 @@ import { startIMessageHelper } from "./messages/helper.ts";
 import { SchemaTooNewError } from "./schema.ts";
 import { checkMessagesAutomation, runChecks } from "./health/checks.ts";
 import { HealthReporter, MonitoredSender } from "./health/sendHealth.ts";
+import { clearStartupError, writeStartupError } from "./health/startupError.ts";
 
-/** Data from a newer Waterboy: say so plainly and stop, rather than misread it */
-function exitIfTooNew(e: unknown): never {
-  if (e instanceof SchemaTooNewError) {
-    console.error(`Waterboy can't start: ${e.message}`);
-    process.exit(1);
-  }
-  throw e;
+/**
+ * Data from a newer Waterboy: say so plainly and stop, rather than misread it. The reason goes
+ * to startup-error.json for the Dashboard. Under launchd (parent pid 1), exiting would only get
+ * the service restarted every 15 s (KeepAlive), so it waits idle until it's stopped instead.
+ */
+async function refuseIfTooNew(e: unknown, dataDir: string): Promise<never> {
+  if (!(e instanceof SchemaTooNewError)) throw e;
+  console.error(`Waterboy can't start: ${e.message}`);
+  writeStartupError(dataDir, { kind: "schemaTooNew", message: e.message });
+  if (process.ppid !== 1) process.exit(1);
+  console.error("Waiting until the service is stopped or Waterboy is updated.");
+  for (const sig of ["SIGTERM", "SIGINT"] as const) process.on(sig, () => process.exit(0));
+  setInterval(() => {}, 1 << 30);
+  return new Promise<never>(() => {});
 }
 
-let cfg: ReturnType<typeof loadConfig>;
+let cfg!: Config;
 try {
   cfg = loadConfig();
 } catch (e) {
-  exitIfTooNew(e);
+  await refuseIfTooNew(e, dataDirOf());
 }
 if (process.argv.includes("--dry-run")) cfg.dryRun = true;
 setRankingsDataDir(cfg.dataDir);
@@ -54,12 +62,13 @@ try {
   process.exit(1);
 }
 
-let state: State;
+let state!: State;
 try {
   state = new State(cfg.dataDir);
 } catch (e) {
-  exitIfTooNew(e);
+  await refuseIfTooNew(e, cfg.dataDir);
 }
+clearStartupError(cfg.dataDir);
 // Setup checks and send health, published to health.json for the Dashboard
 const health = new HealthReporter(cfg.dataDir);
 const sender = cfg.dryRun
@@ -140,7 +149,7 @@ const refreshChecks = () =>
     })
     .catch((e) => log("[health] checks failed:", (e as Error).message));
 const probeSending = () =>
-  void checkMessagesAutomation()
+  void checkMessagesAutomation(undefined, { onlyIfOpen: true })
     .then((r) => health.send.recordProbe(r))
     .catch(() => {});
 refreshChecks();

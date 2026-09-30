@@ -12,6 +12,7 @@ import {
   checkOptionalTools,
 } from "../src/health/checks.ts";
 import { FAILING_AFTER, HealthReporter, MonitoredSender, SendHealth } from "../src/health/sendHealth.ts";
+import { clearStartupError, STARTUP_ERROR_FILE, writeStartupError } from "../src/health/startupError.ts";
 import { ConsoleSender, type ChatTarget } from "../src/messages/sender.ts";
 import { makeFakeChatDb } from "./helpers.ts";
 
@@ -96,4 +97,55 @@ test("HealthReporter writes health.json atomically", () => {
   assert.equal(file.checks[0].id, "node");
   assert.equal(file.send.status, "ok");
   assert.equal(fs.existsSync(path.join(dir, "health.json.tmp")), false);
+});
+
+test("the timed automation check leaves a closed Messages closed", async () => {
+  const asked: string[] = [];
+  const osa = (running: boolean) => async (script: string) => {
+    asked.push(script);
+    return /is running/.test(script) ? { ok: true, out: String(running), err: "" } : { ok: true, out: "7", err: "" };
+  };
+  const closed = await checkMessagesAutomation(osa(false), { onlyIfOpen: true });
+  assert.equal(closed.skipped, true);
+  assert.deepEqual(asked, ['application "Messages" is running'], "no `tell application`, which would launch it");
+
+  const open = await checkMessagesAutomation(osa(true), { onlyIfOpen: true });
+  assert.equal(open.skipped, undefined);
+  assert.equal(open.detail, "Messages responds to AppleScript (get count of chats → 7)");
+
+  // A skipped check doesn't overwrite the last real probe or check result
+  const health = new SendHealth();
+  health.recordProbe({ ...open, status: "fail", detail: "denied" });
+  health.recordProbe(closed);
+  assert.equal(health.snapshot().probe?.detail, "denied");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "waterboy-skip-"));
+  const reporter = new HealthReporter(dir);
+  reporter.setChecks([{ ...open, status: "fail", detail: "denied" }]);
+  reporter.setChecks([closed]);
+  reporter.write();
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "health.json"), "utf8")).checks[0].detail, "denied");
+});
+
+test("a successful send clears a failed probe, so the banner doesn't outlive the problem", () => {
+  let t = 1000;
+  const health = new SendHealth(() => {}, () => t);
+  health.recordProbe({ id: "automation", label: "Messages automation", status: "fail", detail: "(-1743)", required: true });
+  assert.equal(health.snapshot().status, "failing");
+  t = 2000;
+  health.recordOk();
+  const s = health.snapshot();
+  assert.equal(s.status, "ok");
+  assert.deepEqual(s.probe, { at: 2000, ok: true, detail: "A message was sent since the last check" });
+});
+
+test("startup-error.json is written on refusal and removed by the next good start", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "waterboy-starterr-"));
+  writeStartupError(dir, { kind: "schemaTooNew", message: "state.db is at schema version 9" });
+  const e = JSON.parse(fs.readFileSync(path.join(dir, STARTUP_ERROR_FILE), "utf8"));
+  assert.equal(e.kind, "schemaTooNew");
+  assert.match(e.message, /version 9/);
+  assert.equal(typeof e.at, "number");
+  clearStartupError(dir);
+  assert.equal(fs.existsSync(path.join(dir, STARTUP_ERROR_FILE)), false);
+  clearStartupError(dir); // already gone: fine
 });

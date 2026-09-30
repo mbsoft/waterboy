@@ -250,11 +250,20 @@ function serviceChecks(health, now = Date.now()) {
   };
 }
 
+/**
+ * Why the service refused to start (startup-error.json, e.g. data from a newer Waterboy after a
+ * rollback). The service removes the file once it starts normally.
+ */
+function startupError(loc) {
+  const e = readJson(path.join(loc.dataDir, "startup-error.json"));
+  return e && typeof e.message === "string" ? { message: e.message, at: e.at ?? null } : null;
+}
+
 /** Automation → Messages, from the service's own check in health.json; null until it has run */
 function automationReadiness(health, now = Date.now()) {
   if (!Array.isArray(health?.checks) || now - (health.updatedAt ?? 0) > HEALTH_STALE_MS) return null;
   const c = health.checks.find((x) => x.id === "automation");
-  if (!c) return null;
+  if (!c || c.skipped) return null;
   return { ok: c.status !== "fail", detail: c.status === "pass" ? "Allowed" : c.detail };
 }
 
@@ -1098,9 +1107,12 @@ async function saveLeague(input = {}) {
 async function overview() {
   const [loc, status, ready, cfg, lg] = await Promise.all([locate(), serviceStatus(), readiness(), getConfig().catch(() => ({})), logs()]);
   const configChangedAt = fs.existsSync(loc.configPath) ? fs.statSync(loc.configPath).mtime.toISOString() : null;
-  const needsRestart = !!(status.running && status.startedAt && configChangedAt && Date.parse(configChangedAt) > Date.parse(status.startedAt) + 1000);
+  // startedAt comes from `ps` in whole seconds, and the service itself rewrites config.json within
+  // a second of starting when it migrates it, so only later changes count.
+  const needsRestart = !!(status.running && status.startedAt && configChangedAt && Date.parse(configChangedAt) > Date.parse(status.startedAt) + 5000);
   return {
-    agentName: cfg.agentName || "Agent",
+    agentName: cfg.agentName || "Claude", // the service's default name
+    startupError: startupError(loc),
     status,
     readiness: ready,
     needsRestart,
@@ -1111,6 +1123,7 @@ async function overview() {
 }
 
 module.exports = {
+  startupError,
   sendingReadiness,
   automationReadiness,
   serviceChecks,

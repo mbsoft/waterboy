@@ -42,6 +42,8 @@ export class SendHealth {
   recordOk() {
     this.lastOkAt = this.now();
     this.consecutiveFailures = 0;
+    // A message that went out proves Messages can be controlled, whatever the last probe said
+    if (this.probe && !this.probe.ok) this.probe = { at: this.lastOkAt, ok: true, detail: "A message was sent since the last check" };
     this.onChange();
   }
 
@@ -54,6 +56,7 @@ export class SendHealth {
   }
 
   recordProbe(result: CheckResult) {
+    if (result.skipped) return;
     this.probe = { at: this.now(), ok: result.status !== "fail", detail: result.detail };
     this.onChange();
   }
@@ -116,8 +119,9 @@ export class HealthReporter {
     this.send = new SendHealth(() => this.scheduleWrite());
   }
 
+  /** A check skipped this round keeps its last real result */
   setChecks(checks: CheckResult[]) {
-    this.checks = checks;
+    this.checks = checks.map((c) => (c.skipped ? (this.checks.find((p) => p.id === c.id && !p.skipped) ?? c) : c));
     this.scheduleWrite();
   }
 

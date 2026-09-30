@@ -20,6 +20,8 @@ export interface CheckResult {
   hint?: string;
   /** A failing required check means the service can't work */
   required: boolean;
+  /** Not actually run this time (say, Messages was closed); keep the previous verdict */
+  skipped?: boolean;
 }
 
 /** Runs an AppleScript; never throws */
@@ -69,7 +71,17 @@ export function checkChatDb(chatDbPath: string, execPath = process.execPath): Ch
  * means Automation permission is missing; -10000/-1728 mean the event was
  * delivered (so permission is fine) but that query isn't supported.
  */
-export async function checkMessagesAutomation(osa: AppleScriptRunner = runAppleScript): Promise<CheckResult> {
+export async function checkMessagesAutomation(
+  osa: AppleScriptRunner = runAppleScript,
+  { onlyIfOpen = false }: { onlyIfOpen?: boolean } = {},
+): Promise<CheckResult> {
+  // `tell application` launches Messages, so the service's timed checks leave a quit Messages
+  // alone. Asking whether it's running sends it no Apple event and needs no permission.
+  if (onlyIfOpen) {
+    const running = await osa('application "Messages" is running');
+    if (running.ok && running.out === "false")
+      return { id: "automation", label: "Messages automation", status: "pass", detail: "Not checked while Messages is closed", required: true, skipped: true };
+  }
   const probes = [
     'tell application "Messages" to get count of chats',
     'tell application "Messages" to get service type of every account',
@@ -80,7 +92,8 @@ export async function checkMessagesAutomation(osa: AppleScriptRunner = runAppleS
   for (const p of probes) {
     const r = await osa(p);
     if (r.ok) {
-      return { id: "automation", label: "Messages automation", status: "pass", detail: "Messages responds to AppleScript", required: true };
+      const query = p.replace('tell application "Messages" to ', "");
+      return { id: "automation", label: "Messages automation", status: "pass", detail: `Messages responds to AppleScript (${query} → ${r.out || "ok"})`, required: true };
     }
     lastErr = r.err;
     if (/-1743/.test(r.err)) break;
@@ -91,7 +104,7 @@ export async function checkMessagesAutomation(osa: AppleScriptRunner = runAppleS
       id: "automation",
       label: "Messages automation",
       status: "warn",
-      detail: "Messages accepts AppleScript, but some queries aren't supported on this macOS version",
+      detail: "Messages accepts AppleScript, but some queries aren't supported on this macOS version (fine; sending is what matters)",
       required: true,
     };
   }
@@ -163,7 +176,7 @@ export async function runChecks(
   return [
     checkNode(),
     checkChatDb(cfg.chatDbPath),
-    await checkMessagesAutomation(deps.osa),
+    await checkMessagesAutomation(deps.osa, { onlyIfOpen: true }),
     checkClaudeAuth(cfg, deps.env),
     ...checkOptionalTools(cfg, deps.which),
     checkAllowedChats(cfg),

@@ -391,6 +391,7 @@ test("setup: automation readiness comes from the service's own check", () => {
   assert.deepEqual(automationReadiness(at("pass", "Messages responds"), now), { ok: true, detail: "Allowed" });
   assert.deepEqual(automationReadiness(at("fail", "Not authorized (-1743)"), now), { ok: false, detail: "Not authorized (-1743)" });
   assert.equal(automationReadiness({ ...at("pass", ""), updatedAt: now - 3_600_000 }, now), null, "stale health isn't trusted");
+  assert.equal(automationReadiness({ updatedAt: now, checks: [{ id: "automation", status: "pass", detail: "Not checked while Messages is closed", skipped: true }] }, now), null, "skipped isn't a pass");
 });
 
 test("setup: the ESPN league test explains what's wrong, and saving keeps or clears the cookies", async () => {
@@ -452,4 +453,17 @@ test("setup: the ESPN league test explains what's wrong, and saving keeps or cle
     if (prev === undefined) delete process.env.IMESSAGE_AGENT_DIR;
     else process.env.IMESSAGE_AGENT_DIR = prev;
   }
+});
+
+test("the Dashboard learns why the service refused to start", () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const { startupError } = require("../lib/agent");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-starterr-"));
+  assert.equal(startupError({ dataDir: dir }), null);
+  fs.writeFileSync(path.join(dir, "startup-error.json"), JSON.stringify({ at: 5, kind: "schemaTooNew", message: "state.db is at schema version 9" }));
+  assert.deepEqual(startupError({ dataDir: dir }), { message: "state.db is at schema version 9", at: 5 });
+  fs.writeFileSync(path.join(dir, "startup-error.json"), "{not json");
+  assert.equal(startupError({ dataDir: dir }), null);
 });

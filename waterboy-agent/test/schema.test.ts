@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { spawnSync } from "node:child_process";
 import { CONFIG_SCHEMA_VERSION, STATE_SCHEMA_VERSION, SchemaTooNewError, migrateConfig } from "../src/schema.ts";
 import { loadConfig } from "../src/config.ts";
 import { State, migrateState } from "../src/bot/state.ts";
@@ -84,4 +85,31 @@ test("a state.db from a newer build is refused, not touched", () => {
   assert.throws(() => new State(dir), SchemaTooNewError);
   const check = new DatabaseSync(path.join(dir, "state.db"));
   assert.equal((check.prepare("PRAGMA user_version").get() as { user_version: number }).user_version, STATE_SCHEMA_VERSION + 1);
+});
+
+test("doctor's read-only load migrates in memory and leaves config.json alone", () => {
+  const dir = tmp();
+  const file = path.join(dir, "config.json");
+  const text = JSON.stringify({ agentName: "Waterboy", dataDir: dir });
+  fs.writeFileSync(file, text);
+  assert.equal(loadConfig(file, { write: false }).agentName, "Waterboy");
+  assert.equal(fs.readFileSync(file, "utf8"), text);
+});
+
+test("the service refuses newer data with a clear message and records why for the Dashboard", () => {
+  const dir = tmp();
+  const file = path.join(dir, "config.json");
+  fs.writeFileSync(file, JSON.stringify({ schemaVersion: CONFIG_SCHEMA_VERSION + 1, dataDir: dir }));
+  // Not under launchd (parent isn't pid 1), so it exits instead of waiting
+  const r = spawnSync(process.execPath, ["--disable-warning=ExperimentalWarning", "--import", "tsx", "src/index.ts"], {
+    cwd: path.resolve(import.meta.dirname, ".."),
+    env: { ...process.env, IMESSAGE_AGENT_CONFIG: file },
+    encoding: "utf8",
+    timeout: 60_000,
+  });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /Waterboy can't start: config\.json is at schema version 2/);
+  const marker = JSON.parse(fs.readFileSync(path.join(dir, "startup-error.json"), "utf8"));
+  assert.equal(marker.kind, "schemaTooNew");
+  assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).schemaVersion, CONFIG_SCHEMA_VERSION + 1, "file untouched");
 });

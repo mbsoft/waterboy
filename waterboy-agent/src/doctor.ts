@@ -7,6 +7,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { loadConfig } from "./config.ts";
+import { SchemaTooNewError } from "./schema.ts";
 import {
   checkAllowedChats,
   checkChatDb,
@@ -17,7 +18,16 @@ import {
   type CheckResult,
 } from "./health/checks.ts";
 
-const cfg = loadConfig();
+// Doctor only looks: an older config is migrated in memory, and the file is left as it is.
+const cfg = (() => {
+  try {
+    return loadConfig(undefined, { write: false });
+  } catch (e) {
+    if (!(e instanceof SchemaTooNewError)) throw e;
+    console.log(`  ✗ ${e.message}`);
+    process.exit(1);
+  }
+})();
 let ok = true;
 const pass = (m: string) => console.log(`  ✓ ${m}`);
 const fail = (m: string) => {

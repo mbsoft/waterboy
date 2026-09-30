@@ -171,7 +171,8 @@
     const o = state.overview;
     const foot = $("#sidebar-foot");
     foot.replaceChildren();
-    if (o) foot.append(o.status.running ? h("span", { class: "pulse" }) : icon("pause", 13), o.status.running ? "Running" : o.status.installed ? "Paused" : "Not installed");
+    if (o?.startupError && o.status.installed) foot.append(icon("alert", 13), "Can't start");
+    else if (o) foot.append(o.status.running ? h("span", { class: "pulse" }) : icon("pause", 13), o.status.running ? "Running" : o.status.installed ? "Paused" : "Not installed");
     const logsLink = $('#nav a[data-page="logs"]');
     logsLink.querySelector(".badge")?.remove();
     if (o?.summary.errorsToday) logsLink.append(h("span", { class: "badge" }, o.summary.errorsToday));
@@ -265,7 +266,7 @@
           "div",
           { class: "grow" },
           h("h4", {}, "Not installed"),
-          h("p", {}, setup.state === "blocked" ? setup.reason : setup.bundled ? `Install the ${name} service so it can reply to your messages.` : "Run npm run install-service in the agent project to set it up."),
+          h("p", {}, setup.state === "blocked" ? setup.reason : setup.bundled ? "Install the Waterboy service so it can reply to your messages." : "Run npm run install-service in the agent project to set it up."),
         ),
         setup.bundled && setup.state !== "blocked"
           ? button("Install service", async () => {
@@ -274,6 +275,16 @@
               render();
             }, { primary: true, lg: true, iconName: "play" })
           : null,
+      ];
+    else if (o.startupError)
+      // The service is up but refused to touch the data (it waits instead of crash-looping).
+      statusBody = [
+        h("div", { class: "status-icon" }, h("span", { class: "bad-icon" }, icon("alert", 18))),
+        h("div", { class: "grow" }, h("h4", {}, "Can't start"), h("p", {}, o.startupError.message)),
+        button("Restart", async () => {
+          await api.restart();
+          render();
+        }, { iconName: "restart" }),
       ];
     else if (s.running)
       statusBody = [
@@ -330,7 +341,7 @@
             h(
               "div",
               { class: "grow" },
-              `Sending through Messages is failing: ${r.sending.detail}. After a macOS update, allow ${name} again under System Settings → Privacy & Security → Automation → Messages, then restart ${name}.`,
+              `Sending through Messages is failing: ${r.sending.detail}. After a macOS update, allow Waterboy again under System Settings → Privacy & Security → Automation → Messages, then restart ${name}.`,
             ),
           )
         : null,
@@ -1293,7 +1304,7 @@
       body = [
         card(
           h("h3", {}, "Give Waterboy access"),
-          h("p", { class: "desc" }, `The ${name} service reads and sends iMessages on this Mac. In each list, turn on Waterboy. Running the service from source? Add the node binary that npm run install-service printed instead.`),
+          h("p", { class: "desc" }, `The Waterboy service reads and sends iMessages on this Mac. In each list, turn on Waterboy. Running the service from source? Add the node binary that npm run install-service printed instead.`),
           h("div", { class: "rows" },
             row("Service", !s.installed && !setup.bundled ? "Run npm run install-service in the agent project." : "Runs in the background and starts at login.", status(svc), svcAction),
             row("Full Disk Access", "Lets the service read new messages from the Messages database.", status(r.messages), r.messages.ok ? null : pane("fullDiskAccess")),
@@ -1429,6 +1440,17 @@
                 go(step + 1);
               }, { primary: true })),
             h("label", {}, ""), result,
+            ...(f?.privateLeague
+              ? [h("label", {}, ""), h("button", { class: "link", onclick: async () => {
+                  try {
+                    await api.saveLeague({ espnLeagueId: league.value, espnS2: "", swid: "" });
+                    saved("Cookies removed; the league is treated as public");
+                    render();
+                  } catch (e) {
+                    toast(e.message, true);
+                  }
+                } }, "Remove saved cookies (public league)")]
+              : []),
           ),
         ),
         nav({ skip: true, next: "Continue" }),
