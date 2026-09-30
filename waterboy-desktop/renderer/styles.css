@@ -238,11 +238,11 @@ input, textarea, select, button { font: inherit; color: inherit; }
 .switch input:focus-visible + span { outline: 2px solid var(--link); outline-offset: 2px; }
 .toggle-label { display: flex; align-items: center; gap: 10px; color: var(--text); font-size: 13px; }
 
-select, input[type="text"], input[type="number"], input[type="search"], textarea {
+select, input[type="text"], input[type="number"], input[type="search"], input[type="password"], textarea {
   background: var(--field); border: 1px solid var(--control-border); border-radius: 6px; outline: none;
 }
 select { height: 26px; padding: 0 8px; }
-input[type="text"], input[type="number"], input[type="search"] { height: 28px; padding: 0 9px; }
+input[type="text"], input[type="number"], input[type="search"], input[type="password"] { height: 28px; padding: 0 9px; }
 textarea { padding: 9px 10px; resize: vertical; width: 100%; line-height: 1.5; }
 select:focus, input:focus, textarea:focus { border-color: var(--link); box-shadow: 0 0 0 3px color-mix(in srgb, var(--link) 22%, transparent); }
 .mono, textarea.mono { font-family: var(--mono); font-size: 12px; }
@@ -314,3 +314,20 @@ pre.errors { margin: 6px 0 0; padding: 10px 12px; border-radius: 8px; background
 .card-head h3 { margin: 0; }
 .add-person { margin: 12px 0 4px; padding: 14px 16px; border: 1px solid var(--divider); border-radius: 10px; background: var(--bg); }
 .add-person[hidden] { display: none; }
+
+/* ---------- first-run setup ---------- */
+
+.stepper { display: flex; gap: 6px; list-style: none; padding: 0; margin: 4px 0 0; flex-wrap: wrap; }
+.stepper li { display: flex; align-items: center; gap: 7px; padding: 5px 12px 5px 6px; border-radius: 999px; color: var(--muted); font-size: 13px; }
+.stepper li .num { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 600; border: 1.5px solid var(--divider); }
+.stepper li.active { background: var(--accent-soft); color: var(--text); font-weight: 500; }
+.stepper li.active .num { background: var(--accent); border-color: transparent; color: #fff; }
+.stepper li.done .num { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+.setup .row .sub { white-space: normal; }
+.setup .desc { margin: 6px 0 4px; }
+.setup-status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
+.setup-result .setup-status, .setup .row .setup-status { white-space: normal; }
+.setup .row .setup-status { max-width: 40%; }
+.setup .row .grow { min-width: 220px; }
+.setup-nav { display: flex; justify-content: space-between; align-items: center; }
+.setup code { font-family: var(--mono); font-size: 11.5px; }

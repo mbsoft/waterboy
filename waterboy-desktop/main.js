@@ -19,6 +19,13 @@ const BUNDLE = app.isPackaged ? service.bundle({ resourcesPath: process.resource
 let setup = { state: BUNDLE ? "checking" : "unbundled" };
 let ensuring = null; // the launch-time install/update, which the first overview waits for
 
+// System Settings → Privacy & Security panes the setup steps link to.
+const PRIVACY_PANES = {
+  fullDiskAccess: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles",
+  automation: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation",
+  accessibility: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+};
+
 // The renderer can call exactly these, nothing else.
 const API = {
   overview: async () => {
@@ -62,6 +69,14 @@ const API = {
   // ChatGPT sign-in for the ChatGPT assistant (runs the bundled `codex login`, which opens the browser).
   chatgptSignIn: () => agent.chatgptSignIn(),
   chatgptSignOut: () => agent.chatgptSignOut(),
+  // First-run setup: the ESPN league (test before saving) and the privacy panes to grant access in.
+  testLeague: (league) => agent.testLeague(league),
+  saveLeague: (league) => agent.saveLeague(league),
+  openPrivacy: async (pane) => {
+    const url = PRIVACY_PANES[pane];
+    if (!url) throw new Error(`Unknown privacy pane ${pane}`);
+    await shell.openExternal(url);
+  },
   // Only the agent's own files and folders can be opened.
   open: async (what) => {
     const loc = await agent.locate();
@@ -128,6 +143,7 @@ function createWindow() {
  *   CAPTURE_SCROLL=bottom  end of long pages   CAPTURE_FULL=1  whole page, not just the window
  *   CAPTURE_REDACT=1   scramble + blur phone numbers, emails, names and memory (see lib/redact.js)
  *   CAPTURE_CLICK=sel  click an element before capturing
+ *   CAPTURE_PAGES=setup-2  a first-run setup step (0-4)
  */
 async function capture(win, dir) {
   fs.mkdirSync(dir, { recursive: true });
@@ -141,7 +157,13 @@ async function capture(win, dir) {
   for (const theme of themes) {
     nativeTheme.themeSource = theme;
     for (const p of pages) {
-      await win.webContents.executeJavaScript(`location.hash = "#${p}"`);
+      const setupStep = /^setup-(\d)$/.exec(p)?.[1];
+      if (setupStep) {
+        // Leave #setup first so the next step renders even when the previous capture was a step too.
+        await win.webContents.executeJavaScript(`localStorage.setItem("setupStep", "${setupStep}"); location.hash = "#about"`);
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      await win.webContents.executeJavaScript(`location.hash = "#${setupStep ? "setup" : p}"`);
       await new Promise((r) => setTimeout(r, 1800));
       // CAPTURE_SCROLL=bottom shows the end of long pages.
       if (process.env.CAPTURE_SCROLL === "bottom") {

@@ -6,6 +6,7 @@ const names = [
   "setTeam", "setAccess", "fantasyTeams", "setAlertSubscriber", "alertPlan", "createAlertAutomations", "automations", "createAutomation", "updateAutomation", "setAutomationEnabled", "deleteAutomation",
   "describeSchedule", "memories", "saveMemory", "resetSession", "settings", "saveSettings", "connections",
   "removeExtraTool", "setConnector", "open", "version", "installService", "openSupport", "chatgptSignIn", "chatgptSignOut",
+  "testLeague", "saveLeague", "openPrivacy",
 ];
 
 const api = {};

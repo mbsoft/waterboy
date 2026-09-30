@@ -205,6 +205,7 @@ async function readiness() {
     messages,
     conversations: { ok: n > 0, detail: n ? `${n} allowed` : "None allowed" },
     sending: sendingReadiness(health),
+    automation: automationReadiness(health),
     checks: serviceChecks(health),
   };
 }
@@ -247,6 +248,14 @@ function serviceChecks(health, now = Date.now()) {
       .filter((c) => c.status !== "pass")
       .map((c) => ({ label: c.label, detail: c.detail, hint: c.hint ?? null, ok: c.status !== "fail" || !c.required })),
   };
+}
+
+/** Automation → Messages, from the service's own check in health.json; null until it has run */
+function automationReadiness(health, now = Date.now()) {
+  if (!Array.isArray(health?.checks) || now - (health.updatedAt ?? 0) > HEALTH_STALE_MS) return null;
+  const c = health.checks.find((x) => x.id === "automation");
+  if (!c) return null;
+  return { ok: c.status !== "fail", detail: c.status === "pass" ? "Allowed" : c.detail };
 }
 
 /** Last-modified time in ms, or 0 when the file is missing. */
@@ -734,6 +743,8 @@ async function settings() {
     fantasy: cfg.fantasy
       ? {
           espnLeagueId: cfg.fantasy.espnLeagueId ?? "",
+          // Whether cookies are saved; the values themselves never go to the renderer
+          privateLeague: !!(cfg.fantasy.espnS2 && cfg.fantasy.swid),
           myTeamId: cfg.fantasy.myTeamId ?? null,
           sleeper: cfg.fantasy.sleeper !== false,
           nflverse: cfg.fantasy.nflverse !== false,
@@ -1004,6 +1015,84 @@ async function chatgptSignOut() {
   return chatgptAccount({ dataDir: path.dirname(home) });
 }
 
+// ---------- first-run setup: ESPN league ----------
+
+const ESPN_SEASONS = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons";
+
+/** ESPN's SWID cookie is a GUID in braces; people paste it with or without them. */
+function cleanSwid(raw) {
+  const s = String(raw ?? "").trim().replace(/^\{|\}$/g, "");
+  if (!s) return "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s))
+    throw new Error("SWID should look like {XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}.");
+  return `{${s.toUpperCase()}}`;
+}
+
+function cleanLeague({ espnLeagueId, espnS2, swid } = {}) {
+  const id = String(espnLeagueId ?? "").trim();
+  if (!/^\d{1,12}$/.test(id)) throw new Error("The league ID is the number after leagueId= in your ESPN league's web address.");
+  const s2 = String(espnS2 ?? "").trim();
+  const sw = cleanSwid(swid);
+  if (!!s2 !== !!sw) throw new Error("A private league needs both espn_s2 and SWID. A public league needs neither.");
+  return { espnLeagueId: id, espnS2: s2, swid: sw };
+}
+
+/**
+ * Checks a league the way the agent's league_status tool reads it (same URL, cookies and user
+ * agent), so a league that passes here works in chats. Fields left out come from config.json.
+ */
+async function testLeague(input = {}, { fetchImpl = fetch } = {}) {
+  const saved = (await getConfig().catch(() => ({}))).fantasy ?? {};
+  const l = cleanLeague({
+    espnLeagueId: input.espnLeagueId ?? saved.espnLeagueId,
+    espnS2: input.espnS2 ?? saved.espnS2,
+    swid: input.swid ?? saved.swid,
+  });
+  const season = saved.season ?? new Date().getFullYear();
+  const views = ["mTeam", "mSettings", "mStatus"].map((v) => `view=${v}`).join("&");
+  // ESPN rejects the default "node" user agent with a 403.
+  const headers = { Accept: "application/json", "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) waterboy/0.1" };
+  if (l.espnS2) headers.Cookie = `espn_s2=${l.espnS2}; SWID=${l.swid}`;
+  let res;
+  try {
+    res = await fetchImpl(`${ESPN_SEASONS}/${season}/segments/0/leagues/${l.espnLeagueId}?${views}`, { headers, signal: AbortSignal.timeout(20_000) });
+  } catch (e) {
+    throw new Error(`Couldn't reach ESPN: ${e.message}`);
+  }
+  if (res.status === 401 || res.status === 403)
+    throw new Error(
+      l.espnS2
+        ? "ESPN turned down these cookies. Copy espn_s2 and SWID again from a browser that's signed in to ESPN."
+        : "This league is private. Add the espn_s2 and SWID cookies from a browser that's signed in to ESPN.",
+    );
+  // 400: ESPN rejects ids it can't parse (too long for its integer ids).
+  if (res.status === 404 || res.status === 400) throw new Error(`ESPN has no league ${l.espnLeagueId} for the ${season} season.`);
+  if (!res.ok) throw new Error(`ESPN answered ${res.status}. Try again in a minute.`);
+  const league = await res.json();
+  return {
+    league: league.settings?.name ?? `League ${l.espnLeagueId}`,
+    season: league.seasonId ?? season,
+    currentWeek: league.status?.currentMatchupPeriod ?? null,
+    teams: (league.teams ?? []).length,
+  };
+}
+
+/** Saves the league and its cookies (cleared for a public league). Cookies left out stay as saved. */
+async function saveLeague(input = {}) {
+  const saved = (await getConfig()).fantasy ?? {};
+  const l = cleanLeague({ ...input, espnS2: input.espnS2 ?? saved.espnS2, swid: input.swid ?? saved.swid });
+  await updateConfig((cfg) => {
+    const f = (cfg.fantasy = cfg.fantasy ?? {});
+    f.espnLeagueId = l.espnLeagueId;
+    if (l.espnS2) Object.assign(f, { espnS2: l.espnS2, swid: l.swid });
+    else {
+      delete f.espnS2;
+      delete f.swid;
+    }
+  });
+  return settings();
+}
+
 // ---------- overview ----------
 
 async function overview() {
@@ -1023,7 +1112,11 @@ async function overview() {
 
 module.exports = {
   sendingReadiness,
+  automationReadiness,
   serviceChecks,
+  cleanLeague,
+  testLeague,
+  saveLeague,
   locate,
   getConfig,
   updateConfig,

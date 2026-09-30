@@ -130,12 +130,13 @@
     { id: "logs", title: "Logs", icon: "logs" },
     { id: "settings", title: "Settings", icon: "settings" },
     { id: "about", title: "About", icon: "about" },
+    { id: "setup", title: "Setup", icon: "settings", hidden: true },
   ];
   const state = { overview: null, logPage: 0, logFilter: "all", memoryDir: null, newAutomation: false, editAutomation: null };
 
   function buildShell() {
     const nav = $("#nav");
-    for (const p of PAGES) {
+    for (const p of PAGES.filter((p) => !p.hidden)) {
       const a = h("a", { href: `#${p.id}`, "data-page": p.id, title: p.title }, icon(p.icon, 18), h("span", {}, p.title));
       nav.append(a);
     }
@@ -385,7 +386,7 @@
         h("h3", {}, `Use ${name} in Messages`),
         h("p", { class: "desc", style: "color:var(--text);margin-top:8px" }, `Text ${name} from an allowed conversation. In group chats, mention ${name} by name to get a reply.`),
         h("p", { class: "desc" }, "Try /help in a chat for commands like /new, /memory, /pause and /status."),
-        h("div", { class: "inline", style: "gap:18px" }, linkTo("conversations", "Manage conversations", "conversations"), linkTo("settings", "Open Settings", "settings")),
+        h("div", { class: "inline", style: "gap:18px" }, linkTo("conversations", "Manage conversations", "conversations"), linkTo("settings", "Open Settings", "settings"), linkTo("setup", "Run setup again", "check")),
       ),
     );
   };
@@ -1202,6 +1203,277 @@
     );
   }
 
+  // ---------- first-run setup ----------
+
+  const SETUP_STEPS = ["Permissions", "Sign in", "Conversations", "Fantasy league", "Done"];
+  const setupDone = () => {
+    try {
+      return !!localStorage.getItem("setupDone");
+    } catch {
+      return false;
+    }
+  };
+  // The step survives quitting the app, which granting Full Disk Access often takes.
+  const setupStep = (n) => {
+    try {
+      if (n === undefined) return Number(localStorage.getItem("setupStep")) || 0;
+      localStorage.setItem("setupStep", String(n));
+    } catch {}
+    return n ?? 0;
+  };
+  const finishSetup = () => {
+    try {
+      localStorage.setItem("setupDone", "1");
+      localStorage.removeItem("setupStep");
+    } catch {}
+    location.hash = "#dashboard";
+  };
+  /** First launch and the basics aren't in place yet: open setup instead of the Dashboard. */
+  const needsSetup = (o) => !setupDone() && !!o && !(o.readiness.claude.ok && o.readiness.messages.ok && o.readiness.conversations.ok);
+
+  RENDER.setup = async () => {
+    const o = state.overview;
+    if (!o) throw new Error("Couldn't reach the agent.");
+    const r = o.readiness;
+    const s = o.status;
+    const name = o.agentName;
+    const step = Math.min(setupStep(), SETUP_STEPS.length - 1);
+    const go = (n) => {
+      setupStep(n);
+      $("#content").scrollTop = 0;
+      render();
+    };
+
+    // A status line: check when done, orange alert when required, grey when optional or unknown.
+    const status = (c, { optional = false, unknown = "Not checked yet" } = {}) =>
+      h("span", { class: "setup-status" },
+        h("span", { class: c?.ok ? "ok-icon" : c && !optional ? "bad-icon" : "muted-icon" }, icon(c?.ok ? "check" : "alert", 16)),
+        c?.detail ?? unknown);
+    const row = (title, detail, st, action) =>
+      h("div", { class: "row" }, h("div", { class: "grow" }, h("div", { class: "title" }, title), h("div", { class: "sub" }, detail)), st, action ?? null);
+    const pane = (which) => button("Open System Settings", () => api.openPrivacy(which), { iconName: "external" });
+    const nav = ({ next = "Continue", skip = false, extra = null } = {}) =>
+      h("div", { class: "setup-nav" },
+        step > 0 ? button("Back", () => go(step - 1)) : h("span"),
+        h("div", { class: "inline" },
+          extra,
+          skip ? h("button", { class: "link", onclick: () => go(step + 1) }, "Skip for now") : null,
+          button(next, () => go(step + 1), { primary: true })));
+
+    const stepper = h("ol", { class: "stepper" },
+      SETUP_STEPS.map((t, i) =>
+        h("li", { class: i === step ? "active" : i < step ? "done" : "" },
+          h("span", { class: "num" }, i < step ? icon("check", 12) : String(i + 1)), t)));
+
+    // Steps after Permissions read config.json, which exists once the service is set up.
+    const noConfig = (e) => [
+      card(h("div", { class: "empty" }, icon("alert", 18), e.message)),
+      h("div", { class: "setup-nav" }, button("Back to Permissions", () => go(0)), h("button", { class: "link", onclick: () => go(step + 1) }, "Skip this step")),
+    ];
+
+    let body;
+    if (step === 0) {
+      // The permissions belong to the service, so it has to be installed and running to check them.
+      const setup = o.setup ?? {};
+      const svc = s.running ? { ok: true, detail: "Running" } : { ok: false, detail: s.installed ? "Paused" : "Not installed" };
+      const svcAction = !s.installed
+        ? setup.bundled && setup.state !== "blocked"
+          ? button("Install service", async () => {
+              await api.installService();
+              toast("Service installed");
+              render();
+            }, { primary: true })
+          : null
+        : !s.running
+          ? button(`Start ${name}`, async () => {
+              await api.start();
+              render();
+            }, { primary: true })
+          : null;
+      body = [
+        card(
+          h("h3", {}, "Give Waterboy access"),
+          h("p", { class: "desc" }, `The ${name} service reads and sends iMessages on this Mac. In each list, turn on Waterboy. Running the service from source? Add the node binary that npm run install-service printed instead.`),
+          h("div", { class: "rows" },
+            row("Service", !s.installed && !setup.bundled ? "Run npm run install-service in the agent project." : "Runs in the background and starts at login.", status(svc), svcAction),
+            row("Full Disk Access", "Lets the service read new messages from the Messages database.", status(r.messages), r.messages.ok ? null : pane("fullDiskAccess")),
+            row("Automation → Messages", "Lets the service send replies. macOS asks the first time; if you chose Don't Allow, turn it on here.",
+              status(r.automation, { unknown: s.running ? "Checking…" : "Checked once the service runs" }), r.automation?.ok ? null : pane("automation")),
+            row("Accessibility (optional)", "Shows “typing…” in a chat while a reply is on its way. Logs shows a note if it's missing.",
+              status({ ok: false, detail: "Optional" }, { optional: true }), pane("accessibility")),
+          ),
+          h("p", { class: "note" }, "macOS applies Full Disk Access when the service restarts. Changes can take a minute to show here."),
+        ),
+        nav({ extra: button("Check again", () => render(true), { iconName: "refresh" }) }),
+      ];
+    } else if (step === 1) {
+      const st = await api.settings().catch((e) => e);
+      if (st instanceof Error) return page(noConfig(st));
+      const provider = h("select", { "aria-label": "Assistant" }, h("option", { value: "claude" }, "Claude"), h("option", { value: "chatgpt" }, "ChatGPT"));
+      provider.value = st.provider;
+      provider.addEventListener("change", async () => {
+        try {
+          await api.saveSettings({ provider: provider.value });
+          render();
+        } catch (e) {
+          toast(e.message, true);
+          provider.value = st.provider;
+        }
+      });
+      const how =
+        st.provider === "chatgpt"
+          ? st.chatgpt.signedIn
+            ? null
+            : button("Sign in with ChatGPT", async (b) => {
+                b.textContent = "Finish signing in in your browser…";
+                try {
+                  await api.chatgptSignIn();
+                  toast("Signed in to ChatGPT");
+                } finally {
+                  render();
+                }
+              }, { primary: true })
+          : null;
+      body = [
+        card(
+          h("h3", {}, "Choose an assistant and sign in"),
+          h("div", { class: "form" },
+            h("label", {}, "Assistant"), provider,
+            h("label", {}, "Account"), h("div", { class: "inline" }, status(r.claude), how),
+            st.provider === "chatgpt"
+              ? h("div", { class: "hint" }, "Opens your browser. Waterboy keeps its own ChatGPT sign-in, separate from the ChatGPT and Codex apps.")
+              : h("div", { class: "hint" },
+                  "Waterboy uses Claude Code's sign-in on this Mac. Open Terminal, run ", h("code", {}, "claude"), " and sign in with ", h("code", {}, "/login"),
+                  ". To use a long-lived token instead, run ", h("code", {}, "claude setup-token"), " and add ", h("code", {}, "CLAUDE_CODE_OAUTH_TOKEN=…"),
+                  " to ", h("code", {}, "~/.imessage-agent/env"), ". Then check again."),
+          ),
+        ),
+        nav({ extra: r.claude.ok ? null : button("Check again", () => render(true), { iconName: "refresh" }) }),
+      ];
+    } else if (step === 2) {
+      const conv = await api.conversations().catch((e) => e);
+      if (conv instanceof Error) return page(noConfig(conv));
+      const recent = [
+        ...conv.direct.map((d) => ({ key: d.handle, label: d.name || d.handle, sub: d.name ? d.handle : "", allowed: d.allowed, at: d.lastMessageAt, group: false })),
+        ...conv.groups.map((g) => ({ key: g.name || g.guid, label: g.name || "Unnamed group", sub: g.members.map((m) => m.name || m.handle).slice(0, 4).join(", "), allowed: g.allowed, at: g.lastMessageAt, group: true })),
+      ]
+        .sort((a, b) => (b.at ?? "").localeCompare(a.at ?? ""))
+        .slice(0, 8);
+      const person = h("input", { type: "text", placeholder: "Name", style: "max-width:160px" });
+      const handle = h("input", { type: "text", placeholder: "Phone or email" });
+      const add = button("Allow", async () => {
+        const p = await api.addPerson({ name: person.value, handle: handle.value });
+        toast(`${p.name} can now text ${name}`);
+        render();
+      }, { primary: true });
+      body = [
+        card(
+          h("h3", {}, `Who can text ${name}?`),
+          h("p", { class: "desc" }, `${name} only answers conversations you allow. Start with one; you can add more in Conversations.`),
+          recent.length
+            ? h("div", { class: "rows" },
+                recent.map((c) =>
+                  h("div", { class: "row" },
+                    h("span", { class: `avatar${c.group ? " group" : ""}` }, c.group ? icon("conversations", 16) : initials(c.label)),
+                    h("div", { class: "grow" }, h("div", { class: "title" }, c.label), h("div", { class: "sub" }, [c.sub, c.at ? relTime(c.at) : null].filter(Boolean).join(" · "))),
+                    h("span", { class: "toggle-label" }, "Allow access", toggle(c.allowed, async (on) => {
+                      await api.setAllowed(c.key, on);
+                      render();
+                    }, `Allow ${c.label}`)))))
+            : h("div", { class: "empty" }, icon("conversations", 18), "Recent conversations show up here once the service can read Messages."),
+          h("div", { class: "form" },
+            h("label", {}, "Or add someone"), h("div", { class: "inline" }, person, handle, add),
+            h("div", { class: "hint" }, "The number or Apple Account email they text from."),
+          ),
+        ),
+        nav({ next: r.conversations.ok ? "Continue" : "Continue without one" }),
+      ];
+    } else if (step === 3) {
+      const st = await api.settings().catch((e) => e);
+      if (st instanceof Error) return page(noConfig(st));
+      const f = st.fantasy;
+      const league = h("input", { type: "text", class: "mono", value: f?.espnLeagueId ?? "", placeholder: "e.g. 1234567", style: "max-width:200px" });
+      const cookieHint = f?.privateLeague ? "Saved (leave blank to keep)" : "Private leagues only";
+      const s2 = h("input", { type: "password", class: "mono", placeholder: cookieHint, autocomplete: "off" });
+      const swid = h("input", { type: "text", class: "mono", placeholder: f?.privateLeague ? cookieHint : "{XXXXXXXX-XXXX-…}", autocomplete: "off" });
+      const result = h("div", { class: "setup-result" });
+      // Blank cookie fields keep the saved ones; a league without saved cookies is tested as public.
+      const values = () => ({ espnLeagueId: league.value, espnS2: s2.value || undefined, swid: swid.value || undefined });
+      const test = async () => {
+        result.replaceChildren(h("span", { class: "setup-status" }, "Checking with ESPN…"));
+        try {
+          const l = await api.testLeague(values());
+          result.replaceChildren(status({ ok: true, detail: `${l.league} · ${l.season} season${l.currentWeek ? ` · week ${l.currentWeek}` : ""} · ${l.teams} teams` }));
+          return true;
+        } catch (e) {
+          result.replaceChildren(status({ ok: false, detail: e.message }));
+          return false;
+        }
+      };
+      body = [
+        card(
+          h("h3", {}, "Connect your ESPN league (optional)"),
+          h("p", { class: "desc" }, `${name} can answer start/sit, trade and matchup questions about your ESPN fantasy football league.`),
+          h("div", { class: "form" },
+            h("label", {}, "League ID"), league,
+            h("div", { class: "hint" }, "The number after leagueId= in your league's web address on fantasy.espn.com."),
+            h("label", {}, "espn_s2"), s2,
+            h("label", {}, "SWID"), swid,
+            h("div", { class: "hint" }, "Private leagues only. In a browser signed in to fantasy.espn.com, open the developer tools, find Cookies for espn.com, and copy espn_s2 and SWID."),
+            h("label", {}, ""), h("div", { class: "inline" },
+              button("Test connection", test),
+              button("Save league", async () => {
+                if (!(await test())) return;
+                await api.saveLeague(values());
+                saved("League saved");
+                go(step + 1);
+              }, { primary: true })),
+            h("label", {}, ""), result,
+          ),
+        ),
+        nav({ skip: true, next: "Continue" }),
+      ];
+      // "Continue" here would skip saving; the Save button moves on after a good test.
+      body[1].querySelector(".btn.primary").remove();
+    } else {
+      const f = (await api.settings().catch(() => ({}))).fantasy;
+      body = [
+        card(
+          h("h3", {}, r.claude.ok && r.messages.ok && r.conversations.ok ? `${name} is ready` : "Almost there"),
+          h("div", { class: "rows" },
+            row("Service", "Running in the background", status(s.running ? { ok: true, detail: "Running" } : { ok: false, detail: s.installed ? "Paused" : "Not installed" })),
+            row("Messages", "Full Disk Access", status(r.messages)),
+            row("Sending", "Automation → Messages", status(r.automation, { unknown: "Checked once the service runs" })),
+            row("Sign in", r.provider === "chatgpt" ? "ChatGPT" : "Claude Code", status(r.claude)),
+            row("Conversations", "Allowed to text", status(r.conversations)),
+            row("Fantasy league", "ESPN", status(f ? { ok: true, detail: `League ${f.espnLeagueId}` } : null, { optional: true, unknown: "Skipped" })),
+          ),
+          h("p", { class: "note" }, `Text ${name} from an allowed conversation to try it. You can run setup again from the Dashboard.`),
+        ),
+        h("div", { class: "setup-nav" },
+          button("Back", () => go(step - 1)),
+          o.needsRestart && s.running
+            ? button(`Restart ${name} and finish`, async () => {
+                await api.restart();
+                finishSetup();
+              }, { primary: true })
+            : button("Go to Dashboard", finishSetup, { primary: true })),
+      ];
+    }
+
+    return page(body);
+
+    function page(content) {
+      return h(
+        "div",
+        { class: "page setup" },
+        pageHead("Set up Waterboy", "A few steps so it can read and answer your iMessages.", h("button", { class: "link", onclick: finishSetup }, "Skip setup")),
+        stepper,
+        ...content,
+      );
+    }
+  };
+
   RENDER.about = async () => {
     const [v, o] = await Promise.all([api.version(), Promise.resolve(state.overview)]);
     const p = o?.paths ?? {};
@@ -1243,7 +1515,10 @@
 
   buildShell();
   if (!location.hash) location.hash = "#dashboard";
-  render();
+  render().then(() => {
+    // First launch: walk through setup before the Dashboard.
+    if (current().id === "dashboard" && needsSetup(state.overview)) location.hash = "#setup";
+  });
   // Keep live pages fresh; skip while the user is typing.
   setInterval(() => {
     const page = current().id;

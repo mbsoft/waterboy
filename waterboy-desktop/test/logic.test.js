@@ -382,3 +382,74 @@ test("sending readiness follows the service's health.json", () => {
   assert.equal(checks.total, 3);
   assert.deepEqual(checks.attention.map((c) => [c.label, c.ok]), [["Messages automation", false], ["ffmpeg", true]]);
 });
+
+test("setup: automation readiness comes from the service's own check", () => {
+  const { automationReadiness } = require("../lib/agent");
+  const now = Date.parse("2026-09-30T17:00:00Z");
+  const at = (status, detail) => ({ updatedAt: now - 60_000, checks: [{ id: "automation", status, detail }] });
+  assert.equal(automationReadiness(null, now), null);
+  assert.deepEqual(automationReadiness(at("pass", "Messages responds"), now), { ok: true, detail: "Allowed" });
+  assert.deepEqual(automationReadiness(at("fail", "Not authorized (-1743)"), now), { ok: false, detail: "Not authorized (-1743)" });
+  assert.equal(automationReadiness({ ...at("pass", ""), updatedAt: now - 3_600_000 }, now), null, "stale health isn't trusted");
+});
+
+test("setup: the ESPN league test explains what's wrong, and saving keeps or clears the cookies", async () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const agent = require("../lib/agent");
+  const SWID = "{0A1B2C3D-4E5F-4A6B-8C7D-9E0F1A2B3C4D}";
+
+  assert.deepEqual(agent.cleanLeague({ espnLeagueId: " 123 ", espnS2: "", swid: "" }), { espnLeagueId: "123", espnS2: "", swid: "" });
+  assert.equal(agent.cleanLeague({ espnLeagueId: "1", espnS2: "abc", swid: SWID.slice(1, -1).toLowerCase() }).swid, SWID, "braces and case restored");
+  assert.throws(() => agent.cleanLeague({ espnLeagueId: "https://fantasy.espn.com" }), /league ID/);
+  assert.throws(() => agent.cleanLeague({ espnLeagueId: "1", espnS2: "abc" }), /both espn_s2 and SWID/);
+  assert.throws(() => agent.cleanLeague({ espnLeagueId: "1", espnS2: "abc", swid: "nope" }), /SWID should look like/);
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-league-"));
+  const file = path.join(dir, "config.json");
+  fs.writeFileSync(file, JSON.stringify({ dataDir: dir, allowedChats: [] }));
+  const prev = process.env.IMESSAGE_AGENT_DIR;
+  process.env.IMESSAGE_AGENT_DIR = dir;
+  try {
+    let seen;
+    const reply = (status, body = {}) => async (url, init) => {
+      seen = { url, headers: init.headers };
+      return { status, ok: status < 300, json: async () => body };
+    };
+    const ok = reply(200, { seasonId: 2026, settings: { name: "Brownie Bowl" }, status: { currentMatchupPeriod: 4 }, teams: [{}, {}, {}] });
+    assert.deepEqual(await agent.testLeague({ espnLeagueId: "123" }, { fetchImpl: ok }), { league: "Brownie Bowl", season: 2026, currentWeek: 4, teams: 3 });
+    assert.match(seen.url, /\/seasons\/\d{4}\/segments\/0\/leagues\/123\?view=mTeam/);
+    assert.equal(seen.headers.Cookie, undefined, "public league: no cookies");
+    assert.match(seen.headers["User-Agent"], /Mozilla/, "ESPN 403s the default node user agent");
+
+    await agent.testLeague({ espnLeagueId: "123", espnS2: "s2", swid: SWID }, { fetchImpl: ok });
+    assert.equal(seen.headers.Cookie, `espn_s2=s2; SWID=${SWID}`);
+
+    await assert.rejects(agent.testLeague({ espnLeagueId: "123" }, { fetchImpl: reply(401) }), /private\. Add the espn_s2 and SWID/);
+    await assert.rejects(agent.testLeague({ espnLeagueId: "123", espnS2: "s2", swid: SWID }, { fetchImpl: reply(401) }), /turned down these cookies/);
+    await assert.rejects(agent.testLeague({ espnLeagueId: "123" }, { fetchImpl: reply(404) }), /no league 123/);
+    await assert.rejects(agent.testLeague({ espnLeagueId: "99999999999" }, { fetchImpl: reply(400) }), /no league 99999999999/);
+    await assert.rejects(agent.testLeague({ espnLeagueId: "123" }, { fetchImpl: async () => { throw new Error("offline"); } }), /Couldn't reach ESPN: offline/);
+
+    // Private league saved; the renderer only learns that cookies exist.
+    let st = await agent.saveLeague({ espnLeagueId: "123", espnS2: "s2", swid: SWID });
+    assert.deepEqual(JSON.parse(fs.readFileSync(file, "utf8")).fantasy, { espnLeagueId: "123", espnS2: "s2", swid: SWID });
+    assert.equal(st.fantasy.privateLeague, true);
+    assert.equal(JSON.stringify(st).includes("s2\""), false, "cookie values never reach the renderer");
+
+    // Blank cookie fields keep the saved cookies, for both saving and testing.
+    await agent.saveLeague({ espnLeagueId: "456" });
+    assert.deepEqual(JSON.parse(fs.readFileSync(file, "utf8")).fantasy, { espnLeagueId: "456", espnS2: "s2", swid: SWID });
+    await agent.testLeague({ espnLeagueId: "456" }, { fetchImpl: ok });
+    assert.equal(seen.headers.Cookie, `espn_s2=s2; SWID=${SWID}`);
+
+    // Clearing both makes it a public league.
+    st = await agent.saveLeague({ espnLeagueId: "456", espnS2: "", swid: "" });
+    assert.deepEqual(JSON.parse(fs.readFileSync(file, "utf8")).fantasy, { espnLeagueId: "456" });
+    assert.equal(st.fantasy.privateLeague, false);
+  } finally {
+    if (prev === undefined) delete process.env.IMESSAGE_AGENT_DIR;
+    else process.env.IMESSAGE_AGENT_DIR = prev;
+  }
+});

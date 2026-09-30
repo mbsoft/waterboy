@@ -80,7 +80,8 @@ browser through `shell.openExternal`; the renderer never gets the URL.
 
 | Page | What it does | Where it reads/writes |
 |---|---|---|
-| Dashboard | Running/paused status with Start, Pause and Restart; setup readiness (Claude sign-in, Messages access, allowed chats); today's replies, reply time, ignored messages, problems | `launchctl`, `~/.imessage-agent/env`, Keychain (existence check only), logs |
+| Dashboard | Running/paused status with Start, Pause and Restart; setup readiness (Claude sign-in, Messages access, sending, allowed chats) and service checks needing attention; a banner when sending fails; today's replies, reply time, ignored messages, problems | `launchctl`, `~/.imessage-agent/env`, Keychain (existence check only), `health.json`, logs |
+| Setup | First-launch walkthrough: permissions (opens the Privacy & Security panes), sign-in, first allowed chat, ESPN league + espn_s2/SWID with Test connection (same request as `league_status`). Cookie values are written to config.json but never sent to the renderer | `config.json`, `health.json`, ESPN |
 | Connections | Built-in tools, MCP servers and extra allowed tools | `config.json` |
 | Conversations | Allow or block each person or group, rename contacts, mark admins, set each person's fantasy team | `config.json` (`allowedChats`, `contacts`, `groupAdmins`, `fantasy.teams`), `chats-index.json` |
 | Memory | View, edit or erase each conversation's `MEMORY.md`; start a fresh conversation (like `/new`) | `~/.imessage-agent/chats/*/MEMORY.md`, `state.db` |
