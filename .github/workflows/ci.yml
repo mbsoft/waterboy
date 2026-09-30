@@ -1,5 +1,7 @@
 # Every push and pull request: tests, the Swift helper build, and an unsigned app for both architectures.
 # Signed releases are release.yml (pushing a vX.Y.Z tag).
+# macOS 26 runners: the helper's dependency (BetterSwiftAX) uses accessibility constants that only the
+# macOS 26 SDK (Xcode 26) declares.
 name: CI
 
 on:
@@ -13,7 +15,7 @@ concurrency:
 
 jobs:
   test:
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,7 +40,7 @@ jobs:
           npm test
 
   helper:
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -55,7 +57,7 @@ jobs:
 
   pack:
     needs: helper
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
