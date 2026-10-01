@@ -132,7 +132,7 @@
     { id: "about", title: "About", icon: "about" },
     { id: "setup", title: "Setup", icon: "settings", hidden: true },
   ];
-  const state = { overview: null, logPage: 0, logFilter: "all", memoryDir: null, newAutomation: false, editAutomation: null };
+  const state = { overview: null, logPage: 0, logFilter: "all", memoryDir: null, newAutomation: false, editAutomation: null, focusSetting: null };
 
   function buildShell() {
     const nav = $("#nav");
@@ -204,6 +204,7 @@
       if (seq !== renderSeq) return;
       content.dataset.page = page.id;
       content.replaceChildren(el);
+      if (state.focusSetting) focusSetting(state.focusSetting);
       syncScroll();
     } catch (e) {
       if (seq !== renderSeq) return;
@@ -212,6 +213,22 @@
       refresh.classList.remove("spin");
     }
   }
+
+  // Links like the Dashboard's data sources open a Settings tab at one control and highlight it.
+  function focusSetting(key) {
+    state.focusSetting = null;
+    const el = document.querySelector(`[data-setting="${CSS.escape(key)}"]`);
+    if (!el) return;
+    const target = el.closest(".toggle-label, .inline") ?? el;
+    const label = target.previousElementSibling?.tagName === "LABEL" ? target.previousElementSibling : null;
+    target.scrollIntoView({ block: "center" });
+    for (const x of [target, label]) x?.classList.add("flash");
+    (el.matches("input, select") ? el : el.querySelector("input"))?.focus({ preventScroll: true });
+  }
+  const openSetting = (key) => {
+    state.focusSetting = key;
+    location.hash = "#settings/fantasy";
+  };
 
   function restartBanner() {
     const o = state.overview;
@@ -376,12 +393,26 @@
             check("Conversations", r.conversations),
           ),
         ),
-        // The service's own checks (the ones `npm run doctor` runs): only what needs attention
-        r.checks?.attention.length
+        // The service's own checks (the ones `npm run doctor` runs) and data sources that are down:
+        // only what needs attention
+        r.checks?.attention.length || r.sources?.down.length
           ? h(
               "div",
               { class: "attention" },
-              ...r.checks.attention.map((c) =>
+              r.sources?.down.length
+                ? h(
+                    "div",
+                    { class: "attention-row" },
+                    h("span", { class: "bad-icon" }, icon("alert", 17)),
+                    h(
+                      "div",
+                      {},
+                      h("div", { class: "label" }, r.sources.down.length > 1 ? `${r.sources.down.length} data sources are down` : `${r.sources.down[0]} is down`),
+                      h("div", { class: "detail" }, `${r.sources.down.length > 1 ? `${r.sources.down.join(", ")}: no` : "No"} successful call in 6 hours. See Data sources below.`),
+                    ),
+                  )
+                : null,
+              ...(r.checks?.attention ?? []).map((c) =>
                 h(
                   "div",
                   { class: "attention-row" },
@@ -393,9 +424,10 @@
             )
           : null,
         r.checks
-          ? h("p", { class: "note" }, r.checks.attention.length ? `Service checks from ${stamp(new Date(r.checks.checkedAt).toISOString())}.` : `All ${r.checks.total} service checks passed (${stamp(new Date(r.checks.checkedAt).toISOString())}).`)
+          ? h("p", { class: "note" }, r.checks.attention.length ? `Service checks from ${stamp(new Date(r.checks.checkedAt).toISOString())}.` : `${r.checks.total === 1 ? "The service check" : `All ${r.checks.total} service checks`} passed (${stamp(new Date(r.checks.checkedAt).toISOString())}).`)
           : null,
       ),
+      sourcesCard(r.sources),
       card(
         h("h3", {}, "Today"),
         h(
@@ -495,6 +527,55 @@
     );
   }
 
+  // Fantasy data sources (health.json from the service): one row each, problems first in the text.
+  function sourcesCard(src) {
+    if (!src) return null;
+    const head = h("div", { class: "card-head" }, h("h3", {}, "Data sources"), h("div", { class: "actions" }, h("button", { class: "link", onclick: () => (location.hash = "#settings/fantasy") }, icon("settings", 16), "Fantasy settings")));
+    if (src.stale) return card(head, h("div", { class: "empty" }, icon("alert", 18), "Not checked recently (is the service running?)"));
+    const ago = (ms) => relTime(new Date(ms).toISOString());
+    const pct = (x) => `${Math.round(x * 1000) / 10}%`.replace(".0%", "%");
+    const since = src.startedAt ? `since the agent started ${ago(src.startedAt)}` : "since the agent started";
+    const name = { ok: "OK", degraded: "Degraded", down: "Down", off: "Off", unknown: "No data" };
+    const pill = { ok: "pill ok", degraded: "pill warn", down: "pill bad", off: "pill", unknown: "pill" };
+    const summary = (x) => {
+      const okRate = x.okRate24h !== null && x.calls24h ? `${pct(x.okRate24h)} of ${x.calls24h} call${x.calls24h === 1 ? "" : "s"} OK in 24 h` : null;
+      const avg = x.avgMs !== null ? `${x.avgMs < 1000 ? `${x.avgMs} ms` : `${(x.avgMs / 1000).toFixed(1)} s`} avg` : null;
+      switch (x.status) {
+        case "off":
+          return x.id === "espn" ? "Fantasy football isn't set up" : "Turned off in Settings";
+        case "unknown":
+          return `No data ${since}`;
+        case "down":
+          return [x.lastOkAt ? `No success since ${ago(x.lastOkAt)}` : `No success ${since}`, okRate].filter(Boolean).join(" · ");
+        default:
+          return [x.lastOkAt ? `Last OK ${ago(x.lastOkAt)}` : null, okRate, avg].filter(Boolean).join(" · ");
+      }
+    };
+    const rows = src.list.map((x) => {
+      const nfl = x.id === "nflverse" && x.status !== "off" && x.dataUpdatedAt
+        ? h("span", { class: x.dataStale ? "src-data stale" : "src-data" }, `${x.dataStale ? "Data is old: " : "Data "}downloaded ${ago(x.dataUpdatedAt)}`)
+        : null;
+      // The last error stays visible after a recovery, folded away unless the source has a problem
+      const err = x.lastError && x.status !== "off"
+        ? h("details", { class: "src-error", open: x.status === "down" || x.status === "degraded" }, h("summary", {}, `Last error ${x.lastErrorAt ? ago(x.lastErrorAt) : ""}`.trim()), h("code", {}, x.lastError))
+        : null;
+      return h(
+        "div",
+        { class: `src-row ${x.status}`, "data-source": x.id },
+        h("span", { class: `src-dot ${x.status}`, title: name[x.status] }),
+        h("div", { class: "grow" }, h("div", { class: "title" }, x.label), h("div", { class: "sub" }, summary(x)), nfl, err),
+        h("span", { class: pill[x.status] }, name[x.status]),
+        h("button", { class: "link src-link", title: `Settings → Fantasy`, onclick: () => openSetting(x.setting) }, "Settings"),
+      );
+    });
+    // The service keeps these in memory: after a restart, "No data" isn't a problem, just no use yet
+    const restarted = src.list.some((x) => x.status === "unknown") ? " The numbers start over when the agent restarts; a source shows up once it's used." : "";
+    return card(
+      head,
+      h("div", { class: "rows" }, rows),
+      h("p", { class: "note" }, `Updated ${stamp(new Date(src.checkedAt).toISOString())}. Down means no successful call in 6 hours.${restarted}`),
+    );
+  }
   const stat = (num, lbl) => h("div", { class: "stat" }, h("div", { class: "num" }, num), h("div", { class: "lbl" }, lbl));
   const linkTo = (page, label, iconName) => h("button", { class: "link", onclick: () => (location.hash = `#${page}`) }, icon(iconName, 16), label);
 

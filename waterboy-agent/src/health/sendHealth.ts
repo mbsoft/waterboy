@@ -9,6 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { ChatTarget, Sender } from "../messages/sender.ts";
 import type { CheckResult } from "./checks.ts";
+import { sourceHealth, type SourceHealth, type SourceId, type SourceSnapshot } from "./sources.ts";
 
 export interface SendFailure {
   at: number;
@@ -106,6 +107,8 @@ export interface HealthFile {
   startedAt: number;
   checks: CheckResult[];
   send: SendHealthSnapshot;
+  /** Data-source health (v0.4); older readers ignore it */
+  sources: Record<SourceId, SourceSnapshot>;
 }
 
 /** Writes health.json in the data folder (atomically) whenever something changes */
@@ -115,8 +118,9 @@ export class HealthReporter {
   private readonly startedAt = Date.now();
   private timer: NodeJS.Timeout | null = null;
 
-  constructor(private readonly dataDir: string) {
+  constructor(private readonly dataDir: string, readonly sources: SourceHealth = sourceHealth) {
     this.send = new SendHealth(() => this.scheduleWrite());
+    sources.onChange = () => this.scheduleWrite();
   }
 
   /** A check skipped this round keeps its last real result */
@@ -143,6 +147,7 @@ export class HealthReporter {
       startedAt: this.startedAt,
       checks: this.checks,
       send: this.send.snapshot(),
+      sources: this.sources.snapshot(),
     };
     try {
       fs.writeFileSync(`${file}.tmp`, JSON.stringify(data, null, 2));

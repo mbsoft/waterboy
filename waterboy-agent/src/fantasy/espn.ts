@@ -3,12 +3,20 @@
  * leagues need no auth; private leagues need the espnS2 + swid cookies from the fantasy config.
  */
 import type { FantasyConfig } from "./config.ts";
+import { timed } from "../health/sources.ts";
 
 export const FANTASY_BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons";
 export const NFL_SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard";
 
-/** GET JSON from ESPN. `filter` is ESPN's X-Fantasy-Filter (used by the player pool). */
+/**
+ * GET JSON from ESPN. `filter` is ESPN's X-Fantasy-Filter (used by the player pool). Scoreboard
+ * calls count toward the "lines" source in data-source health, league calls toward "espn".
+ */
 export async function espnGet<T>(url: string, cfg?: Pick<FantasyConfig, "espnS2" | "swid">, filter?: object): Promise<T> {
+  return timed(url.startsWith(NFL_SCOREBOARD) ? "lines" : "espn", () => get<T>(url, cfg, filter));
+}
+
+async function get<T>(url: string, cfg?: Pick<FantasyConfig, "espnS2" | "swid">, filter?: object): Promise<T> {
   // ESPN rejects Node's default "node" user agent with a 403.
   const headers: Record<string, string> = {
     Accept: "application/json",

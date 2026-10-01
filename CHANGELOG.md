@@ -13,6 +13,11 @@ publishes it as the GitHub Release notes.
   ChatGPT it shows tokens, since ChatGPT reports no cost. Every turn is saved in `state.db` (kept 400 days).
 - An optional daily cost alert (Settings → Advanced, `usage.dailyCostAlertUsd`): when a day's cost
   goes over it, the Dashboard shows a banner once that day and the log notes it. Nothing is texted.
+- Data-source health: the service records every fetch from ESPN, Sleeper, nflverse, the ESPN
+  scoreboard (betting lines), FantasyPros rankings and FantasyCalc, and publishes ok / degraded /
+  down / off per source in `health.json`. A new Dashboard card shows each source with when it last
+  worked, its last error and a link to its Settings → Fantasy switch; setup readiness flags any
+  enabled source that is down. Errors are stripped of URLs' query strings, cookies and keys.
 
 ### Changed
 - `state.db` moves to schema version 3 (the `turns` table). Waterboy 0.3.x refuses to start on it;

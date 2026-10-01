@@ -316,3 +316,7 @@ Dev/test only, and inert unless `WATERBOY_TEST_HOOKS=1` (the launchd job never s
   [--days 30] [--provider claude|chatgpt] [--seed 1]` adds realistic `turns` rows over the last `days` local days (ending at
   the H1 clock) to `<dataDir>/state.db`, creating or migrating it with the real migrations. Same seed, same rows. For
   Dashboard screenshots and scale tests (`--rows 100000 --days 365`).
+- **H2 source faults:** `WATERBOY_FAIL_SOURCES=espn,sleeper,…` (or `all`): those data sources fail before the network call
+  with "Test fault: …", to drive data-source health from ok to degraded to down and back. Ids: `espn`,
+  `sleeper`, `nflverse`, `lines`, `rankings`, `tradeValues`. The ChatGPT tool servers get the hook
+  variables too.

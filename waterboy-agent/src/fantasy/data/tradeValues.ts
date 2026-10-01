@@ -7,6 +7,7 @@
 import { log } from "../../config.ts";
 import { nameKey } from "../names.ts";
 import { SOURCE, sourceLine } from "../sources.ts";
+import { timed } from "../../health/sources.ts";
 
 const API = "https://api.fantasycalc.com/values/current";
 
@@ -57,10 +58,13 @@ export async function tradeValues(f: TradeFormat): Promise<Valued[]> {
   if (hit && Date.now() - hit.at < 6 * 3600_000) return hit.values;
   try {
     const url = `${API}?isDynasty=${f.dynasty}&numQbs=${f.qbs}&numTeams=${f.teams}&ppr=${f.ppr}`;
-    const res = await fetch(url, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(30_000) });
-    if (!res.ok) throw new Error(`FantasyCalc ${res.status}`);
-    const values = toValued((await res.json()) as RawValue[]);
-    if (!values.length) throw new Error("FantasyCalc returned no values");
+    const values = await timed("tradeValues", async () => {
+      const res = await fetch(url, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(30_000) });
+      if (!res.ok) throw new Error(`FantasyCalc ${res.status}`);
+      const valued = toValued((await res.json()) as RawValue[]);
+      if (!valued.length) throw new Error("FantasyCalc returned no values");
+      return valued;
+    });
     cache.set(key, { at: Date.now(), values });
     return values;
   } catch (e) {

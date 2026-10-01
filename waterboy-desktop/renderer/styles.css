@@ -207,6 +207,7 @@ input, textarea, select, button { font: inherit; color: inherit; }
 .pill.accent { background: var(--accent-soft); color: var(--accent); }
 .pill.warn { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
 .pill.ok { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+.pill.bad { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
 
 /* ---------- controls ---------- */
 
@@ -359,3 +360,25 @@ pre.errors { margin: 6px 0 0; padding: 10px 12px; border-radius: 8px; background
 .usage-row .share { height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
 .usage-row .share span { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
 .usage-row .val { font-variant-numeric: tabular-nums; text-align: right; min-width: 48px; }
+
+/* Dashboard → Data sources */
+.src-row { display: flex; align-items: flex-start; gap: 12px; padding: 11px 0; border-top: 1px solid var(--divider); }
+.rows > .src-row:first-child { border-top: 0; }
+.src-row .grow { flex: 1; min-width: 0; }
+.src-row .title { font-size: 13.5px; font-weight: 500; }
+.src-row .sub { color: var(--muted); font-size: 12px; }
+.src-row .pill, .src-row .src-link { margin-top: 2px; }
+.src-link { font-size: 12.5px; }
+.src-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; margin-top: 5px; background: var(--faint); }
+.src-dot.ok { background: var(--ok); }
+.src-dot.degraded { background: var(--warn); }
+.src-dot.down { background: var(--danger); }
+.src-dot.off, .src-dot.unknown { background: transparent; box-shadow: inset 0 0 0 1.5px var(--faint); }
+.src-row.off .title { color: var(--muted); }
+.src-data { display: block; color: var(--faint); font-size: 12px; }
+.src-data.stale { color: var(--warn); }
+.src-error { margin-top: 4px; font-size: 12px; }
+.src-error summary { color: var(--muted); cursor: pointer; width: fit-content; }
+.src-error code { display: block; width: fit-content; max-width: 100%; box-sizing: border-box; margin-top: 4px; padding: 6px 8px; border-radius: 6px; background: rgba(127, 127, 127, 0.1); color: var(--text); font-size: 11.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.flash { animation: flash 1.6s ease-out 1; border-radius: 6px; }
+@keyframes flash { 0%, 40% { background: var(--accent-soft); box-shadow: 0 0 0 4px var(--accent-soft); } 100% { background: transparent; box-shadow: 0 0 0 4px transparent; } }

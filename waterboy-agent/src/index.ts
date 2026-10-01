@@ -10,12 +10,13 @@ import { CodexAgentRunner, chatgptAccount, verifyLockdown } from "./assistants/c
 import { AppleScriptSender, ConsoleSender } from "./messages/sender.ts";
 import { startScheduler } from "./bot/scheduler.ts";
 import { makeConditions } from "./bot/conditions.ts";
-import { startNflverseSync } from "./fantasy/data/nflverse.ts";
+import { dataUpdatedAt, startNflverseSync } from "./fantasy/data/nflverse.ts";
 import { setRankingsDataDir } from "./fantasy/data/rankings.ts";
 import { startIMessageHelper } from "./messages/helper.ts";
 import { SchemaTooNewError } from "./schema.ts";
 import { checkMessagesAutomation, runChecks } from "./health/checks.ts";
 import { HealthReporter, MonitoredSender } from "./health/sendHealth.ts";
+import { sourceEnabled } from "./health/sources.ts";
 import { clearStartupError, writeStartupError } from "./health/startupError.ts";
 
 /**
@@ -74,6 +75,9 @@ clearStartupError(cfg.dataDir);
 pruneTurns(state);
 // Setup checks and send health, published to health.json for the Dashboard
 const health = new HealthReporter(cfg.dataDir);
+// Data sources turned off in config.json show as "off" rather than as failures
+health.sources.enabled = (id) => sourceEnabled(cfg.fantasy, id);
+health.sources.extras.nflverse = () => ({ dataUpdatedAt: dataUpdatedAt(cfg.fantasy?.season ?? new Date().getFullYear()) });
 const sender = cfg.dryRun
   ? new ConsoleSender()
   : new MonitoredSender(new AppleScriptSender(cfg.outboxStagingDir), health.send);

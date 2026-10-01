@@ -12,6 +12,7 @@ import { log } from "../../config.ts";
 import { parseCsv } from "./nflverse.ts";
 import { nameKey } from "../names.ts";
 import { SOURCE, sourceLine } from "../sources.ts";
+import { timed } from "../../health/sources.ts";
 
 const URL = "https://github.com/dynastyprocess/data/raw/master/files/db_fpecr_latest.csv";
 const MAX_AGE_MS = 12 * 3600_000;
@@ -69,10 +70,13 @@ export async function loadRankings(): Promise<Rankings | null> {
   const age = fs.existsSync(f) ? Date.now() - fs.statSync(f).mtimeMs : Infinity;
   if (age > MAX_AGE_MS) {
     try {
-      const res = await fetch(URL, { signal: AbortSignal.timeout(60_000) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const text = await res.text();
-      if (!text.startsWith("fp_page,")) throw new Error("not the rankings CSV");
+      const text = await timed("rankings", async () => {
+        const res = await fetch(URL, { signal: AbortSignal.timeout(60_000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const body = await res.text();
+        if (!body.startsWith("fp_page,")) throw new Error("not the rankings CSV");
+        return body;
+      });
       fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(`${f}.tmp`, text);
       fs.renameSync(`${f}.tmp`, f);
