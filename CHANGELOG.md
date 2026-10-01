@@ -18,6 +18,10 @@ publishes it as the GitHub Release notes.
 - `state.db` moves to schema version 3 (the `turns` table). Waterboy 0.3.x refuses to start on it;
   to downgrade, restore `state.db` from before the upgrade.
 
+### Fixed
+- The logged turn cost (and token count) for a resumed conversation was the conversation's running
+  total, not that turn's. Each turn now records only its own share.
+
 ## [0.3.0] - 2026-10-01
 
 ### Added
