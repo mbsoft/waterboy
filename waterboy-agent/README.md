@@ -68,6 +68,7 @@ curl -L -o ~/.imessage-agent/models/ggml-base.en.bin \
 npm run doctor      # checks access and lists recent chats + identifiers for allowedChats
 npm run repl        # talk to the agent in the terminal (no Messages involved)
 npm run start:dry   # watch real iMessages but print replies instead of sending
+                    # (both run on Sonnet 5.5; WATERBOY_MODEL=<id> to try another model)
 npm start           # full run in the foreground
 npm run install-service   # launchd: starts at login, restarts on crash
 tail -f ~/.imessage-agent/logs/agent.log
@@ -89,7 +90,7 @@ On first start the service begins at the newest message, so it never answers old
 | `allowBash` | Lets the agent run shell commands. Anyone in an allowlisted chat could then run commands on this Mac, so enable it with care. |
 | `extraAllowedTools`, `mcpServers` | Extra tools or MCP servers, for example `{ "mcpServers": { "gmail": { "type": "http", "url": "…" } } }` (every tool from a listed server is allowed) |
 | `loadUserClaudeSettings` | Also load `~/.claude/settings.json` (your user-level MCP servers, hooks, etc.) |
-| `model` | Model override; `null` means Claude Code's default |
+| `model` | Claude model; the example uses Sonnet 5.5 (`claude-sonnet-5-5`). `null` means Claude Code's default, which can be Opus and costs more per turn. The `WATERBOY_MODEL` environment variable overrides it |
 | `typingIndicators` | Show "typing…" in a chat while a reply is being written (default `true`; see below) |
 | `threadedReplies` | Group chats: reply in-thread to the message that asked: `"auto"` (default; only when other messages arrived meanwhile), `"always"` or `"off"` |
 | `voice` | whisper.cpp binary and model path |

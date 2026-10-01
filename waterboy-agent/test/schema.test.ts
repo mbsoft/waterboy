@@ -113,3 +113,24 @@ test("the service refuses newer data with a clear message and records why for th
   assert.equal(marker.kind, "schemaTooNew");
   assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).schemaVersion, CONFIG_SCHEMA_VERSION + 1, "file untouched");
 });
+
+test("test runs use Sonnet: WATERBOY_MODEL overrides config.json, and the test scripts set it", () => {
+  const dir = tmp();
+  const file = path.join(dir, "config.json");
+  fs.writeFileSync(file, JSON.stringify({ schemaVersion: CONFIG_SCHEMA_VERSION, dataDir: dir, model: "claude-opus-5-5" }));
+  const prev = process.env.WATERBOY_MODEL;
+  try {
+    delete process.env.WATERBOY_MODEL;
+    assert.equal(loadConfig(file).model, "claude-opus-5-5");
+    process.env.WATERBOY_MODEL = "claude-sonnet-5-5";
+    assert.equal(loadConfig(file).model, "claude-sonnet-5-5");
+    assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).model, "claude-opus-5-5", "config.json untouched");
+  } finally {
+    if (prev === undefined) delete process.env.WATERBOY_MODEL;
+    else process.env.WATERBOY_MODEL = prev;
+  }
+  const root = path.resolve(import.meta.dirname, "..");
+  const { scripts } = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+  for (const s of ["repl", "start:dry"]) assert.match(scripts[s], /WATERBOY_MODEL=\$\{WATERBOY_MODEL:-claude-sonnet-5-5\}/, s);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(root, "config.example.json"), "utf8")).model, "claude-sonnet-5-5");
+});
