@@ -27,7 +27,7 @@ function parseLog(text) {
     else if (/^allowlisted chats:/.test(msg)) continue;
     else if ((x = msg.match(/^assistant: (Claude|ChatGPT)(?: \((.+)\))?$/))) e = { kind: "info", title: `Assistant: ${x[1]}`, detail: x[2] ?? "" };
     else if (tag === "imessage" && /need Accessibility access/.test(msg))
-      e = { kind: "error", title: "Typing indicators need Accessibility", detail: "System Settings → Privacy & Security → Accessibility → turn on Waterboy" };
+      e = { kind: "error", title: "Typing indicators need Accessibility", detail: "System Settings → Privacy & Security → Accessibility → turn on Waterboy", link: { to: "settings/conversations", label: "Typing indicator settings" } };
     else if (tag === "imessage" && /^typing indicators on/.test(msg)) e = { kind: "info", title: "Typing indicators on", detail: msg };
     else if ((x = msg.match(/^group and fantasy chats are off: (.+)$/))) e = { kind: "error", title: "Group chats paused", detail: `Codex turned on features Waterboy hasn't reviewed: ${x[1].replace(/^unreviewed Codex features /, "")}` };
     else if ((x = msg.match(/^session (\S+) \(auth: (\w+), model: (.+)\)$/))) {

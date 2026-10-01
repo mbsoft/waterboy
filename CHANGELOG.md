@@ -29,6 +29,8 @@ publishes it as the GitHub Release notes.
   newer version, instead of restarting over and over.
 
 ### Changed
+- Settings is split into tabs (General, Conversations, Fantasy, Live alerts, Advanced), each with its
+  own link, instead of one long page. Google Calendar access moved to Connections.
 - Test runs use Claude Sonnet 5.5: `npm run repl` and `npm run start:dry` pin `claude-sonnet-5-5`
   (override with `WATERBOY_MODEL`), and `config.example.json` starts on it. Settings lists Sonnet 5.5
   instead of Sonnet 5.

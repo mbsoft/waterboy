@@ -167,6 +167,7 @@ test("typing-indicator helper lines become events", () => {
   const ev = parseLog(`2026-09-25T18:00:00.000Z [imessage] typing indicators need Accessibility access: System Settings → Privacy & Security → Accessibility → turn on Waterboy
 2026-09-25T18:00:01.000Z [imessage] typing indicators on (helper 0.1.0)`);
   assert.deepEqual(ev.map((e) => [e.kind, e.title]), [["error", "Typing indicators need Accessibility"], ["info", "Typing indicators on"]]);
+  assert.deepEqual(ev[0].link, { to: "settings/conversations", label: "Typing indicator settings" }, "links to the setting it's about");
 });
 
 test("live alerts: settings, clamping and per-person subscriptions", async () => {
@@ -466,4 +467,19 @@ test("the Dashboard learns why the service refused to start", () => {
   assert.deepEqual(startupError({ dataDir: dir }), { message: "state.db is at schema version 9", at: 5 });
   fs.writeFileSync(path.join(dir, "startup-error.json"), "{not json");
   assert.equal(startupError({ dataDir: dir }), null);
+});
+
+test("settings tabs: every setting the app can change has exactly one tab, and routes pick the tab", () => {
+  const { TABS, parseRoute } = require("../renderer/settingsTabs");
+  const { SETTING_KEYS } = require("../lib/agent");
+  const onTabs = TABS.flatMap((t) => t.settings);
+  assert.equal(new Set(onTabs).size, onTabs.length, "no setting on two tabs");
+  assert.deepEqual([...onTabs].sort(), [...SETTING_KEYS].sort());
+  assert.deepEqual(TABS.map((t) => t.id), ["general", "conversations", "fantasy", "alerts", "advanced"]);
+
+  assert.deepEqual(parseRoute("#settings/fantasy"), { page: "settings", tab: "fantasy" });
+  assert.deepEqual(parseRoute("#settings"), { page: "settings", tab: "general" }, "old links open General");
+  assert.deepEqual(parseRoute("#settings/nope"), { page: "settings", tab: "general" });
+  assert.deepEqual(parseRoute("#dashboard"), { page: "dashboard", tab: null });
+  assert.deepEqual(parseRoute(""), { page: "", tab: null });
 });

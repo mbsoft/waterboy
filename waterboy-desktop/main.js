@@ -5,6 +5,7 @@ const agent = require("./lib/agent");
 const service = require("./lib/service");
 const updates = require("./lib/updates");
 const { redactPage, namesToRedact } = require("./lib/redact");
+const { TABS: SETTINGS_TABS } = require("./renderer/settingsTabs");
 
 app.setName("Waterboy");
 
@@ -151,7 +152,8 @@ function createWindow() {
  *   CAPTURE_SCROLL=bottom  end of long pages   CAPTURE_FULL=1  whole page, not just the window
  *   CAPTURE_REDACT=1   scramble + blur phone numbers, emails, names and memory (see lib/redact.js)
  *   CAPTURE_CLICK=sel  click an element before capturing
- *   CAPTURE_PAGES=setup-2  a first-run setup step (0-4)
+ *   CAPTURE_JS=code    run this in the page before capturing (e.g. press keys); its result is logged
+ *   CAPTURE_PAGES=setup-2  a first-run setup step (0-4); settings/fantasy  a Settings tab
  */
 async function capture(win, dir) {
   fs.mkdirSync(dir, { recursive: true });
@@ -159,7 +161,7 @@ async function capture(win, dir) {
   const cfg = redact ? await agent.getConfig().catch(() => ({})) : null;
   const opts = redact ? { names: namesToRedact(cfg, [require("node:os").userInfo().username]), homeUser: require("node:os").userInfo().username } : null;
   const [width, height] = win.getContentSize();
-  const all = ["dashboard", "connections", "conversations", "memory", "automations", "logs", "settings", "about"];
+  const all = ["dashboard", "connections", "conversations", "memory", "automations", "logs", ...SETTINGS_TABS.map((t) => `settings/${t.id}`), "about"];
   const pages = process.env.CAPTURE_PAGES ? process.env.CAPTURE_PAGES.split(",") : all;
   const themes = process.env.CAPTURE_THEMES ? process.env.CAPTURE_THEMES.split(",") : ["light"];
   for (const theme of themes) {
@@ -183,6 +185,10 @@ async function capture(win, dir) {
         await win.webContents.executeJavaScript(`document.querySelector(${JSON.stringify(process.env.CAPTURE_CLICK)})?.click()`);
         await new Promise((r) => setTimeout(r, 1500));
       }
+      if (process.env.CAPTURE_JS) {
+        console.log(`[capture] ${p}:`, await win.webContents.executeJavaScript(process.env.CAPTURE_JS));
+        await new Promise((r) => setTimeout(r, 1500));
+      }
       if (process.env.CAPTURE_FULL === "1") {
         const full = await win.webContents.executeJavaScript(`document.querySelector(".page").scrollHeight + 52 + 60`);
         win.setContentSize(width, Math.min(Math.max(height, full), 4000));
@@ -194,7 +200,11 @@ async function capture(win, dir) {
       }
       const img = await win.webContents.capturePage();
       if (process.env.CAPTURE_FULL === "1") win.setContentSize(width, height);
-      fs.writeFileSync(path.join(dir, `${p}${theme === "light" ? "" : `-${theme}`}.png`), img.toPNG());
+      const name = `${p.replace(/\//g, "-")}${theme === "light" ? "" : `-${theme}`}`;
+      fs.writeFileSync(path.join(dir, `${name}.png`), img.toPNG());
+      // Which settings the page shows (controls carry data-setting), to check against the tab inventory.
+      const keys = await win.webContents.executeJavaScript(`[...document.querySelectorAll("[data-setting]")].map((e) => e.dataset.setting)`);
+      if (keys.length) fs.writeFileSync(path.join(dir, `${name}.settings.json`), JSON.stringify(keys, null, 2));
     }
   }
 }

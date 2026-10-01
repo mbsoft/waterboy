@@ -122,12 +122,12 @@ Limits are enforced by **which tools exist for a given turn**, not by instructio
 |---|---|
 | Dashboard | Running/paused status with Start, Pause, Restart; setup readiness (sign-in, Messages access, sending, allowed chats) and any service checks needing attention; a banner when sending through Messages fails; today's replies, reply time, ignored messages, problems |
 | Setup | Opens on first launch: permissions (Full Disk Access, Automation, optional Accessibility), sign-in, the first allowed chat, and the ESPN league with a test connection. Run it again from the Dashboard |
-| Connections | Built-in tools, MCP servers, extra allowed tools |
+| Connections | Google Calendar access, built-in tools, MCP servers, extra allowed tools |
 | Conversations | Allow or block each person or group, rename contacts, mark admins, set each person's fantasy team and access level |
 | Memory | View, edit or erase each chat's `MEMORY.md`; start a fresh conversation |
 | Automations | List, create, edit, pause and delete scheduled tasks |
 | Logs | Readable activity feed with filters and paging, plus recent errors |
-| Settings | Assistant and model, ChatGPT sign-in, agent name, wake words, voice, limits, shell access, the whole fantasy league config, and live scoring alerts |
+| Settings | Five tabs: **General** (agent name, assistant and model, ChatGPT sign-in), **Conversations** (wake words, voice, typing, threaded replies), **Fantasy** (league, data sources, image cards), **Live alerts**, and **Advanced** (limits, shell access). Each tab has its own link (`#settings/fantasy`) |
 
 The app never opens `chat.db` — it reads a chat index the service writes. Config changes take
 effect on service restart, and the app shows a "Restart now" banner whenever `config.json` is newer
