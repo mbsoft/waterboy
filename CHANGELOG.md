@@ -9,8 +9,8 @@ publishes it as the GitHub Release notes.
 
 ### Added
 - The app updates itself: it checks GitHub Releases on launch and every 6 hours, downloads in the
-  background, and installs on quit (or right away from the Dashboard). The bundled service restarts
-  on the new version the next time the app opens.
+  background, and installs when you click "Restart to update" on the Dashboard. The app relaunches
+  and the bundled service restarts on the new version. Betas never update automatically.
 - CI on every push and pull request: agent typecheck and tests, desktop tests, the typing-indicator
   helper build, and an unsigned app build for Apple silicon and Intel.
 - Releases are built, signed, notarized and published by pushing a `vX.Y.Z` tag.
