@@ -149,15 +149,15 @@ Needs macOS 12 or later (typing indicators need macOS 13), and either a Claude P
 ChatGPT account (the Free plan works) for the assistant.
 
 1. **Download** the latest version:
-   <!-- download-links:start -->
-   - **[Download the latest release](https://github.com/mbsoft/waterboy/releases/latest)**: `arm64` for Apple silicon, `x64` for Intel
-   <!-- download-links:end -->
+   <!-- downloads:start -->
+   - **[Download from GitHub Releases](https://github.com/mbsoft/waterboy/releases)**: `arm64` for Apple silicon, `x64` for Intel
+   <!-- downloads:end -->
 
    These links are updated automatically each time a release is published. Not sure which? Apple menu → About This Mac → Chip. Older versions, betas and release notes are on
    [GitHub Releases](https://github.com/mbsoft/waterboy/releases).
 2. **Check the download (optional).** `shasum -a 256 ~/Downloads/Waterboy-*.dmg` should print the
    same hash as that file's line in the release's
-   [`SHA256SUMS.txt`](https://github.com/mbsoft/waterboy/releases/latest/download/SHA256SUMS.txt).
+   `SHA256SUMS.txt` (linked above).
 3. **Install.** Open the DMG and drag Waterboy to Applications, then open it from Applications (not
    from the DMG: the app won't set up the service from there). Releases are signed and notarized, so
    macOS opens them without warnings.

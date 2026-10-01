@@ -1,20 +1,13 @@
-# When a signed release is published, point the README's download links at it and check them:
-#   1. scripts/readme-links.mjs rewrites the README's download-links block to that release's DMGs
-#      (versioned URLs, so the README shows the version), and the change is committed to main.
-#   2. Both DMGs and SHA256SUMS.txt must download from that release, and the unversioned
-#      releases/latest/download/Waterboy-<arch>.dmg links (uploaded by release.yml) must resolve to it.
-# Prereleases (vX.Y.Z-beta.N) are skipped: the README only advertises stable releases.
-# Run it by hand with a tag to redo the README for that release.
+# When a signed release is published, rewrite the README's download links (scripts/readme-links.mjs):
+# the newest stable release's Apple silicon and Intel DMGs, plus a "Latest beta" line while a published
+# prerelease is newer. Each link is checked to download, and the change is committed to main.
+# Drafts never touch the README. Run it by hand to redo the README from the current releases.
 name: Download links
 
 on:
   release:
     types: [published]
   workflow_dispatch:
-    inputs:
-      tag:
-        description: Release tag to link to (e.g. v0.3.0)
-        required: true
 
 permissions:
   contents: write
@@ -24,10 +17,7 @@ concurrency:
 
 jobs:
   readme:
-    if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
     runs-on: ubuntu-latest
-    env:
-      TAG: ${{ github.event.release.tag_name || inputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,33 +25,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: The release's downloads exist
+      - name: Rewrite the README's download links
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" | node scripts/readme-links.mjs
+      - name: Every download link works
         run: |
-          v=${TAG#v}
-          for asset in "Waterboy-$v-arm64.dmg" "Waterboy-$v-x64.dmg" SHA256SUMS.txt; do
-            url="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$asset"
+          links=$(sed -n '/<!-- downloads:start -->/,/<!-- downloads:end -->/p' README.md | grep -o 'https://github.com/[^)]*/releases/download/[^)]*')
+          for url in $links; do
             curl -fsSIL -o /dev/null "$url" || { echo "::error::$url doesn't download"; exit 1; }
             echo "ok $url"
           done
-      - name: Point the README at the release
+      - name: Commit to main
         run: |
-          node scripts/readme-links.mjs "$TAG"
-          if git diff --quiet README.md; then exit 0; fi
+          if git diff --quiet README.md; then echo "README already up to date"; exit 0; fi
+          tag="${{ github.event.release.tag_name }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "README: download links for $TAG" README.md
+          git commit -m "README: download links for ${tag:-the current releases}" README.md
           git push origin HEAD:main
-      - name: The latest/download links resolve to it
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          latest=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q .tagName)
-          if [ "$latest" != "$TAG" ]; then echo "Latest release is $latest, not $TAG; skipping."; exit 0; fi
-          for asset in Waterboy-arm64.dmg Waterboy-x64.dmg; do
-            url="https://github.com/$GITHUB_REPOSITORY/releases/latest/download/$asset"
-            # The first redirect names the release it resolves to; following it all the way checks the file exists.
-            target=$(curl -fsSI "$url" | tr -d '\r' | awk 'tolower($1) == "location:" { print $2 }')
-            curl -fsSIL -o /dev/null "$url" || { echo "::error::$url doesn't resolve to a file"; exit 1; }
-            echo "$asset -> $target"
-            [[ "$target" == *"/download/$TAG/$asset" ]] || { echo "::error::$url points at $target, not $TAG"; exit 1; }
-          done
