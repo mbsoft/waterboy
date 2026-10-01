@@ -59,7 +59,7 @@ git push origin HEAD v0.3.0
 ```
 
 The tag runs `.github/workflows/release.yml`, which runs `npm run release` with the signing
-certificate and notarization key from the repository's Actions secrets (listed at the top of that
+certificate and notarization key from the "release build" environment's secrets (listed at the top of that
 file) and uploads the DMGs, zips, `latest-mac.yml` and `SHA256SUMS.txt` to a **draft** GitHub
 Release, with the CHANGELOG section as its notes. Publishing the draft is the go-live step. A tag
 with a suffix (`v0.3.0-beta.1`) becomes a prerelease, which installed apps don't update to. Every

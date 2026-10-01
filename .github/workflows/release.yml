@@ -2,10 +2,16 @@
 # to a *draft* GitHub Release. Publishing the draft is the go-live step: that's when installed apps see
 # the update. Tags with a suffix (v0.3.0-beta.1) become prereleases, which installed apps ignore.
 #
-# Repository secrets (Settings → Secrets and variables → Actions):
+# Run it by hand (Actions → Release → Run workflow) for a dry run: the same tests and build, unsigned and
+# not notarized, with the DMGs, zips, latest-mac.yml and SHA256SUMS.txt attached to the run as an
+# artifact. No secrets needed and no Release created, so it proves the pipeline before signing is set up.
+# (Unsigned builds are for testing: Gatekeeper blocks them unless you right-click → Open.)
+#
+# Secrets of the "release build" environment (Settings → Environments → release build). Add a required
+# reviewer there and every signed build waits for that approval.
 #   MACOS_CERT_P12_BASE64   Developer ID Application certificate + key, exported as .p12, base64-encoded
 #   MACOS_CERT_PASSWORD     its export password
-#   APPLE_API_KEY_P8        contents of the App Store Connect API key (AuthKey_XXXX.p8)
+#   APPLE_API_KEY           contents of the App Store Connect API key (AuthKey_XXXX.p8)
 #   APPLE_API_KEY_ID        its key ID
 #   APPLE_API_ISSUER        its issuer ID
 name: Release
@@ -13,17 +19,22 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
 
 jobs:
   release:
+    if: github.event_name == 'push'
     runs-on: macos-26
     timeout-minutes: 90
+    environment: release build
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -39,9 +50,22 @@ jobs:
         run: |
           (cd waterboy-agent && npm ci --no-audit --no-fund)
           (cd waterboy-desktop && npm ci --no-audit --no-fund)
+      - name: Signing secrets are set
+        env:
+          MACOS_CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          missing=()
+          for name in MACOS_CERT_P12_BASE64 MACOS_CERT_PASSWORD APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          [ ${#missing[@]} -eq 0 ] || { echo "::error::Missing secrets in the \"release build\" environment: ${missing[*]}"; exit 1; }
       - name: Notarization key
         env:
-          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY }}
         run: |
           key="$RUNNER_TEMP/AuthKey.p8"
           printf '%s\n' "$APPLE_API_KEY_P8" > "$key"
@@ -62,6 +86,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           node scripts/version.mjs notes "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
+          {
+            echo
+            echo "---"
+            echo
+            echo '**Install:** download the `arm64` DMG for Apple silicon or the `x64` DMG for Intel, then follow the'
+            echo '[install steps](https://github.com/mbsoft/waterboy#install). Checksums are in `SHA256SUMS.txt`.'
+            echo 'Already installed? The app updates itself.'
+          } >> "$RUNNER_TEMP/notes.md"
           prerelease=()
           [[ "$GITHUB_REF_NAME" == *-* ]] && prerelease=(--prerelease)
           cd waterboy-desktop/dist
@@ -72,3 +104,65 @@ jobs:
       - name: Clean up the key
         if: always()
         run: rm -f "$RUNNER_TEMP/AuthKey.p8"
+
+  dry-run:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: waterboy-desktop/.nvmrc
+          cache: npm
+          cache-dependency-path: |
+            waterboy-agent/package-lock.json
+            waterboy-desktop/package-lock.json
+      - name: Versions agree
+        id: version
+        run: |
+          version=$(node scripts/version.mjs check)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Install
+        run: |
+          (cd waterboy-agent && npm ci --no-audit --no-fund)
+          (cd waterboy-desktop && npm ci --no-audit --no-fund)
+      # The same steps as scripts/release.sh, minus signing, notarizing and the Gatekeeper checks.
+      - name: Test
+        run: |
+          (cd waterboy-desktop && npm test)
+          (cd waterboy-agent && npm run typecheck && npm test)
+      - name: Build the typing-indicator helper
+        run: waterboy-imessage/build.sh
+      - name: Stage the service
+        working-directory: waterboy-desktop
+        run: npm run stage-agent
+      - name: Build the unsigned DMGs and zips (arm64 + x64)
+        working-directory: waterboy-desktop
+        run: npx electron-builder --mac dmg zip --arm64 --x64 --publish never -c.mac.identity=null -c.mac.notarize=false
+      - name: Check the build
+        working-directory: waterboy-desktop
+        run: |
+          set -x
+          ls -l dist
+          test -f dist/latest-mac.yml
+          grep -q 'arm64' dist/latest-mac.yml && grep -q 'x64' dist/latest-mac.yml
+          for app in dist/mac*/Waterboy.app; do
+            agent="$app/Contents/Resources/agent"
+            test -x "$agent/run.sh" && test -f "$agent/index.mjs" && test -f "$agent/mcpServer.mjs"
+            test -x "$agent/bin/waterboy-imessage"
+            test -f "$app/Contents/Resources/app-update.yml"
+          done
+          ELECTRON_RUN_AS_NODE=1 dist/mac-arm64/Waterboy.app/Contents/MacOS/Waterboy -e 'require("node:sqlite")'
+          (cd dist && shasum -a 256 ./*.dmg ./*.zip > SHA256SUMS.txt && cat SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Waterboy-${{ steps.version.outputs.version }}-unsigned-${{ github.sha }}
+          path: |
+            waterboy-desktop/dist/*.dmg
+            waterboy-desktop/dist/*.zip
+            waterboy-desktop/dist/*.blockmap
+            waterboy-desktop/dist/latest-mac.yml
+            waterboy-desktop/dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
