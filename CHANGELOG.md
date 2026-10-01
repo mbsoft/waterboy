@@ -7,6 +7,8 @@ publishes it as the GitHub Release notes.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-01
+
 ### Added
 - The app updates itself: it checks GitHub Releases on launch and every 6 hours, downloads in the
   background, and installs when you click "Restart to update" on the Dashboard. The app relaunches
