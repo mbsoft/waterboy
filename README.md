@@ -143,9 +143,32 @@ and restarts it. A service installed from a source checkout is left alone.
 
 ## Install
 
-From the DMG, Waterboy.app sets up the service itself on first launch. You grant Full Disk Access
-(so it can read `chat.db`), allow it to control Messages, sign in to Claude or ChatGPT, and allow
-some conversations. Accessibility is optional, for typing indicators.
+Needs macOS 12 or later (typing indicators need macOS 13), and either a Claude Pro/Max subscription or a
+ChatGPT account (the Free plan works) for the assistant.
+
+1. **Download** the latest release from
+   [GitHub Releases](https://github.com/mbsoft/waterboy/releases/latest):
+   `Waterboy-<version>-arm64.dmg` for Apple silicon (M1 and later), `Waterboy-<version>-x64.dmg` for
+   Intel. Not sure which? Apple menu → About This Mac → Chip.
+2. **Check the download (optional).** `shasum -a 256 ~/Downloads/Waterboy-*.dmg` should print the
+   same hash as that file's line in the release's `SHA256SUMS.txt`.
+3. **Install.** Open the DMG and drag Waterboy to Applications, then open it from Applications (not
+   from the DMG: the app won't set up the service from there). Releases are signed and notarized, so
+   macOS opens them without warnings.
+4. **First launch.** The app installs its background service and walks you through setup:
+   - **Full Disk Access** for Waterboy, so the service can read `~/Library/Messages/chat.db`
+   - **Automation → Messages**, allowed when macOS asks, so it can send replies
+   - **Accessibility** (optional), for typing indicators, tapbacks and threaded replies
+   - **Sign in** to Claude or ChatGPT
+   - **Allow a conversation**, and optionally connect your ESPN league
+5. **Updates** install themselves: the app checks GitHub Releases on launch and every 6 hours,
+   downloads in the background, and shows **Restart to update** on the Dashboard when a new version
+   is ready. The service moves to the new version when the app restarts. Beta builds
+   (`-beta.N` prereleases) are never installed automatically; download those by hand.
+
+To uninstall, quit Waterboy, run
+`launchctl bootout gui/$(id -u)/local.waterboy && rm ~/Library/LaunchAgents/local.waterboy.plist`,
+and drag the app to the Trash. Your data in `~/.imessage-agent` is kept until you delete it.
 
 From source:
 

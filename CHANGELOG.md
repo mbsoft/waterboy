@@ -14,6 +14,9 @@ publishes it as the GitHub Release notes.
 - CI on every push and pull request: agent typecheck and tests, desktop tests, the typing-indicator
   helper build, and an unsigned app build for Apple silicon and Intel.
 - Releases are built, signed, notarized and published by pushing a `vX.Y.Z` tag.
+- A dry-run release build (Actions → Release → Run workflow): unsigned DMGs and zips for both
+  architectures attached to the run, no secrets needed.
+- Install instructions for the downloadable release in the README, linked from every release's notes.
 - First-run setup walkthrough in the app: permissions, sign-in, first conversation, and the ESPN
   league with a Test connection button (private-league cookies stay out of the window).
 - Sending health: failed or timed-out sends and a periodic no-send check of Messages automation
