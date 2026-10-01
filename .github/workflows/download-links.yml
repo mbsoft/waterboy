@@ -1,0 +1,32 @@
+# After a release is published, check that the README's download links resolve to it:
+# releases/latest/download/Waterboy-arm64.dmg and -x64.dmg (unversioned copies uploaded by release.yml).
+# Prereleases don't count as "latest", so they're skipped.
+name: Download links
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    steps:
+      - name: README download links point at the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+          echo "Latest release: $latest"
+          for asset in Waterboy-arm64.dmg Waterboy-x64.dmg SHA256SUMS.txt; do
+            url="https://github.com/$GITHUB_REPOSITORY/releases/latest/download/$asset"
+            # The first redirect names the release it resolves to; following it all the way checks the file exists.
+            target=$(curl -fsSI "$url" | tr -d '\r' | awk 'tolower($1) == "location:" { print $2 }')
+            curl -fsSIL -o /dev/null "$url" || { echo "::error::$url doesn't resolve to a file"; exit 1; }
+            echo "$asset -> $target"
+            [[ "$target" == *"/download/$latest/$asset" ]] || { echo "::error::$url points at $target, not $latest"; exit 1; }
+          done

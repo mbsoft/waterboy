@@ -17,6 +17,9 @@ publishes it as the GitHub Release notes.
 - A dry-run release build (Actions → Release → Run workflow): unsigned DMGs and zips for both
   architectures attached to the run, no secrets needed.
 - Install instructions for the downloadable release in the README, linked from every release's notes.
+- Direct download links in the README for Apple silicon and Intel that always point at the newest
+  release (each release also uploads `Waterboy-arm64.dmg` / `Waterboy-x64.dmg`), checked after every
+  publish.
 - First-run setup walkthrough in the app: permissions, sign-in, first conversation, and the ESPN
   league with a Test connection button (private-league cookies stay out of the window).
 - Sending health: failed or timed-out sends and a periodic no-send check of Messages automation
@@ -51,6 +54,9 @@ publishes it as the GitHub Release notes.
 - A dry-run release build (Actions → Release → Run workflow): unsigned DMGs and zips for both
   architectures attached to the run, no secrets needed.
 - Install instructions for the downloadable release in the README, linked from every release's notes.
+- Direct download links in the README for Apple silicon and Intel that always point at the newest
+  release (each release also uploads `Waterboy-arm64.dmg` / `Waterboy-x64.dmg`), checked after every
+  publish.
 - First-run setup walkthrough in the app: permissions, sign-in, first conversation, and the ESPN
   league with a Test connection button (private-league cookies stay out of the window).
 - Sending health: failed or timed-out sends and a periodic no-send check of Messages automation

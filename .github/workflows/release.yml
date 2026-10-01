@@ -131,6 +131,12 @@ jobs:
           prerelease=()
           [[ "$GITHUB_REF_NAME" == *-* ]] && prerelease=(--prerelease)
           cd waterboy-desktop/dist
+          # Unversioned copies give the README stable links that always point at the newest published
+          # (non-prerelease) release: https://github.com/mbsoft/waterboy/releases/latest/download/Waterboy-arm64.dmg
+          for arch in arm64 x64; do
+            cp "Waterboy-${GITHUB_REF_NAME#v}-$arch.dmg" "Waterboy-$arch.dmg"
+            shasum -a 256 "./Waterboy-$arch.dmg" >> SHA256SUMS.txt
+          done
           # latest-mac.yml + zips + blockmaps are the update feed; the DMGs are for first installs.
           gh release create "$GITHUB_REF_NAME" --draft "${prerelease[@]}" \
             --title "Waterboy ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md" \
