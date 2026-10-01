@@ -38,11 +38,23 @@ export function section(text, version) {
   return body.join("\n").trim();
 }
 
-/** Turn "## [Unreleased]" into a dated release heading, with a fresh empty Unreleased above it. */
+/**
+ * Turn "## [Unreleased]" into a dated release heading, with a fresh empty Unreleased above it.
+ * A prerelease (X.Y.Z-beta.N) gets a dated copy instead and keeps Unreleased, so the final X.Y.Z
+ * release still carries the full notes.
+ */
 export function dateUnreleased(text, version, date) {
   if (!/^## \[Unreleased\]/m.test(text)) throw new Error("CHANGELOG.md has no ## [Unreleased] section.");
-  if (!section(text, "Unreleased")) throw new Error("CHANGELOG.md's Unreleased section is empty; write the release notes first.");
+  const notes = section(text, "Unreleased");
+  if (!notes) throw new Error("CHANGELOG.md's Unreleased section is empty; write the release notes first.");
   if (text.includes(`## [${version}]`)) throw new Error(`CHANGELOG.md already has ${version}.`);
+  if (version.includes("-")) {
+    const lines = text.split("\n");
+    let next = lines.findIndex((l, i) => i > lines.findIndex((x) => x.startsWith("## [Unreleased]")) && /^## \[/.test(l));
+    if (next < 0) next = lines.length;
+    lines.splice(next, 0, `## [${version}] - ${date}`, "", notes, "");
+    return lines.join("\n");
+  }
   return text.replace(/^## \[Unreleased\]/m, `## [Unreleased]\n\n## [${version}] - ${date}`);
 }
 

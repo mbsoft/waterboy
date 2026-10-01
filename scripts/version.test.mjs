@@ -31,3 +31,14 @@ test("releasing dates the Unreleased section and opens a new one", () => {
   assert.throws(() => dateUnreleased(out, "0.4.0", "2026-10-02"), /empty/);
   assert.throws(() => dateUnreleased(LOG, "0.2.0", "2026-10-02"), /already has/);
 });
+
+test("a prerelease copies the Unreleased notes, so the final release still has them", () => {
+  const beta = dateUnreleased(LOG, "0.3.0-beta.1", "2026-10-01");
+  assert.equal(section(beta, "Unreleased"), "### Added\n- Auto-update");
+  assert.equal(section(beta, "0.3.0-beta.1"), "### Added\n- Auto-update");
+  assert.equal(section(beta, "0.2.0"), "### Added\n- Cards");
+  const final = dateUnreleased(beta, "0.3.0", "2026-10-08");
+  assert.equal(section(final, "0.3.0"), "### Added\n- Auto-update");
+  assert.equal(section(final, "Unreleased"), "");
+  assert.ok(final.indexOf("## [0.3.0]") < final.indexOf("## [0.3.0-beta.1]"));
+});
