@@ -728,6 +728,9 @@ async function resetSession(guid) {
 
 // ---------- settings + connections ----------
 
+/** Parts of the weekly roundup that can be switched off (fantasy.roundupAwards.<key>; all default on). */
+const ROUNDUP_PARTS = ["highLow", "blowout", "closest", "benchBlunder", "luckyWin", "toughLoss", "topPlayer", "playoffOdds"];
+
 /** Fields the Settings page may change, with validation. Anything else in config.json is left alone. */
 const SETTINGS = {
   provider: (v) => {
@@ -759,6 +762,7 @@ const SETTINGS = {
   "fantasy.startSitCards": Boolean,
   "fantasy.tradeCards": Boolean,
   "fantasy.compareCards": Boolean,
+  ...Object.fromEntries(ROUNDUP_PARTS.map((k) => [`fantasy.roundupAwards.${k}`, Boolean])),
   "fantasy.liveAlerts.enabled": Boolean,
   "fantasy.liveAlerts.thresholdPct": (v) => clampNum(v, 1, 100, 5),
   "fantasy.liveAlerts.checkMinutes": (v) => clampNum(v, 1, 60, 5),
@@ -824,6 +828,7 @@ async function settings() {
           startSitCards: cfg.fantasy.startSitCards !== false,
           tradeCards: cfg.fantasy.tradeCards !== false,
           compareCards: cfg.fantasy.compareCards !== false,
+          roundupAwards: Object.fromEntries(ROUNDUP_PARTS.map((k) => [k, cfg.fantasy.roundupAwards?.[k] !== false])),
           nflverseUpdatedAt: nflverseStatus(loc, cfg).updatedAt,
           liveAlerts: liveAlerts(cfg),
         }

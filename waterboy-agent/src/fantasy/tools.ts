@@ -1,5 +1,5 @@
 /**
- * The fantasy tools the agent calls (league_roundup, matchup_preview, waiver_report, start_sit_card,
+ * The fantasy tools the agent calls (league_roundup, playoff_odds, matchup_preview, waiver_report, start_sit_card,
  * …), as an in-process MCP server. Claude uses it directly; for ChatGPT, src/mcpServer.ts serves it
  * over stdio.
  */
@@ -22,7 +22,7 @@ import { analyzeTrade, leagueTradeFormat, type TeamImpact } from "./trade/analys
 import { renderTradeCard } from "./cards/trade.ts";
 import { comparePlayers } from "./compare/compare.ts";
 import { renderCompareCard } from "./cards/compare.ts";
-import { fetchLeague, buildRoundup, finalizedPeriods, periodNflComplete, resolveLatestWeek } from "./roundup.ts";
+import { fetchLeague, finalizedPeriods, fullRoundup, periodNflComplete, playoffOddsReply, resolveLatestWeek, teamIdFor } from "./roundup.ts";
 
 const ME_UNKNOWN = `I don't know which team is yours. Ask again with your team name, or have the admin add your number under fantasy.teams in config.json.`;
 const isMe = (q: string) => ["me", "my", "mine", "my team"].includes(q.trim().toLowerCase());
@@ -57,12 +57,9 @@ export function fantasyMcpServer(
           try {
             const league = await fetchLeague(cfg);
             const w = week ?? (await resolveLatestWeek(league)).week ?? league.status.currentMatchupPeriod;
-            const r = buildRoundup(league, w, await periodNflComplete(league, w), cfg.ownerNames);
-            const me = myTeam(cfg);
-            const meName = typeof me === "string" ? me.trim().toLowerCase() : "";
-            const mine = typeof me === "number"
-              ? r.standings.find((t) => t.id === me)
-              : meName ? r.standings.find((t) => t.name.toLowerCase() === meName) ?? r.standings.find((t) => t.name.toLowerCase().includes(meName)) : undefined;
+            const meId = teamIdFor(league, myTeam(cfg));
+            const r = await fullRoundup(cfg, league, w, await periodNflComplete(league, w));
+            const mine = r.standings.find((t) => t.id === meId);
             if (shouldSend(shouldPost) && post) {
               await post(r.text);
               return {
@@ -80,6 +77,24 @@ export function fantasyMcpServer(
             };
           } catch (e) {
             log("[fantasy] roundup failed:", (e as Error).message);
+            return { content: [{ type: "text", text: `Couldn't reach ESPN: ${(e as Error).message}` }], isError: true };
+          }
+        },
+      ),
+      tool(
+        "playoff_odds",
+        "Playoff chances for every team in the ESPN league ('what are my playoff chances?', 'who's in?', 'can I still make it?', " +
+          "'who has clinched?'): a seeded simulation of the rest of the regular season from each team's scoring so far, with " +
+          "playoff %, bye %, the range of seeds each team can still finish in, and clinched / eliminated (certain, not simulated). " +
+          "Odds are as of the latest completed week; say 'as of week N' in your answer. Answer the question in a few short lines " +
+          "(the asker's team, marked '(you)', first when it's about them). After the regular season it lists the playoff seeds instead.",
+        {},
+        async () => {
+          try {
+            const r = await playoffOddsReply(cfg);
+            return { content: [{ type: "text", text: r.text }, ...(r.data ? [{ type: "text" as const, text: JSON.stringify(r.data) }] : [])] };
+          } catch (e) {
+            log("[fantasy] playoff odds failed:", (e as Error).message);
             return { content: [{ type: "text", text: `Couldn't reach ESPN: ${(e as Error).message}` }], isError: true };
           }
         },

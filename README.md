@@ -38,7 +38,8 @@ also need your `espnS2` and `swid` cookies) and the assistant gets **11 tools**:
 
 | Tool | Answers |
 |---|---|
-| `league_roundup` | "standings?", "roundup for week 3" — results, standings with movement and the playoff line, highlights |
+| `league_roundup` | "standings?", "roundup for week 3" — results, standings with movement, the playoff line and playoff odds, weekly awards |
+| `playoff_odds` | "what are my playoff chances?", "who's in?" — playoff and bye %, seed range, clinched/eliminated, as of the latest week |
 | `matchup_preview` | "preview my matchup", "week 4 matchups" — both lineups, opponents, projections or live points, injuries, byes, empty slots, start/sit nudges |
 | `waiver_report` | "who should I pick up?" — best available by position, trending adds, league adds/drops, personal add/drop suggestions |
 | `start_sit_card` | "start Burrow or Stroud?" — a pick plus a rendered comparison card |
@@ -127,7 +128,7 @@ Limits are enforced by **which tools exist for a given turn**, not by instructio
 | Memory | View, edit or erase each chat's `MEMORY.md`; start a fresh conversation |
 | Automations | List, create, edit, pause and delete scheduled tasks |
 | Logs | Readable activity feed with filters and paging, plus recent errors |
-| Settings | Five tabs: **General** (agent name, assistant and model, ChatGPT sign-in), **Conversations** (wake words, voice, typing, threaded replies), **Fantasy** (league, data sources, image cards), **Live alerts**, and **Advanced** (limits, shell access, daily cost alert). Each tab has its own link (`#settings/fantasy`) |
+| Settings | Five tabs: **General** (agent name, assistant and model, ChatGPT sign-in), **Conversations** (wake words, voice, typing, threaded replies), **Fantasy** (league, data sources, image cards, roundup awards), **Live alerts**, and **Advanced** (limits, shell access, daily cost alert). Each tab has its own link (`#settings/fantasy`) |
 
 The app never opens `chat.db` — it reads a chat index the service writes. Config changes take
 effect on service restart, and the app shows a "Restart now" banner whenever `config.json` is newer

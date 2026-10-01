@@ -170,6 +170,34 @@ test("typing-indicator helper lines become events", () => {
   assert.deepEqual(ev[0].link, { to: "settings/conversations", label: "Typing indicator settings" }, "links to the setting it's about");
 });
 
+test("roundup awards: every part defaults on and each toggle saves on its own", async () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const agent = require("../lib/agent");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-awards-"));
+  const file = path.join(dir, "config.json");
+  const read = () => JSON.parse(fs.readFileSync(file, "utf8"));
+  fs.writeFileSync(file, JSON.stringify({ dataDir: dir, allowedChats: [], fantasy: { espnLeagueId: "1" } }));
+  const prev = process.env.IMESSAGE_AGENT_DIR;
+  process.env.IMESSAGE_AGENT_DIR = dir;
+  try {
+    const keys = ["highLow", "blowout", "closest", "benchBlunder", "luckyWin", "toughLoss", "topPlayer", "playoffOdds"];
+    let s = await agent.settings();
+    assert.deepEqual(s.fantasy.roundupAwards, Object.fromEntries(keys.map((k) => [k, true])));
+    s = await agent.saveSettings({ "fantasy.roundupAwards.benchBlunder": false, "fantasy.roundupAwards.playoffOdds": false });
+    assert.deepEqual(read().fantasy.roundupAwards, { benchBlunder: false, playoffOdds: false });
+    assert.equal(s.fantasy.roundupAwards.benchBlunder, false);
+    assert.equal(s.fantasy.roundupAwards.topPlayer, true);
+    s = await agent.saveSettings({ "fantasy.roundupAwards.benchBlunder": true });
+    assert.equal(s.fantasy.roundupAwards.benchBlunder, true);
+    await assert.rejects(agent.saveSettings({ "fantasy.roundupAwards.everything": false }), /can't be changed here/);
+  } finally {
+    if (prev === undefined) delete process.env.IMESSAGE_AGENT_DIR;
+    else process.env.IMESSAGE_AGENT_DIR = prev;
+  }
+});
+
 test("live alerts: settings, clamping and per-person subscriptions", async () => {
   const fs = require("node:fs");
   const os = require("node:os");

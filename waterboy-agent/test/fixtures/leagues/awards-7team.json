@@ -1,0 +1,4768 @@
+{
+ "id": 7007,
+ "seasonId": 2026,
+ "settings": {
+  "name": "Awards League",
+  "scheduleSettings": {
+   "matchupPeriodCount": 12,
+   "playoffTeamCount": 4,
+   "playoffSeedingRule": "TOTAL_POINTS_SCORED",
+   "matchupPeriods": {
+    "1": [
+     1
+    ],
+    "2": [
+     2
+    ],
+    "3": [
+     3
+    ],
+    "4": [
+     4
+    ],
+    "5": [
+     5
+    ],
+    "6": [
+     6
+    ],
+    "7": [
+     7
+    ],
+    "8": [
+     8
+    ],
+    "9": [
+     9
+    ],
+    "10": [
+     10
+    ],
+    "11": [
+     11
+    ],
+    "12": [
+     12
+    ],
+    "13": [
+     13
+    ],
+    "14": [
+     14
+    ],
+    "15": [
+     15
+    ]
+   },
+   "divisions": [
+    {
+     "id": 0,
+     "name": "League",
+     "size": 7
+    }
+   ]
+  },
+  "rosterSettings": {
+   "lineupSlotCounts": {
+    "0": 1,
+    "2": 2,
+    "4": 2,
+    "6": 1,
+    "16": 1,
+    "17": 1,
+    "20": 7,
+    "21": 1,
+    "23": 1
+   }
+  }
+ },
+ "status": {
+  "currentMatchupPeriod": 4,
+  "latestScoringPeriod": 4,
+  "isActive": true
+ },
+ "members": [],
+ "teams": [
+  {
+   "id": 1,
+   "name": "Brownie Poos",
+   "abbrev": "BROW",
+   "divisionId": 0,
+   "playoffSeed": 0,
+   "record": {
+    "overall": {
+     "wins": 2,
+     "losses": 0,
+     "ties": 0,
+     "pointsFor": 221,
+     "pointsAgainst": 179,
+     "streakLength": 0,
+     "streakType": ""
+    }
+   }
+  },
+  {
+   "id": 2,
+   "name": "Suze's Castaways",
+   "abbrev": "SUZE",
+   "divisionId": 0,
+   "playoffSeed": 0,
+   "record": {
+    "overall": {
+     "wins": 0,
+     "losses": 2,
+     "ties": 1,
+     "pointsFor": 278.2,
+     "pointsAgainst": 350.2,
+     "streakLength": 0,
+     "streakType": ""
+    }
+   }
+  },
+  {
+   "id": 3,
+   "name": "Team Kathy",
+   "abbrev": "TEAM",
+   "divisionId": 0,
+   "playoffSeed": 0,
+   "record": {
+    "overall": {
+     "wins": 1,
+     "losses": 1,
+     "ties": 1,
+     "pointsFor": 304.7,
+     "pointsAgainst": 306.2,
+     "streakLength": 0,
+     "streakType": ""
+    }
+   }
+  },
+  {
+   "id": 4,
+   "name": "Gridiron Gurus",
+   "abbrev": "GRID",
+   "divisionId": 0,
+   "playoffSeed": 0,
+   "record": {
+    "overall": {
+     "wins": 1,
+     "losses": 1,
+     "ties": 0,
+     "pointsFor": 225,
+     "pointsAgainst": 165.5,
+     "streakLength": 0,
+     "streakType": ""
+    }
+   }
+  },
+  {
+   "id": 5,
+   "name": "Waiver Wire Warriors",
+   "abbrev": "WAIV",
+   "divisionId": 0,
+   "playoffSeed": 0,
+   "record": {
+    "overall": {
+     "wins": 2,
+     "losses": 1,
+     "ties": 0,
+     "pointsFor": 314,
+     "pointsAgainst": 332,
+     "streakLength": 0,
+     "streakType": ""
+    }
+   }
+  },
+  {
+   "id": 6,
+   "name": "Fourth & Long",
+   "abbrev": "FOUR",
+   "divisionId": 0,
+   "playoffSeed": 0,
+   "record": {
+    "overall": {
+     "wins": 1,
+     "losses": 2,
+     "ties": 0,
+     "pointsFor": 310,
+     "pointsAgainst": 333,
+     "streakLength": 0,
+     "streakType": ""
+    }
+   }
+  },
+  {
+   "id": 7,
+   "name": "Bye Week Blues",
+   "abbrev": "BYEW",
+   "divisionId": 0,
+   "playoffSeed": 0,
+   "record": {
+    "overall": {
+     "wins": 1,
+     "losses": 1,
+     "ties": 0,
+     "pointsFor": 207,
+     "pointsAgainst": 194,
+     "streakLength": 0,
+     "streakType": ""
+    }
+   }
+  }
+ ],
+ "schedule": [
+  {
+   "id": 1,
+   "matchupPeriodId": 1,
+   "home": {
+    "teamId": 1,
+    "totalPoints": 120
+   },
+   "away": {
+    "teamId": 2,
+    "totalPoints": 80
+   },
+   "winner": "HOME",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 2,
+   "matchupPeriodId": 1,
+   "home": {
+    "teamId": 3,
+    "totalPoints": 95.5
+   },
+   "away": {
+    "teamId": 4,
+    "totalPoints": 95
+   },
+   "winner": "HOME",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 3,
+   "matchupPeriodId": 1,
+   "home": {
+    "teamId": 5,
+    "totalPoints": 140
+   },
+   "away": {
+    "teamId": 6,
+    "totalPoints": 100
+   },
+   "winner": "HOME",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 4,
+   "matchupPeriodId": 1,
+   "home": {
+    "teamId": 7,
+    "totalPoints": 100
+   },
+   "winner": "HOME",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 5,
+   "matchupPeriodId": 2,
+   "home": {
+    "teamId": 2,
+    "totalPoints": 110.2
+   },
+   "away": {
+    "teamId": 3,
+    "totalPoints": 110.2
+   },
+   "winner": "TIE",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 6,
+   "matchupPeriodId": 2,
+   "home": {
+    "teamId": 4,
+    "totalPoints": 130
+   },
+   "away": {
+    "teamId": 5,
+    "totalPoints": 70
+   },
+   "winner": "HOME",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 7,
+   "matchupPeriodId": 2,
+   "home": {
+    "teamId": 6,
+    "totalPoints": 90
+   },
+   "away": {
+    "teamId": 7,
+    "totalPoints": 105
+   },
+   "winner": "AWAY",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 8,
+   "matchupPeriodId": 2,
+   "home": {
+    "teamId": 1,
+    "totalPoints": 130
+   },
+   "winner": "HOME",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 9,
+   "matchupPeriodId": 3,
+   "home": {
+    "teamId": 1,
+    "totalPoints": 101
+   },
+   "away": {
+    "teamId": 3,
+    "totalPoints": 99
+   },
+   "winner": "HOME",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 10,
+   "matchupPeriodId": 3,
+   "home": {
+    "teamId": 2,
+    "totalPoints": 88
+   },
+   "away": {
+    "teamId": 6,
+    "totalPoints": 120
+   },
+   "winner": "AWAY",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 11,
+   "matchupPeriodId": 3,
+   "home": {
+    "teamId": 5,
+    "totalPoints": 104
+   },
+   "away": {
+    "teamId": 7,
+    "totalPoints": 102
+   },
+   "winner": "HOME",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 12,
+   "matchupPeriodId": 3,
+   "home": {
+    "teamId": 4,
+    "totalPoints": 40
+   },
+   "winner": "HOME",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 13,
+   "matchupPeriodId": 4,
+   "home": {
+    "teamId": 1,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 14,
+   "matchupPeriodId": 4,
+   "home": {
+    "teamId": 2,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 7,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 15,
+   "matchupPeriodId": 4,
+   "home": {
+    "teamId": 3,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 6,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 16,
+   "matchupPeriodId": 4,
+   "home": {
+    "teamId": 4,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 5,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 17,
+   "matchupPeriodId": 5,
+   "home": {
+    "teamId": 7,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 1,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 18,
+   "matchupPeriodId": 5,
+   "home": {
+    "teamId": 6,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 19,
+   "matchupPeriodId": 5,
+   "home": {
+    "teamId": 5,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 2,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 20,
+   "matchupPeriodId": 5,
+   "home": {
+    "teamId": 4,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 3,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 21,
+   "matchupPeriodId": 6,
+   "home": {
+    "teamId": 1,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 6,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 22,
+   "matchupPeriodId": 6,
+   "home": {
+    "teamId": 7,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 5,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 23,
+   "matchupPeriodId": 6,
+   "home": {
+    "teamId": 4,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 24,
+   "matchupPeriodId": 6,
+   "home": {
+    "teamId": 2,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 3,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 25,
+   "matchupPeriodId": 7,
+   "home": {
+    "teamId": 5,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 1,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 26,
+   "matchupPeriodId": 7,
+   "home": {
+    "teamId": 4,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 6,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 27,
+   "matchupPeriodId": 7,
+   "home": {
+    "teamId": 3,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 7,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 28,
+   "matchupPeriodId": 7,
+   "home": {
+    "teamId": 2,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 29,
+   "matchupPeriodId": 8,
+   "home": {
+    "teamId": 1,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 4,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 30,
+   "matchupPeriodId": 8,
+   "home": {
+    "teamId": 5,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 3,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 31,
+   "matchupPeriodId": 8,
+   "home": {
+    "teamId": 6,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 2,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 32,
+   "matchupPeriodId": 8,
+   "home": {
+    "teamId": 7,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 33,
+   "matchupPeriodId": 9,
+   "home": {
+    "teamId": 3,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 1,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 34,
+   "matchupPeriodId": 9,
+   "home": {
+    "teamId": 2,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 4,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 35,
+   "matchupPeriodId": 9,
+   "home": {
+    "teamId": 5,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 36,
+   "matchupPeriodId": 9,
+   "home": {
+    "teamId": 7,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 6,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 37,
+   "matchupPeriodId": 10,
+   "home": {
+    "teamId": 1,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 2,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 38,
+   "matchupPeriodId": 10,
+   "home": {
+    "teamId": 3,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 39,
+   "matchupPeriodId": 10,
+   "home": {
+    "teamId": 4,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 7,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 40,
+   "matchupPeriodId": 10,
+   "home": {
+    "teamId": 5,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 6,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 41,
+   "matchupPeriodId": 11,
+   "home": {
+    "teamId": 1,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 42,
+   "matchupPeriodId": 11,
+   "home": {
+    "teamId": 7,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 2,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 43,
+   "matchupPeriodId": 11,
+   "home": {
+    "teamId": 6,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 3,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 44,
+   "matchupPeriodId": 11,
+   "home": {
+    "teamId": 5,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 4,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 45,
+   "matchupPeriodId": 12,
+   "home": {
+    "teamId": 1,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 7,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 46,
+   "matchupPeriodId": 12,
+   "home": {
+    "teamId": 6,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 47,
+   "matchupPeriodId": 12,
+   "home": {
+    "teamId": 2,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 5,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  },
+  {
+   "id": 48,
+   "matchupPeriodId": 12,
+   "home": {
+    "teamId": 3,
+    "totalPoints": 0
+   },
+   "away": {
+    "teamId": 4,
+    "totalPoints": 0
+   },
+   "winner": "UNDECIDED",
+   "playoffTierType": "NONE"
+  }
+ ],
+ "boxScores": {
+  "1": {
+   "settings": {
+    "rosterSettings": {
+     "lineupSlotCounts": {
+      "0": 1,
+      "2": 1,
+      "4": 1,
+      "20": 2,
+      "21": 1,
+      "23": 1
+     }
+    }
+   },
+   "schedule": [
+    {
+     "matchupPeriodId": 1,
+     "home": {
+      "teamId": 1,
+      "totalPoints": 120,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 25,
+          "player": {
+           "fullName": "Quinn Alpha",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 25
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Rico Alpha",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 5,
+          "player": {
+           "fullName": "Bo Alpha",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 5
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 35,
+          "player": {
+           "fullName": "Wade Alpha",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 35
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 8,
+          "player": {
+           "fullName": "Lou Alpha",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 8
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Tate Alpha",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Alpha",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     },
+     "away": {
+      "teamId": 2,
+      "totalPoints": 80,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Quinn Bravo",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 25,
+          "player": {
+           "fullName": "Rico Bravo",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 25
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Bo Bravo",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Wade Bravo",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 10,
+          "player": {
+           "fullName": "Lou Bravo",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 10
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 5,
+          "player": {
+           "fullName": "Tate Bravo",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 5
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Bravo",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "matchupPeriodId": 1,
+     "home": {
+      "teamId": 3,
+      "totalPoints": 95.5,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Quinn Charlie",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 25.5,
+          "player": {
+           "fullName": "Rico Charlie",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 25.5
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 10,
+          "player": {
+           "fullName": "Bo Charlie",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 10
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Wade Charlie",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 15,
+          "player": {
+           "fullName": "Lou Charlie",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 15
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Tate Charlie",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Charlie",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     },
+     "away": {
+      "teamId": 4,
+      "totalPoints": 95,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 15,
+          "player": {
+           "fullName": "Quinn Delta",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 15
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Rico Delta",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 10,
+          "player": {
+           "fullName": "Bo Delta",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 10
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 25,
+          "player": {
+           "fullName": "Wade Delta",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 25
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Lou Delta",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 25,
+          "player": {
+           "fullName": "Tate Delta",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 25
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Delta",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "matchupPeriodId": 1,
+     "home": {
+      "teamId": 5,
+      "totalPoints": 140,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Quinn Echo",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 35,
+          "player": {
+           "fullName": "Rico Echo",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 35
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 10,
+          "player": {
+           "fullName": "Bo Echo",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 10
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 45,
+          "player": {
+           "fullName": "Wade Echo",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 45
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 10,
+          "player": {
+           "fullName": "Lou Echo",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 10
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Tate Echo",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Echo",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     },
+     "away": {
+      "teamId": 6,
+      "totalPoints": 100,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 25,
+          "player": {
+           "fullName": "Quinn Foxtrot",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 25
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 25,
+          "player": {
+           "fullName": "Rico Foxtrot",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 25
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 35,
+          "player": {
+           "fullName": "Bo Foxtrot",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 35
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 25,
+          "player": {
+           "fullName": "Wade Foxtrot",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 25
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 5,
+          "player": {
+           "fullName": "Lou Foxtrot",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 5
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 25,
+          "player": {
+           "fullName": "Tate Foxtrot",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 25
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Foxtrot",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "matchupPeriodId": 1,
+     "home": {
+      "teamId": 7,
+      "totalPoints": 100,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Quinn Golf",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 50,
+          "player": {
+           "fullName": "Rico Golf",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 50
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 60,
+          "player": {
+           "fullName": "Bo Golf",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 60
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Wade Golf",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Lou Golf",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 10,
+          "player": {
+           "fullName": "Tate Golf",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 10
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Golf",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 1,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    }
+   ]
+  },
+  "2": {
+   "settings": {
+    "rosterSettings": {
+     "lineupSlotCounts": {
+      "0": 1,
+      "2": 1,
+      "4": 1,
+      "20": 2,
+      "21": 1,
+      "23": 1
+     }
+    }
+   },
+   "schedule": [
+    {
+     "matchupPeriodId": 2,
+     "home": {
+      "teamId": 2,
+      "totalPoints": 110.2,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Quinn Bravo",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 40,
+          "player": {
+           "fullName": "Rico Bravo",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 40
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 5,
+          "player": {
+           "fullName": "Bo Bravo",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 5
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Wade Bravo",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 5,
+          "player": {
+           "fullName": "Lou Bravo",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 5
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20.2,
+          "player": {
+           "fullName": "Tate Bravo",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 20.2
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Bravo",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     },
+     "away": {
+      "teamId": 3,
+      "totalPoints": 110.2,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 25,
+          "player": {
+           "fullName": "Quinn Charlie",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 25
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 25,
+          "player": {
+           "fullName": "Rico Charlie",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 25
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 10,
+          "player": {
+           "fullName": "Bo Charlie",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 10
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30.2,
+          "player": {
+           "fullName": "Wade Charlie",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 30.2
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 10,
+          "player": {
+           "fullName": "Lou Charlie",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 10
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Tate Charlie",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Charlie",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "matchupPeriodId": 2,
+     "home": {
+      "teamId": 4,
+      "totalPoints": 130,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Quinn Delta",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Rico Delta",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 42,
+          "player": {
+           "fullName": "Bo Delta",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 42
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 40,
+          "player": {
+           "fullName": "Wade Delta",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 40
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Lou Delta",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Tate Delta",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Delta",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     },
+     "away": {
+      "teamId": 5,
+      "totalPoints": 70,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 10,
+          "player": {
+           "fullName": "Quinn Echo",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 10
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Rico Echo",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 5,
+          "player": {
+           "fullName": "Bo Echo",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 5
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Wade Echo",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 5,
+          "player": {
+           "fullName": "Lou Echo",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 5
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Tate Echo",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Echo",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "matchupPeriodId": 2,
+     "home": {
+      "teamId": 6,
+      "totalPoints": 90,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Quinn Foxtrot",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Rico Foxtrot",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 32,
+          "player": {
+           "fullName": "Bo Foxtrot",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 32
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Wade Foxtrot",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Lou Foxtrot",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Tate Foxtrot",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Foxtrot",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     },
+     "away": {
+      "teamId": 7,
+      "totalPoints": 105,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 25,
+          "player": {
+           "fullName": "Quinn Golf",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 25
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 25,
+          "player": {
+           "fullName": "Rico Golf",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 25
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Bo Golf",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Wade Golf",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Lou Golf",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 25,
+          "player": {
+           "fullName": "Tate Golf",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 25
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Golf",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "matchupPeriodId": 2,
+     "home": {
+      "teamId": 1,
+      "totalPoints": 130,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Quinn Alpha",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 50,
+          "player": {
+           "fullName": "Rico Alpha",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 50
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Bo Alpha",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Wade Alpha",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 45,
+          "player": {
+           "fullName": "Lou Alpha",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 45
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Tate Alpha",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Alpha",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 2,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    }
+   ]
+  },
+  "3": {
+   "settings": {
+    "rosterSettings": {
+     "lineupSlotCounts": {
+      "0": 1,
+      "2": 1,
+      "4": 1,
+      "20": 2,
+      "21": 1,
+      "23": 1
+     }
+    }
+   },
+   "schedule": [
+    {
+     "matchupPeriodId": 3,
+     "home": {
+      "teamId": 1,
+      "totalPoints": 101,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Quinn Alpha",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Rico Alpha",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 5,
+          "player": {
+           "fullName": "Bo Alpha",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 5
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 31,
+          "player": {
+           "fullName": "Wade Alpha",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 31
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 5,
+          "player": {
+           "fullName": "Lou Alpha",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 5
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Tate Alpha",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Alpha",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     },
+     "away": {
+      "teamId": 3,
+      "totalPoints": 99,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Quinn Charlie",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 29,
+          "player": {
+           "fullName": "Rico Charlie",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 29
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 5,
+          "player": {
+           "fullName": "Bo Charlie",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 5
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Wade Charlie",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 5,
+          "player": {
+           "fullName": "Lou Charlie",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 5
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Tate Charlie",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 50,
+          "player": {
+           "fullName": "Ivan Charlie",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 50
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "matchupPeriodId": 3,
+     "home": {
+      "teamId": 2,
+      "totalPoints": 88,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 18,
+          "player": {
+           "fullName": "Quinn Bravo",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 18
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Rico Bravo",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 21,
+          "player": {
+           "fullName": "Bo Bravo",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 21
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Wade Bravo",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Lou Bravo",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Tate Bravo",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Bravo",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     },
+     "away": {
+      "teamId": 6,
+      "totalPoints": 120,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Quinn Foxtrot",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Rico Foxtrot",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Bo Foxtrot",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Wade Foxtrot",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Lou Foxtrot",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Tate Foxtrot",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Foxtrot",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "matchupPeriodId": 3,
+     "home": {
+      "teamId": 5,
+      "totalPoints": 104,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 24,
+          "player": {
+           "fullName": "Quinn Echo",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 24
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Rico Echo",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Bo Echo",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Wade Echo",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 28,
+          "player": {
+           "fullName": "Lou Echo",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 28
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Tate Echo",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Echo",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     },
+     "away": {
+      "teamId": 7,
+      "totalPoints": 102,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 22,
+          "player": {
+           "fullName": "Quinn Golf",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 22
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Rico Golf",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Bo Golf",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 30,
+          "player": {
+           "fullName": "Wade Golf",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 30
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Lou Golf",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 20,
+          "player": {
+           "fullName": "Tate Golf",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 20
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Golf",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "matchupPeriodId": 3,
+     "home": {
+      "teamId": 4,
+      "totalPoints": 40,
+      "rosterForCurrentScoringPeriod": {
+       "entries": [
+        {
+         "lineupSlotId": 0,
+         "playerPoolEntry": {
+          "appliedStatTotal": 10,
+          "player": {
+           "fullName": "Quinn Delta",
+           "defaultPositionId": 1,
+           "eligibleSlots": [
+            0,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 10
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 2,
+         "playerPoolEntry": {
+          "appliedStatTotal": 10,
+          "player": {
+           "fullName": "Rico Delta",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 10
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 10,
+          "player": {
+           "fullName": "Bo Delta",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 10
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 4,
+         "playerPoolEntry": {
+          "appliedStatTotal": 10,
+          "player": {
+           "fullName": "Wade Delta",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 10
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 20,
+         "playerPoolEntry": {
+          "appliedStatTotal": 10,
+          "player": {
+           "fullName": "Lou Delta",
+           "defaultPositionId": 3,
+           "eligibleSlots": [
+            4,
+            3,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 10
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 23,
+         "playerPoolEntry": {
+          "appliedStatTotal": 10,
+          "player": {
+           "fullName": "Tate Delta",
+           "defaultPositionId": 4,
+           "eligibleSlots": [
+            6,
+            5,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 10
+            }
+           ]
+          }
+         }
+        },
+        {
+         "lineupSlotId": 21,
+         "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "player": {
+           "fullName": "Ivan Delta",
+           "defaultPositionId": 2,
+           "eligibleSlots": [
+            2,
+            3,
+            23,
+            7,
+            20,
+            21
+           ],
+           "stats": [
+            {
+             "scoringPeriodId": 3,
+             "statSourceId": 0,
+             "appliedTotal": 0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    }
+   ]
+  }
+ }
+}
