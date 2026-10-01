@@ -124,8 +124,10 @@ jobs:
             echo
             echo "---"
             echo
-            echo '**Install:** download the `arm64` DMG for Apple silicon or the `x64` DMG for Intel, then follow the'
-            echo '[install steps](https://github.com/mbsoft/waterboy#install). Checksums are in `SHA256SUMS.txt`.'
+            v=${GITHUB_REF_NAME#v}
+            echo "**Download:** [Apple silicon](https://github.com/mbsoft/waterboy/releases/download/$GITHUB_REF_NAME/Waterboy-$v-arm64.dmg) · [Intel](https://github.com/mbsoft/waterboy/releases/download/$GITHUB_REF_NAME/Waterboy-$v-x64.dmg)"
+            echo
+            echo 'Then follow the [install steps](https://github.com/mbsoft/waterboy#install). Checksums are in `SHA256SUMS.txt`.'
             echo 'Already installed? The app updates itself.'
           } >> "$RUNNER_TEMP/notes.md"
           prerelease=()

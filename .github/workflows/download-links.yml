@@ -1,0 +1,46 @@
+# When a signed release is published, rewrite the README's download links (scripts/readme-links.mjs):
+# the newest stable release's Apple silicon and Intel DMGs, plus a "Latest beta" line while a published
+# prerelease is newer. Each link is checked to download, and the change is committed to main.
+# Drafts never touch the README. Run it by hand to redo the README from the current releases.
+name: Download links
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: download-links
+
+jobs:
+  readme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Rewrite the README's download links
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" | node scripts/readme-links.mjs
+      - name: Every download link works
+        run: |
+          links=$(sed -n '/<!-- downloads:start -->/,/<!-- downloads:end -->/p' README.md | grep -o 'https://github.com/[^)]*/releases/download/[^)]*')
+          for url in $links; do
+            curl -fsSIL -o /dev/null "$url" || { echo "::error::$url doesn't download"; exit 1; }
+            echo "ok $url"
+          done
+      - name: Commit to main
+        run: |
+          if git diff --quiet README.md; then echo "README already up to date"; exit 0; fi
+          tag="${{ github.event.release.tag_name }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "README: download links for ${tag:-the current releases}" README.md
+          git push origin HEAD:main

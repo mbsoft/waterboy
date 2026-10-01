@@ -17,6 +17,9 @@ publishes it as the GitHub Release notes.
 - A dry-run release build (Actions → Release → Run workflow): unsigned DMGs and zips for both
   architectures attached to the run, no secrets needed.
 - Install instructions for the downloadable release in the README, linked from every release's notes.
+- README download links for Apple silicon and Intel, rewritten to the newest stable release whenever
+  one is published (with a "Latest beta" line while a newer beta is out), plus direct links in every
+  release's notes.
 - First-run setup walkthrough in the app: permissions, sign-in, first conversation, and the ESPN
   league with a Test connection button (private-league cookies stay out of the window).
 - Sending health: failed or timed-out sends and a periodic no-send check of Messages automation
