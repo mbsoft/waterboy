@@ -39,6 +39,40 @@ publishes it as the GitHub Release notes.
 - Hidden Messages copies no longer pile up.
 - The Dashboard's average reply time.
 
+## [0.3.0-beta.1] - 2026-10-01
+
+### Added
+- The app updates itself: it checks GitHub Releases on launch and every 6 hours, downloads in the
+  background, and installs on quit (or right away from the Dashboard). The bundled service restarts
+  on the new version the next time the app opens.
+- CI on every push and pull request: agent typecheck and tests, desktop tests, the typing-indicator
+  helper build, and an unsigned app build for Apple silicon and Intel.
+- Releases are built, signed, notarized and published by pushing a `vX.Y.Z` tag.
+- A dry-run release build (Actions → Release → Run workflow): unsigned DMGs and zips for both
+  architectures attached to the run, no secrets needed.
+- Install instructions for the downloadable release in the README, linked from every release's notes.
+- First-run setup walkthrough in the app: permissions, sign-in, first conversation, and the ESPN
+  league with a Test connection button (private-league cookies stay out of the window).
+- Sending health: failed or timed-out sends and a periodic no-send check of Messages automation
+  show a banner on the Dashboard, with the fix after a macOS update. Setup readiness includes the
+  service's own checks.
+- The Dashboard says "Can't start" (with the reason) when the service refuses to run on data from a
+  newer version, instead of restarting over and over.
+
+### Changed
+- Test runs use Claude Sonnet 5.5: `npm run repl` and `npm run start:dry` pin `claude-sonnet-5-5`
+  (override with `WATERBOY_MODEL`), and `config.example.json` starts on it. Settings lists Sonnet 5.5
+  instead of Sonnet 5.
+- One version for the whole product: the service now carries the app's version (was 0.1.0).
+- `config.json` and `state.db` carry a schema version and migrate forward on start. An older build
+  refuses to start on newer data rather than touching it, so rolling back to v0.3 or later is safe.
+- The Claude Agent SDK is pinned to an exact version.
+- `npm run doctor` shares its checks with the service and the app.
+
+### Fixed
+- Hidden Messages copies no longer pile up.
+- The Dashboard's average reply time.
+
 ## [0.2.0] - 2026-09-26
 
 First packaged release: a signed, notarized DMG for Apple silicon and Intel with the service bundled.
