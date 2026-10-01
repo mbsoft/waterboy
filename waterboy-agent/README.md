@@ -223,6 +223,35 @@ These sources are free but unofficial and can change without notice; if one is u
   Win probability 44% → 61%
   ```
 
+- **Group live alerts (test mode only):** real league groups never get live alerts in this version. To try group alerts, mark one group as a test group in the app (Conversations → "Test group…", which lists its members to confirm), then turn on Settings → Live alerts → Group test mode and pick it. The service watches every matchup in the league and posts one line per swing past `thresholdPct` (both teams named), batching a check's swings into one message:
+
+  ```
+  [TEST] Week 3 live: 3 big swings
+  🚨 Hurts So Good just took the lead over CeeDee Rom: 111.2 to 100.8 projected.
+  🚨 Saquon Deez just took the lead over Kittle Me This: 105.4 to 94.7 projected.
+  🚨 Mike's Mighty Ducks just took the lead over Lamb Chops: 112.1 to 107.5 projected.
+  ```
+
+  ```json
+  "testGroups": ["iMessage;+;chat123456"],
+  "fantasy": { "liveAlerts": { "enabled": true, "groupTest": {
+    "enabled": true, "chatId": "iMessage;+;chat123456", "source": "replay", "maxPerCheck": 3, "cooldownMinutes": 15
+  } } }
+  ```
+
+  | Key | Default | Meaning |
+  |---|---|---|
+  | `groupTest.enabled` | `false` | Test mode. Needs `liveAlerts.enabled` too. |
+  | `groupTest.chatId` | `null` | The test group's chat GUID. |
+  | `groupTest.source` | `"replay"` | `"replay"` plays a recorded Sunday (`src/fantasy/replay/week3-sunday.json`) when the app asks; `"live"` watches the real league every `checkMinutes` while games are on. |
+  | `groupTest.maxPerCheck` | `3` | Most swings in one message; the rest are skipped (counted as "cap"). |
+  | `groupTest.cooldownMinutes` | `15` | After a matchup alerts, its swings within this time are skipped. |
+  | `testGroups` | `[]` | Groups marked as test groups, written by the app's confirmation. |
+
+  Safety rules, enforced in the service (`src/fantasy/groupAlerts.ts`, `resolveTestTarget`) and re-checked from a fresh read of config.json before every message: the chat must be a group in Messages, allowlisted, listed in `testGroups`, and equal to `groupTest.chatId`. A hand-edited `chatId` pointing at an unmarked group is ignored with a warning in the log and in health.json (`groupAlerts.testMode.blocked`), which the Dashboard shows as a banner. Every message starts with `[TEST]` (added in code, not configurable), and no more than 20 alerts go out in any hour. A group admin's `/pause` stops them. Turning test mode off, or removing the group from the allowlist, takes effect at the next check without a restart. There are no quiet hours yet.
+
+  "Run simulation" in the app writes `group-alerts-request.json` (`{"action":"run","speed":60}` or `{"action":"stop"}`) to the data folder; the service picks it up within 2 seconds, deletes it, and ignores requests older than 2 minutes. The replay is paced from the fixture's timestamps divided by the speed (1×, 10× or 60×), and cooldowns run on fixture time, so every speed sends the same alerts. Counters (sent, messages, suppressed by cooldown / cap / hourly limit / pause, last alert) and replay progress are in health.json under `groupAlerts`.
+
 The roundup text itself (results, standings with movement and playoff line, highlights) is computed in code (`src/fantasy/roundup.ts`), so the numbers don't depend on the model. If ESPN hasn't officially finalized the week yet, results are decided by points; stat corrections later in the week can occasionally change a close game.
 
 - **Weekly awards** (`src/fantasy/awards.ts`): high and low score, biggest blowout, closest game (a tie counts as closest), bench blunder (most points left on the bench versus the best lineup the same roster could have started, IR excluded, from ESPN's box scores), lucky win (won with a below-median score), tough luck (lost with an above-median score) and the top-scoring starter. Teams on a bye are left out, including from the median, and equal values go to the team in the earlier ESPN matchup (home side first). Turn any of them off under `roundupAwards`, e.g. `"roundupAwards": { "benchBlunder": false }`; the keys are `highLow`, `blowout`, `closest`, `benchBlunder`, `luckyWin`, `toughLoss`, `topPlayer` and `playoffOdds`, all on by default (Settings → Fantasy → Roundup awards in the app).
@@ -315,7 +344,8 @@ and the app installs the LaunchAgent itself, with the config at `~/.imessage-age
 Dev/test only, and inert unless `WATERBOY_TEST_HOOKS=1` (the launchd job never sets it).
 
 - **H1 clock** (`src/testHooks.ts`): `WATERBOY_NOW=<ISO date or epoch ms>` starts the service's clock there; it then
-  advances normally. The usage record's turn times, "today" for the daily cost alert and the 400-day pruning use it.
+  advances normally. The usage record's turn times, "today" for the daily cost alert and the 400-day pruning use it,
+  and so do group alerts' hourly cap, replay pacing and live snapshot times.
 - **H5 seed turns** (`scripts/seed-turns.ts`): `WATERBOY_TEST_HOOKS=1 npx tsx scripts/seed-turns.ts <dataDir> [--rows 600]
   [--days 30] [--provider claude|chatgpt] [--seed 1]` adds realistic `turns` rows over the last `days` local days (ending at
   the H1 clock) to `<dataDir>/state.db`, creating or migrating it with the real migrations. Same seed, same rows. For
@@ -325,3 +355,4 @@ Dev/test only, and inert unless `WATERBOY_TEST_HOOKS=1` (the launchd job never s
   `sleeper`, `nflverse`, `lines`, `rankings`, `tradeValues`. The ChatGPT tool servers get the hook
   variables too.
 - **H3 fixture leagues.** `WATERBOY_FIXTURE_LEAGUE=<file>` makes `league_roundup`, `playoff_odds` and the weekly-roundup condition read a league JSON instead of ESPN (box scores too, from its `boxScores` key; `src/fantasy/fixtureHook.ts`). The fixtures in `test/fixtures/leagues/` are synthetic ESPN snapshots written by `generate.ts` (`npx tsx test/fixtures/leagues/generate.ts`): `awards-7team` (odd team count so a bye every week, weeks 1–3 with hand-picked scores, a tie, equal margins, box scores with bench and IR players), `standard-10team` (through week 10 of 13, a tie), `enumerate-6team` (two weeks left), `median-8team` (median scoring), `divisions-10team` (two divisions), `big-14team` (long names and owners) and `final-10team` (regular season over). `standard-10team.odds.txt` is the playoff-odds snapshot the tests compare against.
+- **H4 sender spy:** `WATERBOY_SENDER_SPY=/path/spy.json`: with `--dry-run`, every text the service would send is also appended to that JSON file as `{chatId, text, at}` (`src/messages/senderSpy.ts`), e.g. to check a whole group-alert replay.

@@ -23,7 +23,11 @@
     {
       id: "alerts",
       label: "Live alerts",
-      settings: ["fantasy.liveAlerts.enabled", "fantasy.liveAlerts.thresholdPct", "fantasy.liveAlerts.checkMinutes", "fantasy.liveAlerts.minPlayerPoints"],
+      settings: [
+        "fantasy.liveAlerts.enabled", "fantasy.liveAlerts.thresholdPct", "fantasy.liveAlerts.checkMinutes", "fantasy.liveAlerts.minPlayerPoints",
+        "fantasy.liveAlerts.groupTest.enabled", "fantasy.liveAlerts.groupTest.chatId", "fantasy.liveAlerts.groupTest.source",
+        "fantasy.liveAlerts.groupTest.maxPerCheck", "fantasy.liveAlerts.groupTest.cooldownMinutes",
+      ],
     },
     { id: "advanced", label: "Advanced", settings: ["maxTurns", "turnTimeoutMs", "allowBash", "usage.dailyCostAlertUsd"] },
   ];

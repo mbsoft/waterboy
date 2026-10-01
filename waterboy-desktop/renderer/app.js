@@ -378,6 +378,9 @@
             ),
           )
         : null,
+      r.groupAlerts?.warning
+        ? h("div", { class: "banner warn" }, icon("alert", 18), h("div", { class: "grow" }, r.groupAlerts.warning), linkTo("settings/alerts", "Live alerts", "settings"))
+        : null,
       card(
         h(
           "div",
@@ -736,21 +739,52 @@
       name.focus();
     };
 
-    const groupRows = conv.groups.map((g) => {
+    // Marking a test group (for live alerts' group test mode) needs a second look at who is in it.
+    const markTestGroup = (g, confirmBox) => {
+      const label = g.name || "this group";
+      confirmBox.replaceChildren(
+        h("p", { class: "desc", style: "color:var(--text);margin:0 0 6px" }, `Use ${label} as the test group? Live alert tests (each starting with [TEST]) can be sent to everyone in it:`),
+        h("ul", { class: "member-list" }, g.members.map((m) => h("li", {}, m.name ? `${m.name} (${m.handle})` : m.handle))),
+        h("div", { class: "inline", style: "justify-content:flex-end;margin-top:10px" },
+          button("Cancel", () => (confirmBox.hidden = true)),
+          button("Mark as test group", async () => {
+            await api.setTestGroup(g.guid, true);
+            saved(`${label} is a test group`);
+            render();
+          }, { primary: true })),
+      );
+      confirmBox.hidden = false;
+    };
+    const groupRows = conv.groups.flatMap((g) => {
       const members = g.members.map((m) => m.name || m.handle);
       const shown = members.slice(0, 4).join(", ");
-      return h(
-        "div",
-        { class: "row" },
-        h("span", { class: "avatar group" }, icon("conversations", 16)),
-        h("div", { class: "grow" }, h("div", { class: "title" }, g.name || "Unnamed group"), h("div", { class: "sub" }, `${shown}${members.length > 4 ? `  +${members.length - 4} more` : ""}`)),
-        h("span", { class: "meta" }, relTime(g.lastMessageAt)),
-        h("span", { class: "toggle-label" }, "Allow access", toggle(g.allowed, async (on) => {
-          await api.setAllowed(g.name || g.guid, on);
-          saved();
-          render();
-        }, `Allow ${g.name || "group"}`)),
-      );
+      const confirmBox = h("div", { class: "test-confirm" });
+      confirmBox.hidden = true;
+      const testCtl = g.testGroup
+        ? h("span", { class: "inline", style: "gap:6px" }, h("span", { class: "pill accent" }, "Test group"), h("button", { class: "link", onclick: async () => {
+            await api.setTestGroup(g.guid, false);
+            saved(`${g.name || "Group"} is no longer a test group`);
+            render();
+          } }, "Unmark"))
+        : g.allowed && hasFantasy
+          ? h("button", { class: "link", onclick: () => markTestGroup(g, confirmBox) }, "Test group…")
+          : null;
+      return [
+        h(
+          "div",
+          { class: "row" },
+          h("span", { class: "avatar group" }, icon("conversations", 16)),
+          h("div", { class: "grow" }, h("div", { class: "title" }, g.name || "Unnamed group"), h("div", { class: "sub" }, `${shown}${members.length > 4 ? `  +${members.length - 4} more` : ""}`)),
+          testCtl,
+          h("span", { class: "meta" }, relTime(g.lastMessageAt)),
+          h("span", { class: "toggle-label" }, "Allow access", toggle(g.allowed, async (on) => {
+            await api.setAllowed(g.name || g.guid, on);
+            saved();
+            render();
+          }, `Allow ${g.name || "group"}`)),
+        ),
+        confirmBox,
+      ];
     });
 
     return h(
@@ -767,7 +801,7 @@
       ),
       card(
         h("h3", {}, "Group conversations"),
-        h("p", { class: "desc" }, "Allow a group only when you trust everyone in it. In groups the agent handles fantasy football only, and replies when someone mentions it."),
+        h("p", { class: "desc" }, "Allow a group only when you trust everyone in it. In groups the agent handles fantasy football only, and replies when someone mentions it. A test group can receive live alert tests (Settings → Live alerts)."),
         groupRows.length ? h("div", { class: "rows" }, groupRows) : h("div", { class: "empty" }, icon("conversations", 18), "No group chats yet."),
       ),
     );
@@ -1068,10 +1102,11 @@
     const tab = parseRoute(location.hash).tab;
     // The sidebar's Settings link reopens the last tab this session; plain #settings links open General.
     $('#nav a[data-page="settings"]').setAttribute("href", `#settings/${tab}`);
-    const [s, teams, plan] = await Promise.all([
+    const [s, teams, plan, conv] = await Promise.all([
       api.settings(),
       tab === "fantasy" ? api.fantasyTeams().catch(() => []) : [],
       tab === "alerts" ? api.alertPlan().catch(() => []) : [],
+      tab === "alerts" ? api.conversations().catch(() => ({ groups: [] })) : { groups: [] },
     ]);
     const save = async (patch, msg) => {
       await api.saveSettings(patch);
@@ -1253,7 +1288,10 @@
           roundupAwardsCard(f.roundupAwards, toggleSetting),
         ];
       },
-      alerts: () => (s.fantasy ? [liveAlertsCard(s.fantasy.liveAlerts, plan, save, numSetting, tagged)] : [noLeague()]),
+      alerts: () =>
+        s.fantasy
+          ? [liveAlertsCard(s.fantasy.liveAlerts, plan, save, numSetting, tagged), groupTestCard(s.fantasy.liveAlerts, conv.groups, save, numSetting, selectSetting, tagged)]
+          : [noLeague()],
       advanced: () => [
         card(
           h("h3", {}, "Limits and safety"),
@@ -1511,6 +1549,103 @@
       ),
       h("p", { class: "desc" }, "While games are being played, Waterboy watches each subscriber's matchup and texts them when the projected score swings. The message is written by Waterboy itself, so it costs nothing per alert."),
       body,
+    );
+  }
+
+  /**
+   * Group live alerts, test mode only (fantasy.liveAlerts.groupTest). Alerts go to one group that
+   * was marked "Test group" in Conversations and is allowed; the service checks that again before
+   * every message, whatever config.json says. The status comes from the service's health.json.
+   */
+  function groupTestCard(a, groups, save, numSetting, selectSetting, tagged) {
+    const g = a.groupTest;
+    const st = a.status;
+    const eligible = groups.filter((x) => x.testGroup && x.allowed);
+    const groupPick = selectSetting(
+      "fantasy.liveAlerts.groupTest.chatId",
+      [["", eligible.length ? "Pick a test group" : "No test groups yet"], ...eligible.map((x) => [x.guid, x.name || "Unnamed group"])],
+      g.chatId ?? "",
+      { "aria-label": "Test group", style: "max-width:280px" },
+      "Test group saved",
+    );
+    groupPick.addEventListener("change", () => setTimeout(render, 300));
+    const running = st?.replay?.state === "running";
+    const speed = h("select", { "aria-label": "Simulation speed" }, h("option", { value: "1" }, "1×"), h("option", { value: "10" }, "10×"), h("option", { value: "60" }, "60×"));
+    speed.value = "60";
+    const run = button("Run simulation", async () => {
+      await api.runGroupSimulation(Number(speed.value));
+      toast("Simulation requested. It starts within a few seconds.");
+      setTimeout(render, 2500);
+    }, { primary: true, iconName: "play" });
+    const stop = button("Stop", async () => {
+      await api.stopGroupSimulation();
+      toast("Stopping the simulation");
+      setTimeout(render, 2500);
+    });
+    if (running || g.source !== "replay") run.disabled = true;
+    // Follow a running simulation (the usual 10 s refresh skips Settings).
+    if (running)
+      setTimeout(() => {
+        if (location.hash === "#settings/alerts" && !/INPUT|SELECT/.test(document.activeElement?.tagName ?? "")) render();
+      }, 3000);
+    if (!running) stop.disabled = true;
+
+    const minutes = (n) => (n === 1 ? "1 minute" : `${n} minutes`);
+    const simHint = g.source === "replay"
+      ? `Plays a recorded Sunday (1:00 to 4:00 PM, five matchups) into the test group. At 60× it takes 3 minutes, at 10× 18 minutes, at 1× 3 hours.`
+      : "Simulations use the recorded source. With live games, alerts follow the real league while games are on.";
+
+    const statusRows = [];
+    if (st?.blocked && g.enabled) statusRows.push(h("div", { class: "group-status warn" }, icon("alert", 15), h("span", {}, `Not sending: ${st.detail}`)));
+    if (st) {
+      const sup = st.suppressed;
+      const supTotal = sup.cooldown + sup.cap + sup.hourly + sup.paused;
+      const parts = [["cooldown", sup.cooldown], ["cap", sup.cap], ["hourly limit", sup.hourly], ["paused", sup.paused]].filter(([, n]) => n).map(([k, n]) => `${n} ${k}`);
+      statusRows.push(
+        h("div", { class: "stats group-stats" },
+          stat(st.sent, "Alerts sent"),
+          stat(st.messages, "Messages"),
+          stat(supTotal, "Suppressed"),
+          h("div", { class: "right" }, h("div", { class: "lbl" }, "Last alert"), h("div", {}, st.lastAlert ? stamp(new Date(st.lastAlert.at).toISOString()) : "None yet")),
+        ),
+      );
+      if (parts.length) statusRows.push(h("div", { class: "hint" }, `Suppressed: ${parts.join(", ")}. Counts are since the agent started.`));
+      if (st.lastAlert) statusRows.push(h("pre", { class: "group-last" }, st.lastAlert.text));
+      const r = st.replay;
+      if (r && r.state !== "idle")
+        statusRows.push(h("div", { class: "hint" },
+          r.state === "running"
+            ? `Simulation running at ${r.speed}×: check ${r.step} of ${r.total}.`
+            : r.state === "finished"
+              ? `Last simulation finished (${r.total} checks at ${r.speed}×).`
+              : `Last simulation stopped${r.step ? ` after ${r.step} of ${r.total} checks` : ""}: ${r.reason}`));
+    } else statusRows.push(h("div", { class: "hint" }, "No status from the agent yet. It reports here once it's running."));
+
+    const body = h("div", { class: `form${a.enabled && g.enabled ? "" : " disabled"}` },
+      h("label", {}, "Test group"), groupPick,
+      h("div", { class: "hint" }, eligible.length ? "Only groups marked as a test group and allowed in Conversations can be picked." : "Mark a group as a test group in Conversations first. Use a group of people who know it's a test."),
+      h("label", {}, "Source"),
+      selectSetting("fantasy.liveAlerts.groupTest.source", [["replay", "Recorded Sunday (replay)"], ["live", "Live games"]], g.source, { "aria-label": "Alert source", style: "max-width:280px" }, "Source saved"),
+      h("label", {}, "Alerts per check"), numSetting("fantasy.liveAlerts.groupTest.maxPerCheck", g.maxPerCheck, "max"),
+      h("div", { class: "hint" }, "Swings found in one check go out as one message, up to this many. Never more than 20 alerts an hour."),
+      h("label", {}, "Cooldown"), numSetting("fantasy.liveAlerts.groupTest.cooldownMinutes", g.cooldownMinutes, "min"),
+      h("div", { class: "hint" }, `After a matchup alerts, its next swing within ${minutes(g.cooldownMinutes)} is skipped.`),
+      h("label", {}, "Simulation"),
+      h("div", { class: "inline" }, speed, run, stop),
+      h("div", { class: "hint" }, simHint),
+    );
+    if (!(a.enabled && g.enabled)) for (const el of body.querySelectorAll("input, select, button")) el.disabled = true;
+    return card(
+      h("div", { class: "card-head" },
+        h("h3", {}, "Group test mode"),
+        h("span", { class: "toggle-label" }, tagged(toggle(g.enabled, async (on) => {
+          await save({ "fantasy.liveAlerts.groupTest.enabled": on });
+          render();
+        }, "Group test mode"), "fantasy.liveAlerts.groupTest.enabled"), g.enabled ? "On" : "Off"),
+      ),
+      h("p", { class: "desc" }, `Try alerts in one test group before any league group gets them. Each swing in any matchup is posted once, and every message starts with [TEST]. Real league groups never get alerts in this version.${a.enabled ? "" : " Turn live scoring alerts on first."}`),
+      body,
+      h("div", { class: "group-status-block" }, ...statusRows),
     );
   }
 

@@ -60,6 +60,9 @@ const API = {
   fantasyTeams: () => agent.fantasyTeams(),
   setAlertSubscriber: (handle, on) => agent.setAlertSubscriber(handle, on),
   alertPlan: () => agent.alertPlan(),
+  setTestGroup: (guid, on) => agent.setTestGroup(guid, on),
+  runGroupSimulation: (speed) => agent.runGroupSimulation(speed),
+  stopGroupSimulation: () => agent.stopGroupSimulation(),
   createAlertAutomations: () => agent.createAlertAutomations(),
   automations: () => agent.automations(),
   createAutomation: (t) => agent.createAutomation(t),
@@ -220,6 +223,12 @@ app.whenReady().then(() => {
   UPDATER?.start();
 });
 app.on("window-all-closed", () => app.quit());
+// A live-alerts simulation runs in the service; don't leave one going after the app is closed.
+app.on("before-quit", () => {
+  try {
+    agent.stopGroupSimulationOnQuit();
+  } catch {}
+});
 app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });

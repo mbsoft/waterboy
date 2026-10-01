@@ -551,3 +551,91 @@ test("data sources: health.json `sources` for the Dashboard card and the readine
   assert.deepEqual(serviceChecks(v04, now), serviceChecks(v03, now));
   assert.ok(sources);
 });
+
+test("group test mode: only a marked group can be picked, and the simulation explains what's missing", async () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const agent = require("../lib/agent");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-grouptest-"));
+  const file = path.join(dir, "config.json");
+  const read = () => JSON.parse(fs.readFileSync(file, "utf8"));
+  const TEST = "iMessage;+;chat-test";
+  const LEAGUE = "iMessage;+;chat-league";
+  fs.writeFileSync(file, JSON.stringify({ dataDir: dir, allowedChats: ["Waterboy test", "League"], fantasy: { espnLeagueId: "1" } }));
+  fs.writeFileSync(path.join(dir, "chats-index.json"), JSON.stringify({ chats: [
+    { guid: TEST, identifier: "chat-test", name: "Waterboy test", isGroup: true, members: ["+16145550142"], lastMessageAt: null },
+    { guid: LEAGUE, identifier: "chat-league", name: "League", isGroup: true, members: ["+16145550142", "kathy@example.com"], lastMessageAt: null },
+  ] }));
+  const prev = process.env.IMESSAGE_AGENT_DIR;
+  process.env.IMESSAGE_AGENT_DIR = dir;
+  try {
+    let a = agent.liveAlerts(read());
+    assert.deepEqual(a.groupTest, { enabled: false, chatId: null, source: "replay", maxPerCheck: 3, cooldownMinutes: 15 }, "off by default");
+
+    // Picking an unmarked group (the real league chat) is refused; marking happens only via setTestGroup.
+    await assert.rejects(agent.saveSettings({ "fantasy.liveAlerts.groupTest.chatId": LEAGUE }), /Mark the group as a test group/);
+    await assert.rejects(agent.saveSettings({ "fantasy.liveAlerts.groupTest.chatId": "iMessage;-;+16145550142" }), /Pick a group chat/);
+    await assert.rejects(agent.setTestGroup("iMessage;-;+16145550142", true), /Only a group chat/);
+    await agent.setTestGroup(TEST, true);
+    assert.deepEqual(read().testGroups, [TEST]);
+    const groups = (await agent.conversations()).groups;
+    assert.deepEqual(groups.map((g) => [g.name, g.testGroup]), [["Waterboy test", true], ["League", false]]);
+
+    await agent.saveSettings({
+      "fantasy.liveAlerts.groupTest.chatId": TEST,
+      "fantasy.liveAlerts.groupTest.source": "replay",
+      "fantasy.liveAlerts.groupTest.maxPerCheck": 50,
+      "fantasy.liveAlerts.groupTest.cooldownMinutes": -3,
+    });
+    assert.deepEqual(read().fantasy.liveAlerts.groupTest, { chatId: TEST, source: "replay", maxPerCheck: 10, cooldownMinutes: 0 });
+    await assert.rejects(agent.saveSettings({ "fantasy.liveAlerts.groupTest.source": "chat" }), /Unknown source/);
+
+    // The simulation button says what's missing, in order.
+    const why = () => agent.simulationBlocker(read(), groups);
+    assert.equal(why(), "Turn live scoring alerts on first.");
+    await agent.saveSettings({ "fantasy.liveAlerts.enabled": true });
+    assert.equal(why(), "Turn group test mode on first.");
+    await agent.saveSettings({ "fantasy.liveAlerts.groupTest.enabled": true });
+    assert.equal(why(), null);
+    await agent.saveSettings({ "fantasy.liveAlerts.groupTest.source": "live" });
+    assert.equal(why(), "The source is set to live games.");
+    await agent.saveSettings({ "fantasy.liveAlerts.groupTest.source": "replay" });
+    assert.equal(agent.simulationBlocker(read(), groups.map((g) => ({ ...g, allowed: false }))), "The test group isn't allowed in Conversations.");
+    await assert.rejects(agent.runGroupSimulation(5), /Unknown speed/);
+
+    // Stop is a request file for the service; quitting the app writes one only while a simulation runs.
+    await agent.stopGroupSimulation();
+    const req = path.join(dir, agent.GROUP_REQUEST_FILE);
+    assert.equal(JSON.parse(fs.readFileSync(req, "utf8")).action, "stop");
+    fs.rmSync(req);
+    agent.stopGroupSimulationOnQuit();
+    assert.equal(fs.existsSync(req), false, "nothing running, nothing written");
+    fs.writeFileSync(path.join(dir, "health.json"), JSON.stringify({ updatedAt: Date.now(), groupAlerts: { replay: { state: "running" } } }));
+    agent.stopGroupSimulationOnQuit();
+    assert.equal(JSON.parse(fs.readFileSync(req, "utf8")).action, "stop");
+
+    // Unmarking the group in use also unpicks it.
+    await agent.setTestGroup(TEST, false);
+    assert.equal(read().testGroups, undefined);
+    assert.equal(read().fantasy.liveAlerts.groupTest.chatId, null);
+    assert.equal(why(), "Pick a test group first.");
+  } finally {
+    if (prev === undefined) delete process.env.IMESSAGE_AGENT_DIR;
+    else process.env.IMESSAGE_AGENT_DIR = prev;
+  }
+});
+
+test("group alerts: health.json counters, and a Dashboard warning when the service refuses the chat", () => {
+  const { groupAlertHealth } = require("../lib/agent");
+  const now = Date.now();
+  const health = (testMode, extra = {}) => ({ updatedAt: now, groupAlerts: { sent: 9, messages: 6, suppressed: { cooldown: 2, cap: 1 }, lastAlert: null, testMode, ...extra } });
+  assert.equal(groupAlertHealth({ updatedAt: now }, now), null, "older service: no key");
+  const ok = groupAlertHealth(health({ enabled: true, blocked: null, detail: null }), now);
+  assert.deepEqual([ok.sent, ok.messages, ok.suppressed, ok.warning], [9, 6, { cooldown: 2, cap: 1, hourly: 0, paused: 0 }, null]);
+  const handEdited = groupAlertHealth(health({ enabled: true, blocked: "not-marked", detail: "The configured chat isn't marked as a test group, so it is ignored." }), now);
+  assert.match(handEdited.warning, /isn't marked as a test group/);
+  assert.equal(groupAlertHealth(health({ enabled: true, blocked: "no-chat", detail: "No test group is picked." }), now).warning, null, "nothing picked yet isn't an alarm");
+  assert.equal(groupAlertHealth(health({ enabled: false, blocked: "off", detail: "" }), now).warning, null);
+  assert.equal(groupAlertHealth({ ...health({ enabled: true, blocked: "not-marked" }), updatedAt: now - 3_600_000 }, now), null, "stale health isn't trusted");
+});

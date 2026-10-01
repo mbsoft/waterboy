@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { dataDirOf, loadConfig, log, type Config } from "./config.ts";
+import { CONFIG_FILE, dataDirOf, loadConfig, log, type Config } from "./config.ts";
 import { MessagesDb } from "./messages/messagesDb.ts";
 import { State } from "./bot/state.ts";
 import { pruneTurns } from "./bot/usage.ts";
@@ -18,6 +18,12 @@ import { checkMessagesAutomation, runChecks } from "./health/checks.ts";
 import { HealthReporter, MonitoredSender } from "./health/sendHealth.ts";
 import { sourceEnabled } from "./health/sources.ts";
 import { clearStartupError, writeStartupError } from "./health/startupError.ts";
+import { withSpy } from "./messages/senderSpy.ts";
+import { GroupTestRunner, REQUEST_FILE, type ReplayFixture } from "./bot/groupTest.ts";
+import { fetchLeagueSnapshot } from "./fantasy/groupAlerts.ts";
+import { anyGameActive } from "./fantasy/live.ts";
+import { now } from "./testHooks.ts";
+import week3Sunday from "./fantasy/replay/week3-sunday.json" with { type: "json" };
 
 /**
  * Data from a newer Waterboy: say so plainly and stop, rather than misread it. The reason goes
@@ -79,7 +85,7 @@ const health = new HealthReporter(cfg.dataDir);
 health.sources.enabled = (id) => sourceEnabled(cfg.fantasy, id);
 health.sources.extras.nflverse = () => ({ dataUpdatedAt: dataUpdatedAt(cfg.fantasy?.season ?? new Date().getFullYear()) });
 const sender = cfg.dryRun
-  ? new ConsoleSender()
+  ? withSpy(new ConsoleSender())
   : new MonitoredSender(new AppleScriptSender(cfg.outboxStagingDir), health.send);
 const conditions = makeConditions(cfg, state);
 const runner = cfg.provider === "chatgpt" ? new CodexAgentRunner(cfg) : new ClaudeAgentRunner(cfg, state, conditions);
@@ -170,6 +176,22 @@ const schedTimer = startScheduler(
   conditions,
 );
 
+// Group live alerts, test mode only: one marked, allowlisted test group (see bot/groupTest.ts).
+// It re-reads config.json itself, so test mode can be switched on and off without a restart.
+const fantasyCfg = cfg.fantasy;
+const groupTimer = fantasyCfg
+  ? new GroupTestRunner({
+      readConfig: () => JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8")),
+      requestFile: path.join(cfg.dataDir, REQUEST_FILE),
+      chatInfo: (guid) => db.chat(guid),
+      isPaused: (guid) => state.chat(guid).paused,
+      send: (guid, text) => bot.notify(guid, text),
+      fetchLive: async () => ((await anyGameActive(now())) ? fetchLeagueSnapshot(fantasyCfg) : null),
+      fixture: week3Sunday as unknown as ReplayFixture,
+      publish: (status) => health.setGroupAlerts(status),
+    }).start()
+  : null;
+
 const shutdown = async (sig: string) => {
   log(`[main] ${sig} received, finishing in-flight turns…`);
   clearInterval(pollTimer);
@@ -178,6 +200,7 @@ const shutdown = async (sig: string) => {
   clearInterval(checksTimer);
   if (probeTimer) clearInterval(probeTimer);
   if (nflverseTimer) clearInterval(nflverseTimer);
+  if (groupTimer) clearInterval(groupTimer);
   await Promise.race([bot.idle(), new Promise((r) => setTimeout(r, 15_000))]);
   await helper?.bridge.stop(); // quits the hidden Messages instance
   db.close();

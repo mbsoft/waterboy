@@ -68,6 +68,26 @@ export interface LiveAlertConfig {
   subscribers?: string[];
   /** Smallest per-player move worth listing in the alert, in points (default 1). */
   minPlayerPoints?: number;
+  /** Group chat alerts, test mode only (see fantasy/groupAlerts.ts). Real league groups never get alerts. */
+  groupTest?: GroupTestConfig;
+}
+
+/**
+ * Group live alerts in one test group. The service re-reads this from config.json at every check,
+ * so turning it off takes effect without a restart. `chatId` must also be allowlisted and marked
+ * as a test group (top-level `testGroups`, written by the app's confirmation), or nothing is sent.
+ */
+export interface GroupTestConfig {
+  /** Default false. Needs liveAlerts.enabled too. */
+  enabled?: boolean;
+  /** The test group's chat GUID ("iMessage;+;chat…"). */
+  chatId?: string | null;
+  /** "replay" plays the recorded Sunday on request; "live" watches the real league on game days. Default "replay". */
+  source?: "replay" | "live";
+  /** Most alerts in one message, per check (default 3). */
+  maxPerCheck?: number;
+  /** Quiet period per matchup after it alerted, in minutes (default 15). */
+  cooldownMinutes?: number;
 }
 
 /** The team "me" refers to this turn (see FantasyConfig.me). */

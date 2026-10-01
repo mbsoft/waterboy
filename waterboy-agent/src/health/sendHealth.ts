@@ -10,6 +10,7 @@ import path from "node:path";
 import type { ChatTarget, Sender } from "../messages/sender.ts";
 import type { CheckResult } from "./checks.ts";
 import { sourceHealth, type SourceHealth, type SourceId, type SourceSnapshot } from "./sources.ts";
+import type { GroupAlertStatus } from "../bot/groupTest.ts";
 
 export interface SendFailure {
   at: number;
@@ -109,12 +110,15 @@ export interface HealthFile {
   send: SendHealthSnapshot;
   /** Data-source health (v0.4); older readers ignore it */
   sources: Record<SourceId, SourceSnapshot>;
+  /** Group live alerts in test mode (v0.4): counters, replay progress, and why the group is blocked. Absent when unused. */
+  groupAlerts?: GroupAlertStatus;
 }
 
 /** Writes health.json in the data folder (atomically) whenever something changes */
 export class HealthReporter {
   readonly send: SendHealth;
   private checks: CheckResult[] = [];
+  private groupAlerts: GroupAlertStatus | undefined;
   private readonly startedAt = Date.now();
   private timer: NodeJS.Timeout | null = null;
 
@@ -126,6 +130,11 @@ export class HealthReporter {
   /** A check skipped this round keeps its last real result */
   setChecks(checks: CheckResult[]) {
     this.checks = checks.map((c) => (c.skipped ? (this.checks.find((p) => p.id === c.id && !p.skipped) ?? c) : c));
+    this.scheduleWrite();
+  }
+
+  setGroupAlerts(status: GroupAlertStatus) {
+    this.groupAlerts = status;
     this.scheduleWrite();
   }
 
@@ -148,6 +157,7 @@ export class HealthReporter {
       checks: this.checks,
       send: this.send.snapshot(),
       sources: this.sources.snapshot(),
+      ...(this.groupAlerts ? { groupAlerts: this.groupAlerts } : {}),
     };
     try {
       fs.writeFileSync(`${file}.tmp`, JSON.stringify(data, null, 2));
