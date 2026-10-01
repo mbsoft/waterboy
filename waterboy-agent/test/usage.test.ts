@@ -7,6 +7,7 @@ import { State, type TurnRecord } from "../src/bot/state.ts";
 import { Bot } from "../src/bot/bot.ts";
 import { localDay, pruneTurns, recordTurn, startOfLocalDay, TURN_RETENTION_DAYS } from "../src/bot/usage.ts";
 import { ConsoleSender } from "../src/messages/sender.ts";
+import { turnShare } from "../src/assistants/claude.ts";
 import type { AgentRequest, AgentResponse, AgentRunner } from "../src/assistants/types.ts";
 import type { Config } from "../src/config.ts";
 
@@ -160,4 +161,19 @@ test("turns older than 400 days are pruned, once a day", () => {
   // The first turn of the next day prunes again (and the cutoff has moved a day)
   logged(() => recordTurn(state, turn(today + 86_400_000, 1), null));
   assert.deepEqual(turns(state).map((r) => Number(r.at)), [today, today + 86_400_000]);
+});
+
+test("a resumed session's running totals become this turn's own cost and tokens", () => {
+  const kv = new Map<string, string>();
+  const state = { get: (k: string) => kv.get(k) ?? null, set: (k: string, v: string) => void kv.set(k, v) };
+  // New session: the totals are the turn
+  assert.deepEqual(turnShare(state, null, "s1", { cost: 0.5, input: 1000, output: 100 }), { cost: 0.5, input: 1000, output: 100 });
+  // Resumed: the SDK reports 0.5 + this turn's 0.25
+  const t2 = turnShare(state, "s1", "s1", { cost: 0.75, input: 1800, output: 160 });
+  assert.equal(t2.cost.toFixed(4), "0.2500");
+  assert.deepEqual([t2.input, t2.output], [800, 60]);
+  // A cleared session starts over; a session we've never seen counts from zero
+  assert.deepEqual(turnShare(state, "s1", "s1", { cost: 0.1, input: 50, output: 5 }), { cost: 0.1, input: 50, output: 5 });
+  assert.deepEqual(turnShare(state, "unknown", "s9", { cost: 2, input: 9, output: 9 }), { cost: 2, input: 9, output: 9 });
+  assert.ok(kv.has("usageTotals:s9"));
 });

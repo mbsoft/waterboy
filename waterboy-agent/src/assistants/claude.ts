@@ -24,6 +24,29 @@ export function allowedTools(cfg: Config): string[] {
  * Auth comes from Claude Code's own login on this Mac (`claude` → /login with your
  * Pro/Max account) or a CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token`.
  */
+type UsageTotals = { cost: number; input: number; output: number };
+
+/**
+ * This turn's cost and tokens. The SDK's total_cost_usd and modelUsage are running totals for the
+ * session, and a resumed session continues from the totals its transcript saved, so a turn's own
+ * share is the difference from the totals seen at the end of the previous turn. The totals are kept
+ * per session in the state db. A lower total than last time (the session was cleared) or a session
+ * we have no totals for counts as starting from zero.
+ */
+export function turnShare(state: Pick<State, "get" | "set">, resumed: string | null, sessionId: string | null, totals: UsageTotals): UsageTotals {
+  let prev: UsageTotals | null = null;
+  try {
+    prev = resumed ? (JSON.parse(state.get(`usageTotals:${resumed}`) ?? "null") as UsageTotals | null) : null;
+  } catch {}
+  if (sessionId) state.set(`usageTotals:${sessionId}`, JSON.stringify(totals));
+  if (!prev || totals.cost < prev.cost) return totals;
+  return {
+    cost: totals.cost - prev.cost,
+    input: Math.max(0, totals.input - prev.input),
+    output: Math.max(0, totals.output - prev.output),
+  };
+}
+
 export class ClaudeAgentRunner implements AgentRunner {
   constructor(private cfg: Config, private state: State, private conditions: Conditions = {}) {}
 
@@ -99,12 +122,15 @@ export class ClaudeAgentRunner implements AgentRunner {
           log(`[agent] session ${sessionId} (auth: ${msg.apiKeySource}, model: ${msg.model})`);
         } else if (msg.type === "result") {
           sessionId = msg.session_id ?? sessionId;
-          costUsd = msg.total_cost_usd;
-          usage = { input: 0, output: 0 };
+          const totals = { cost: msg.total_cost_usd, input: 0, output: 0 };
           for (const u of Object.values(msg.modelUsage ?? {})) {
-            usage.input += u.inputTokens + u.cacheReadInputTokens + u.cacheCreationInputTokens;
-            usage.output += u.outputTokens;
+            totals.input += u.inputTokens + u.cacheReadInputTokens + u.cacheCreationInputTokens;
+            totals.output += u.outputTokens;
           }
+          // A resumed session reports running totals that include its earlier turns; keep this turn's share.
+          const turn = turnShare(this.state, resume, sessionId, totals);
+          costUsd = turn.cost;
+          usage = { input: turn.input, output: turn.output };
           denied = (msg.permission_denials ?? []).map((d) => d.tool_name);
           if (msg.subtype === "success") text = msg.result;
           else {
