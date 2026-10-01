@@ -89,10 +89,23 @@ jobs:
       - name: Notarization key
         env:
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY }}
+        # Accepts the .p8 as pasted (with or without line breaks, or with literal \n), base64 of the whole
+        # file, or just the key body; rebuilds a clean PEM and checks it parses before the long build.
         run: |
           key="$RUNNER_TEMP/AuthKey.p8"
-          printf '%s\n' "$APPLE_API_KEY_P8" > "$key"
+          raw=$(printf '%s' "$APPLE_API_KEY_P8" | tr -d '\r')
+          raw=${raw//\\n/$'\n'}
+          if ! grep -q 'BEGIN PRIVATE KEY' <<< "$raw"; then
+            decoded=$(printf '%s' "$raw" | base64 --decode 2>/dev/null || true)
+            grep -q 'BEGIN PRIVATE KEY' <<< "$decoded" && raw=$decoded
+          fi
+          body=$(printf '%s' "$raw" | sed -e 's/-----BEGIN PRIVATE KEY-----//' -e 's/-----END PRIVATE KEY-----//' | tr -d ' \t\n')
+          { echo '-----BEGIN PRIVATE KEY-----'; fold -w 64 <<< "$body"; echo '-----END PRIVATE KEY-----'; } > "$key"
           chmod 600 "$key"
+          openssl pkey -in "$key" -noout 2> /dev/null || {
+            echo "::error::APPLE_API_KEY isn't a readable App Store Connect key. Paste the whole contents of AuthKey_XXXX.p8 (from -----BEGIN PRIVATE KEY----- to -----END PRIVATE KEY-----). It has ${#APPLE_API_KEY_P8} characters."
+            exit 1
+          }
           echo "APPLE_API_KEY=$key" >> "$GITHUB_ENV"
       # scripts/release.sh: tests, helper build, staging, electron-builder (sign + notarize the app),
       # notarize + staple the DMGs, verify signatures and Gatekeeper, SHA256SUMS.txt.
