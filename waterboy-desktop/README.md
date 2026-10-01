@@ -106,14 +106,14 @@ browser through `shell.openExternal`; the renderer never gets the URL.
 
 | Page | What it does | Where it reads/writes |
 |---|---|---|
-| Dashboard | Running/paused status with Start, Pause and Restart; setup readiness (Claude sign-in, Messages access, sending, allowed chats) and service checks needing attention; a banner when sending fails; today's replies, reply time, ignored messages, problems | `launchctl`, `~/.imessage-agent/env`, Keychain (existence check only), `health.json`, logs |
+| Dashboard | Running/paused status with Start, Pause and Restart; setup readiness (Claude sign-in, Messages access, sending, allowed chats) and service checks needing attention; a banner when sending fails; today's replies, reply time, ignored messages, problems; Usage: today / 7-day / 30-day API-equivalent cost and turns (tokens with ChatGPT), a 30-day daily bar chart, and breakdowns by model, top 5 chats and kind; a banner once a day when today's cost passes the daily cost alert | `launchctl`, `~/.imessage-agent/env`, Keychain (existence check only), `health.json`, logs, `state.db` (`turns`, read-only) |
 | Setup | First-launch walkthrough: permissions (opens the Privacy & Security panes), sign-in, first allowed chat, ESPN league + espn_s2/SWID with Test connection (same request as `league_status`). Cookie values are written to config.json but never sent to the renderer | `config.json`, `health.json`, ESPN |
 | Connections | Google Calendar access, built-in tools, MCP servers and extra allowed tools | `config.json` |
 | Conversations | Allow or block each person or group, rename contacts, mark admins, set each person's fantasy team | `config.json` (`allowedChats`, `contacts`, `groupAdmins`, `fantasy.teams`), `chats-index.json` |
 | Memory | View, edit or erase each conversation's `MEMORY.md`; start a fresh conversation (like `/new`) | `~/.imessage-agent/chats/*/MEMORY.md`, `state.db` |
 | Automations | List, turn on/off, delete and create scheduled tasks | `state.db` `tasks` |
 | Logs | Readable activity feed from `agent.log` (filters, pages) plus recent `agent.err.log` lines | logs folder |
-| Settings | Tabs, each with its own route (`#settings/<tab>`, defined in `renderer/settingsTabs.js`): General (agent name, assistant and model, ChatGPT sign-in), Conversations (wake words, voice, typing, threaded replies), Fantasy (league, data sources, image cards), Live alerts, Advanced (limits, shell access) | `config.json`, `~/.imessage-agent/codex` (ChatGPT sign-in) |
+| Settings | Tabs, each with its own route (`#settings/<tab>`, defined in `renderer/settingsTabs.js`): General (agent name, assistant and model, ChatGPT sign-in), Conversations (wake words, voice, typing, threaded replies), Fantasy (league, data sources, image cards), Live alerts, Advanced (limits, shell access, daily cost alert) | `config.json`, `~/.imessage-agent/codex` (ChatGPT sign-in) |
 
 Config changes take effect when the agent restarts; the app shows a "Restart now" banner
 whenever `config.json` is newer than the running service. Pause unloads the launchd job, so

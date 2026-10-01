@@ -77,6 +77,55 @@ test("a state.db from before versioning (no condition column) is migrated with i
   assert.deepEqual(migrateState(state.db), { from: STATE_SCHEMA_VERSION, to: STATE_SCHEMA_VERSION });
 });
 
+test("a v0.3.0 state.db (version 2) gains the turns table, keeps its data, and a second run changes nothing", () => {
+  const dir = tmp();
+  const v2 = new DatabaseSync(path.join(dir, "state.db"));
+  v2.exec(`
+    CREATE TABLE kv (k TEXT PRIMARY KEY, v TEXT);
+    CREATE TABLE chats (chat_guid TEXT PRIMARY KEY, session_id TEXT, paused INTEGER NOT NULL DEFAULT 0, label TEXT);
+    CREATE TABLE tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_guid TEXT NOT NULL, schedule TEXT NOT NULL,
+      prompt TEXT NOT NULL, description TEXT NOT NULL, next_run INTEGER, enabled INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL, condition TEXT);
+    INSERT INTO kv (k, v) VALUES ('lastRowId', '7');
+    INSERT INTO chats (chat_guid, session_id) VALUES ('c', 's1');
+    INSERT INTO tasks (chat_guid, schedule, prompt, description, created_at, condition) VALUES ('c', '0 9 * * 2', 'roundup', 'Weekly', 1, 'fantasy_week_final');
+    PRAGMA user_version = 2;
+  `);
+  v2.close();
+
+  const state = new State(dir);
+  assert.equal(state.get("lastRowId"), "7");
+  assert.equal(state.chat("c").sessionId, "s1");
+  assert.equal(state.tasksForChat("c")[0].condition, "fantasy_week_final");
+  state.addTurn({ at: 1, chatId: "c", model: "m", provider: "claude", costUsd: 0.5, inputTokens: 10, outputTokens: 2, durationMs: 900, kind: "reply" });
+  assert.deepEqual(migrateState(state.db), { from: STATE_SCHEMA_VERSION, to: STATE_SCHEMA_VERSION });
+  // Re-running the step itself (as on a database that already has it) is harmless too
+  state.db.exec("PRAGMA user_version = 2");
+  assert.deepEqual(migrateState(state.db), { from: 2, to: STATE_SCHEMA_VERSION });
+  assert.equal(state.costSince(0), 0.5);
+  assert.equal((state.db.prepare("PRAGMA integrity_check").get() as { integrity_check: string }).integrity_check, "ok");
+});
+
+test("Waterboy v0.3.0 refuses a state.db this build has migrated", async (t) => {
+  // v0.3.0's own state.ts and schema.ts, from git (skipped outside a checkout)
+  const root = path.resolve(import.meta.dirname, "..");
+  const show = (f: string) => spawnSync("git", ["show", `v0.3.0:waterboy-agent/${f}`], { cwd: root, encoding: "utf8" });
+  const files = ["src/schema.ts", "src/bot/state.ts"].map((f) => [f, show(f)] as const);
+  if (files.some(([, r]) => r.status !== 0)) return t.skip("v0.3.0 isn't in this checkout's git history");
+  const old = tmp();
+  for (const [f, r] of files) {
+    fs.mkdirSync(path.dirname(path.join(old, f)), { recursive: true });
+    fs.writeFileSync(path.join(old, f), r.stdout);
+  }
+  const { State: OldState } = await import(path.join(old, "src/bot/state.ts"));
+  const dir = tmp();
+  new State(dir).db.close();
+  assert.throws(() => new OldState(dir), (e: Error) => {
+    assert.equal(e.name, "SchemaTooNewError");
+    assert.match(e.message, new RegExp(`state\\.db is at schema version ${STATE_SCHEMA_VERSION}, but this Waterboy build only understands up to 2`));
+    return true;
+  });
+});
+
 test("a state.db from a newer build is refused, not touched", () => {
   const dir = tmp();
   const db = new DatabaseSync(path.join(dir, "state.db"));

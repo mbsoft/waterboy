@@ -3,6 +3,7 @@ import path from "node:path";
 import { dataDirOf, loadConfig, log, type Config } from "./config.ts";
 import { MessagesDb } from "./messages/messagesDb.ts";
 import { State } from "./bot/state.ts";
+import { pruneTurns } from "./bot/usage.ts";
 import { Bot } from "./bot/bot.ts";
 import { ClaudeAgentRunner } from "./assistants/claude.ts";
 import { CodexAgentRunner, chatgptAccount, verifyLockdown } from "./assistants/codex.ts";
@@ -69,6 +70,8 @@ try {
   await refuseIfTooNew(e, cfg.dataDir);
 }
 clearStartupError(cfg.dataDir);
+// Usage records older than 400 days (also checked at the first turn of each day)
+pruneTurns(state);
 // Setup checks and send health, published to health.json for the Dashboard
 const health = new HealthReporter(cfg.dataDir);
 const sender = cfg.dryRun

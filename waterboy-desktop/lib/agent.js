@@ -711,6 +711,13 @@ const SETTINGS = {
   "fantasy.liveAlerts.thresholdPct": (v) => clampNum(v, 1, 100, 5),
   "fantasy.liveAlerts.checkMinutes": (v) => clampNum(v, 1, 60, 5),
   "fantasy.liveAlerts.minPlayerPoints": (v) => clampNum(v, 0, 50, 1, 1),
+  // Dollars a day before the Dashboard warns; blank = off
+  "usage.dailyCostAlertUsd": (v) => {
+    if (v === null || v === undefined || String(v).trim() === "") return null;
+    const n = Number(String(v).trim().replace(/^\$/, ""));
+    if (!Number.isFinite(n) || n < 0) throw new Error("The daily cost alert must be a dollar amount of 0 or more, or empty for off.");
+    return Math.round(n * 100) / 100;
+  },
 };
 
 /** A number from the UI, clamped to a sane range and rounded to `decimals`. */
@@ -748,6 +755,7 @@ async function settings() {
     voice: { enabled: !!cfg.voice?.enabled },
     typingIndicators: cfg.typingIndicators !== false,
     threadedReplies: ["auto", "always", "off"].includes(cfg.threadedReplies) ? cfg.threadedReplies : "auto",
+    usage: { dailyCostAlertUsd: alertUsd(cfg) },
     connectors: Object.fromEntries(Object.keys(CONNECTORS).map((k) => [k, connectorLevel(cfg, k)])),
     fantasy: cfg.fantasy
       ? {
@@ -1102,6 +1110,104 @@ async function saveLeague(input = {}) {
   return settings();
 }
 
+// ---------- usage (state.db turns) ----------
+
+/** usage.dailyCostAlertUsd as the service reads it: a number of 0 or more, otherwise off (null) */
+function alertUsd(cfg) {
+  const v = cfg.usage?.dailyCostAlertUsd;
+  return typeof v === "number" && v >= 0 ? v : null;
+}
+
+/** "2026-10-01" for the local day `ms` falls in (the service's bot/usage.ts localDay) */
+function localDay(ms) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** "claude-sonnet-5-5" → "Claude Sonnet 5.5"; anything else as it is */
+function modelName(id) {
+  const m = /^claude-([a-z]+)-(\d+)-(\d+)(?:-\d{8})?$/.exec(id ?? "");
+  return m ? `Claude ${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}.${m[3]}` : id;
+}
+
+const USAGE_DAYS = 30;
+const KINDS = ["reply", "scheduled", "alert"];
+
+/**
+ * The Dashboard's usage card, from `turns` rows: today / 7-day / 30-day totals, one bucket per local
+ * day for the last 30 days, and breakdowns by model, chat (top 5) and kind. Costs are summed from
+ * the rows as they are, so the totals match the service's "turn cost" log lines. `unit` says what
+ * the card leads with: dollars for Claude, tokens for ChatGPT (it reports no cost).
+ */
+function usageRollup(rows, { now = Date.now(), label = (id) => id, provider = "claude", thresholdUsd = null } = {}) {
+  const today = new Date(now);
+  const days = [];
+  for (let i = USAGE_DAYS - 1; i >= 0; i--) {
+    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i).getTime();
+    days.push({ day: localDay(start), start, costUsd: 0, turns: 0, tokens: 0 });
+  }
+  const byDay = new Map(days.map((d) => [d.day, d]));
+  const group = () => new Map();
+  const add = (map, key, r, extra) => {
+    const g = map.get(key) ?? { key, costUsd: 0, turns: 0, tokens: 0, ...extra };
+    g.costUsd += r.cost_usd ?? 0;
+    g.turns += 1;
+    g.tokens += (r.input_tokens ?? 0) + (r.output_tokens ?? 0);
+    map.set(key, g);
+  };
+  const models = group();
+  const chats = group();
+  const kinds = new Map(KINDS.map((k) => [k, { key: k, costUsd: 0, turns: 0, tokens: 0 }]));
+  for (const r of rows) {
+    const bucket = byDay.get(localDay(Number(r.at)));
+    if (!bucket) continue; // outside the 30 days (or in the future)
+    add(byDay, bucket.day, r);
+    // Live alerts the service writes itself have no model; they show under "by kind" only
+    if (r.model || r.kind !== "alert") add(models, r.model ?? "", r, { name: r.model ? modelName(r.model) : r.provider === "chatgpt" ? "ChatGPT plan default" : "Default model" });
+    add(chats, r.chat_id, r, { name: label(r.chat_id) });
+    if (kinds.has(r.kind)) add(kinds, r.kind, r);
+  }
+  const unit = provider === "chatgpt" ? "tokens" : "usd";
+  const total = (n) => days.slice(-n).reduce((t, d) => ({ costUsd: t.costUsd + d.costUsd, turns: t.turns + d.turns, tokens: t.tokens + d.tokens }), { costUsd: 0, turns: 0, tokens: 0 });
+  const measure = (g) => (unit === "usd" ? g.costUsd : g.tokens);
+  const ranked = (map) => [...map.values()].sort((a, b) => measure(b) - measure(a) || b.turns - a.turns);
+  const t = total(1);
+  return {
+    unit,
+    today: t,
+    week: total(7),
+    month: total(USAGE_DAYS),
+    days: days.map(({ start, ...d }) => d),
+    byModel: ranked(models),
+    byChat: ranked(chats).slice(0, 5),
+    otherChats: Math.max(0, chats.size - 5),
+    byKind: [...kinds.values()],
+    // Shown on the Dashboard once per local day (the renderer remembers the day it was dismissed)
+    alert: thresholdUsd === null ? null : { thresholdUsd, day: localDay(now), todayCostUsd: t.costUsd, crossed: t.costUsd >= thresholdUsd && t.costUsd > 0 },
+  };
+}
+
+/** usageRollup for the Dashboard, read from state.db (read-only; the service may be writing) */
+async function usage() {
+  const loc = await locate();
+  const cfg = readJson(loc.configPath) ?? {};
+  const t = new Date();
+  const since = new Date(t.getFullYear(), t.getMonth(), t.getDate() - (USAGE_DAYS - 1)).getTime();
+  let rows;
+  try {
+    rows = await withDb((db) => {
+      // Before the service's first v0.4 start the table doesn't exist yet
+      if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'turns'").get()) return null;
+      return db.prepare("SELECT at, chat_id, model, provider, cost_usd, input_tokens, output_tokens, kind FROM turns WHERE at >= ?").all(since);
+    });
+  } catch {
+    rows = null; // no state.db yet
+  }
+  if (!rows) return { available: false, unit: providerOf(cfg) === "chatgpt" ? "tokens" : "usd" };
+  const label = chatLabeler(await conversations());
+  return { available: true, ...usageRollup(rows, { now: t.getTime(), label, provider: providerOf(cfg), thresholdUsd: alertUsd(cfg) }) };
+}
+
 // ---------- overview ----------
 
 async function overview() {
@@ -1160,6 +1266,8 @@ module.exports = {
   saveMemory,
   resetSession,
   overview,
+  usage,
+  usageRollup,
   settings,
   saveSettings,
   setAlertSubscriber,

@@ -288,6 +288,7 @@ export class CodexAgentRunner implements AgentRunner {
       text,
       sessionId: sessionId ?? thread.id,
       tokens: usage ? { input: usage.input_tokens, cached: usage.cached_input_tokens, output: usage.output_tokens } : undefined,
+      model: this.cfg.chatgpt.model ?? undefined, // Codex doesn't report the plan's default model
     };
   }
 

@@ -22,7 +22,7 @@
       label: "Live alerts",
       settings: ["fantasy.liveAlerts.enabled", "fantasy.liveAlerts.thresholdPct", "fantasy.liveAlerts.checkMinutes", "fantasy.liveAlerts.minPlayerPoints"],
     },
-    { id: "advanced", label: "Advanced", settings: ["maxTurns", "turnTimeoutMs", "allowBash"] },
+    { id: "advanced", label: "Advanced", settings: ["maxTurns", "turnTimeoutMs", "allowBash", "usage.dailyCostAlertUsd"] },
   ];
 
   /** "#settings/fantasy" → { page: "settings", tab: "fantasy" }. Settings without a known tab opens General. */

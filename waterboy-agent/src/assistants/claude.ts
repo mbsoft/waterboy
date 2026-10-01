@@ -88,15 +88,23 @@ export class ClaudeAgentRunner implements AgentRunner {
     let sessionId: string | null = resume;
     let text = "";
     let costUsd: number | undefined;
+    let model: string | undefined;
+    let usage: AgentResponse["usage"];
     let denied: string[] = [];
     try {
       for await (const msg of query({ prompt: req.prompt, options })) {
         if (msg.type === "system" && msg.subtype === "init") {
           sessionId = msg.session_id;
+          model = msg.model;
           log(`[agent] session ${sessionId} (auth: ${msg.apiKeySource}, model: ${msg.model})`);
         } else if (msg.type === "result") {
           sessionId = msg.session_id ?? sessionId;
           costUsd = msg.total_cost_usd;
+          usage = { input: 0, output: 0 };
+          for (const u of Object.values(msg.modelUsage ?? {})) {
+            usage.input += u.inputTokens + u.cacheReadInputTokens + u.cacheCreationInputTokens;
+            usage.output += u.outputTokens;
+          }
           denied = (msg.permission_denials ?? []).map((d) => d.tool_name);
           if (msg.subtype === "success") text = msg.result;
           else {
@@ -109,6 +117,6 @@ export class ClaudeAgentRunner implements AgentRunner {
       clearTimeout(timer);
     }
     if (denied.length) log(`[agent] tools denied this turn: ${[...new Set(denied)].join(", ")}`);
-    return { text, sessionId, costUsd, denied };
+    return { text, sessionId, costUsd, model, usage, denied };
   }
 }

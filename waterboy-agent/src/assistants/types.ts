@@ -30,6 +30,10 @@ export interface AgentResponse {
   costUsd?: number;
   /** ChatGPT provider: tokens used this turn (there's no dollar cost on a ChatGPT plan). */
   tokens?: { input: number; cached: number; output: number };
+  /** The model that ran the turn, when the provider says (Claude reports it; ChatGPT only when one is set). */
+  model?: string;
+  /** Claude: tokens this turn across all models, cache reads and writes included in `input` (for the usage record). */
+  usage?: { input: number; output: number };
   denied?: string[];
 }
 

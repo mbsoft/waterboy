@@ -7,6 +7,17 @@ publishes it as the GitHub Release notes.
 
 ## [Unreleased]
 
+### Added
+- Usage on the Dashboard: today's, 7-day and 30-day API-equivalent cost and turns, a 30-day daily
+  bar chart, and breakdowns by model, top chats and kind (replies, automations, live alerts). With
+  ChatGPT it shows tokens, since ChatGPT reports no cost. Every turn is saved in `state.db` (kept 400 days).
+- An optional daily cost alert (Settings → Advanced, `usage.dailyCostAlertUsd`): when a day's cost
+  goes over it, the Dashboard shows a banner once that day and the log notes it. Nothing is texted.
+
+### Changed
+- `state.db` moves to schema version 3 (the `turns` table). Waterboy 0.3.x refuses to start on it;
+  to downgrade, restore `state.db` from before the upgrade.
+
 ## [0.3.0] - 2026-10-01
 
 ### Added

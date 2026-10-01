@@ -18,6 +18,11 @@ export interface ChatGptConfig {
   model: string | null;
 }
 
+export interface UsageConfig {
+  /** Log a warning (and show a Dashboard banner) once a day's API-equivalent cost reaches this (dollars, 0 or more); null = off. */
+  dailyCostAlertUsd: number | null;
+}
+
 export interface Config {
   provider: Provider;
   chatgpt: ChatGptConfig;
@@ -63,6 +68,7 @@ export interface Config {
    * while the agent was working (so it's clear who the answer is for); "always"; or "off".
    */
   threadedReplies: "auto" | "always" | "off";
+  usage: UsageConfig;
 }
 
 /** The data folder a config file points at, even when the file can't be loaded (best effort) */
@@ -111,6 +117,7 @@ const DEFAULTS: Config = {
   chatDbPath: "~/Library/Messages/chat.db",
   typingIndicators: true,
   threadedReplies: "auto",
+  usage: { dailyCostAlertUsd: null },
 };
 
 export const CONFIG_FILE = process.env.IMESSAGE_AGENT_CONFIG ?? "config.json";
@@ -135,7 +142,10 @@ export function loadConfig(file = CONFIG_FILE, { write = true }: { write?: boole
     ...raw,
     voice: { ...DEFAULTS.voice, ...(raw.voice ?? {}) },
     chatgpt: { ...DEFAULTS.chatgpt, ...(raw.chatgpt ?? {}) },
+    usage: { ...DEFAULTS.usage, ...(raw.usage ?? {}) },
   };
+  const alertUsd = cfg.usage.dailyCostAlertUsd;
+  if (alertUsd !== null && !(typeof alertUsd === "number" && alertUsd >= 0)) cfg.usage.dailyCostAlertUsd = null;
   if (!["auto", "always", "off"].includes(cfg.threadedReplies)) cfg.threadedReplies = "auto";
   if (cfg.provider !== "claude" && cfg.provider !== "chatgpt") {
     console.warn(`[config] unknown provider ${JSON.stringify(cfg.provider)}, using claude`);

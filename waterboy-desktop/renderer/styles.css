@@ -340,3 +340,22 @@ pre.errors { margin: 6px 0 0; padding: 10px 12px; border-radius: 8px; background
 .tab-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
 .tab-flag { display: inline-flex; }
 .tabpanel { display: flex; flex-direction: column; gap: 18px; }
+
+/* ---------- usage card (Dashboard) ---------- */
+
+.card-head .meta { color: var(--faint); font-size: 12px; margin-left: auto; }
+.usage-chart { margin-top: 16px; position: relative; }
+.usage-max { position: absolute; top: -7px; right: 0; color: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; background: var(--card); padding-left: 6px; }
+.usage-bars { display: flex; align-items: flex-end; gap: 2px; height: 84px; border-top: 1px dashed var(--divider); border-bottom: 1px solid var(--divider); padding-right: 0; }
+.usage-bar { flex: 1; height: 100%; display: flex; align-items: flex-end; }
+.usage-bar span { display: block; width: 100%; background: color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 3px 3px 0 0; }
+.usage-bar.today span { background: var(--accent); }
+.usage-bar:hover span { background: var(--accent-hover); }
+.usage-axis { display: flex; justify-content: space-between; color: var(--faint); font-size: 11px; margin-top: 4px; }
+.usage-breakdowns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--divider); }
+.usage-breakdown .lbl { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+.usage-row { display: grid; grid-template-columns: minmax(0, 1fr) 44px auto; align-items: center; gap: 8px; padding: 3px 0; }
+.usage-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usage-row .share { height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
+.usage-row .share span { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+.usage-row .val { font-variant-numeric: tabular-nums; text-align: right; min-width: 48px; }
