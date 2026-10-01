@@ -1123,6 +1123,8 @@ async function overview() {
 }
 
 module.exports = {
+  /** Every setting the app can change (keys of the saveSettings whitelist) */
+  SETTING_KEYS: Object.keys(SETTINGS),
   startupError,
   sendingReadiness,
   automationReadiness,

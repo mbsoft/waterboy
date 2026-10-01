@@ -1,4 +1,4 @@
-/* global ICONS */
+/* global ICONS, SETTINGS_TABS */
 (() => {
   const api = window.agent;
   const $ = (sel) => document.querySelector(sel);
@@ -159,7 +159,8 @@
     });
   }
 
-  const current = () => PAGES.find((p) => `#${p.id}` === location.hash) ?? PAGES[0];
+  // Routes are #page, or #settings/<tab> for a Settings tab.
+  const current = () => PAGES.find((p) => p.id === SETTINGS_TABS.parseRoute(location.hash).page) ?? PAGES[0];
 
   async function refreshOverview() {
     try {
@@ -418,7 +419,7 @@
   const linkTo = (page, label, iconName) => h("button", { class: "link", onclick: () => (location.hash = `#${page}`) }, icon(iconName, 16), label);
 
   RENDER.connections = async () => {
-    const c = await api.connections();
+    const [c, s] = await Promise.all([api.connections(), api.settings()]);
     const toolName = (t) => {
       const m = t.match(/^mcp__(.+?)__(.+)$/);
       if (!m) return { group: "Built-in", tool: t };
@@ -429,6 +430,7 @@
       { class: "page" },
       pageHead("Connections", "Tools and MCP servers the agent can use."),
       restartBanner(),
+      calendarCard(s),
       card(
         h("h3", {}, "Built-in tools"),
         h("p", { class: "desc" }, "Group chats only get fantasy football and the scheduler. Everything else is limited to 1:1 conversations."),
@@ -879,6 +881,7 @@
                   { class: "row log-row" },
                   h("span", { class: `dot ${e.kind}` }),
                   h("div", { class: "grow" }, h("div", { class: "title" }, e.title), h("div", { class: "sub selectable" }, e.detail)),
+                  e.link ? linkTo(e.link.to, e.link.label, "settings") : null,
                   h("span", { class: "meta" }, stamp(e.at)),
                 ),
               ),
@@ -900,7 +903,15 @@
   };
 
   RENDER.settings = async () => {
-    const [s, teams, plan] = await Promise.all([api.settings(), api.fantasyTeams().catch(() => []), api.alertPlan().catch(() => [])]);
+    const { TABS, parseRoute } = SETTINGS_TABS;
+    const tab = parseRoute(location.hash).tab;
+    // The sidebar's Settings link reopens the last tab this session; plain #settings links open General.
+    $('#nav a[data-page="settings"]').setAttribute("href", `#settings/${tab}`);
+    const [s, teams, plan] = await Promise.all([
+      api.settings(),
+      tab === "fantasy" ? api.fantasyTeams().catch(() => []) : [],
+      tab === "alerts" ? api.alertPlan().catch(() => []) : [],
+    ]);
     const save = async (patch, msg) => {
       await api.saveSettings(patch);
       saved(msg);
@@ -910,12 +921,15 @@
       if (old) old.replaceWith(b ?? document.createComment(""));
       else if (b) document.querySelector(".page-head").after(b);
     };
-    const textSetting = (key, value, attrs = {}) => {
-      const input = h("input", { type: "text", value, ...attrs });
+    // Every control carries data-setting=<key>, so a capture can check that each setting is on its tab.
+    const tagged = (el, key) => ((el.dataset.setting = key), el);
+    const textSetting = (key, value, attrs = {}, after) => {
+      const input = tagged(h("input", { type: "text", value, ...attrs }), key);
       const b = button("Save", async () => {
         await save({ [key]: input.value });
         b.disabled = true;
         value = input.value;
+        after?.();
       });
       b.disabled = true;
       input.addEventListener("input", () => (b.disabled = input.value === String(value)));
@@ -925,7 +939,7 @@
     // A number with a unit suffix ("5 %"), saved on Enter or the Save button.
     const numSetting = (key, value, unit, attrs = {}) => {
       let saved0 = String(value);
-      const input = h("input", { type: "text", value: saved0, style: "max-width:70px", ...attrs });
+      const input = tagged(h("input", { type: "text", value: saved0, style: "max-width:70px", ...attrs }), key);
       const b = button("Save", async () => {
         await save({ [key]: Number(input.value) });
         saved0 = input.value;
@@ -937,96 +951,222 @@
       input.addEventListener("keydown", (e) => e.key === "Enter" && !b.disabled && b.click());
       return h("div", { class: "inline" }, input, h("span", { class: "unit" }, unit), b);
     };
-    const models = [
-      ["", "Claude Code default"],
-      ["claude-opus-5-5", "Claude Opus 5.5"],
-      ["claude-sonnet-5-5", "Claude Sonnet 5.5"],
-      ["claude-fable-5-1", "Claude Fable 5.1"],
-      ["claude-haiku-4-5", "Claude Haiku 4.5"],
-    ];
-    const model = h("select", {}, models.map(([v, l]) => h("option", { value: v }, l)));
-    if (s.model && !models.some(([v]) => v === s.model)) model.append(h("option", { value: s.model }, s.model));
-    model.value = s.model ?? "";
-    model.addEventListener("change", () => save({ model: model.value || null }, "Model saved").catch((e) => toast(e.message, true)));
+    // A labelled on/off setting: the toggle plus its one-line description.
+    const toggleSetting = (key, on, label, text, after) =>
+      h("span", { class: "toggle-label" }, tagged(toggle(on, async (v) => {
+        await save({ [key]: v });
+        after?.();
+      }, label), key), text);
+    const selectSetting = (key, options, value, attrs = {}, msg) => {
+      const sel = tagged(h("select", attrs, options.map(([v, l]) => h("option", { value: v }, l))), key);
+      if (value && !options.some(([v]) => v === value)) sel.append(h("option", { value }, value));
+      sel.value = value ?? "";
+      sel.addEventListener("change", () => save({ [key]: sel.value || null }, msg).catch((e) => toast(e.message, true)));
+      return sel;
+    };
 
-    // ChatGPT: the plan's models come from Codex's model list (known after the first reply).
-    const g = s.chatgpt;
-    const gptModels = [["", "ChatGPT plan default"], ...g.models.map((m) => [m.id, m.name])];
-    const gptModel = h("select", {}, gptModels.map(([v, l]) => h("option", { value: v }, l)));
-    if (g.model && !gptModels.some(([v]) => v === g.model)) gptModel.append(h("option", { value: g.model }, g.model));
-    gptModel.value = g.model ?? "";
-    gptModel.addEventListener("change", () => save({ "chatgpt.model": gptModel.value || null }, "Model saved").catch((e) => toast(e.message, true)));
-
-    const provider = h("select", { "aria-label": "Assistant" }, h("option", { value: "claude" }, "Claude"), h("option", { value: "chatgpt" }, "ChatGPT"));
-    provider.value = s.provider;
-    provider.addEventListener("change", async () => {
-      try {
-        await save({ provider: provider.value }, `Assistant set to ${provider.selectedOptions[0].text}`);
-        render();
-      } catch (e) {
-        toast(e.message, true);
+    const panel = {
+      general: () => {
+        const models = [
+          ["", "Claude Code default"],
+          ["claude-opus-5-5", "Claude Opus 5.5"],
+          ["claude-sonnet-5-5", "Claude Sonnet 5.5"],
+          ["claude-fable-5-1", "Claude Fable 5.1"],
+          ["claude-haiku-4-5", "Claude Haiku 4.5"],
+        ];
+        // ChatGPT: the plan's models come from Codex's model list (known after the first reply).
+        const g = s.chatgpt;
+        const provider = tagged(h("select", { "aria-label": "Assistant" }, h("option", { value: "claude" }, "Claude"), h("option", { value: "chatgpt" }, "ChatGPT")), "provider");
         provider.value = s.provider;
-      }
-    });
-    const planLabel = (p) => ({ free: "Free", go: "Go", plus: "Plus", pro: "Pro", team: "Business", business: "Business", edu: "Edu", enterprise: "Enterprise" })[p] ?? p;
-    const account = g.signedIn
-      ? h("div", { class: "inline" },
-          h("span", { class: "toggle-label" }, icon("check", 16), `Signed in${g.plan ? ` · ${planLabel(g.plan)} plan` : ""}`),
-          button("Sign out", async () => {
-            await api.chatgptSignOut();
-            toast("Signed out of ChatGPT");
+        provider.addEventListener("change", async () => {
+          try {
+            await save({ provider: provider.value }, `Assistant set to ${provider.selectedOptions[0].text}`);
             render();
-          }))
-      : h("div", { class: "inline" },
-          h("span", { class: "toggle-label", style: "color:var(--warn)" }, icon("alert", 16), "Not signed in"),
-          button("Sign in with ChatGPT", async (b) => {
-            b.textContent = "Finish signing in in your browser…";
-            try {
-              const acct = await api.chatgptSignIn();
-              toast(`Signed in to ChatGPT${acct.plan ? ` (${planLabel(acct.plan)} plan)` : ""}`);
-            } finally {
-              render();
-            }
-          }, { primary: true }));
-    const assistantRows =
-      s.provider === "chatgpt"
-        ? [
-            h("label", {}, "ChatGPT account"), account,
-            h("div", { class: "hint" }, "Opens your browser. Waterboy keeps its own ChatGPT sign-in, separate from the ChatGPT and Codex apps. Replies count toward your ChatGPT plan's limits; Free and Go have the smallest, and busy group chats can run into them."),
-            h("label", {}, "Model"), gptModel,
-            h("div", { class: "hint" }, g.models.length ? "Models available on your ChatGPT plan." : "More models appear here after the first reply."),
-          ]
-        : [h("label", {}, "Model"), model, h("div", { class: "hint" }, "Uses your Claude Code sign-in.")];
-
-    const f = s.fantasy;
-    let fantasyCard = null;
-    let alertsCard = null;
-    if (f) {
-      const mine = h("select", {}, h("option", { value: "" }, "Not set"), teams.map((t) => h("option", { value: t.id }, t.name)));
-      mine.value = f.myTeamId ?? "";
-      mine.addEventListener("change", () => save({ "fantasy.myTeamId": mine.value }).catch((e) => toast(e.message, true)));
-      fantasyCard = card(
-        h("h3", {}, "Fantasy football"),
-        h("div", { class: "form" },
-          h("label", {}, "ESPN league ID"), textSetting("fantasy.espnLeagueId", f.espnLeagueId, { class: "mono", style: "max-width:200px" }),
-          h("label", {}, "Default team"), mine,
-          h("div", { class: "hint" }, 'Used for "my team" when the person asking has no team set in Conversations.'),
-          h("label", {}, "Sleeper data"), h("span", { class: "toggle-label" }, toggle(f.sleeper, (on) => save({ "fantasy.sleeper": on }), "Sleeper data"), "Second-opinion projections and trending players"),
-          h("label", {}, "NFL usage stats"), h("span", { class: "toggle-label" }, toggle(f.nflverse, (on) => save({ "fantasy.nflverse": on }), "NFL usage stats"), "Snap %, targets, expected points and injury reports from nflverse"),
-          h("div", { class: "hint" },
-            f.nflverseUpdatedAt
-              ? `Downloaded from GitHub about once a day. Last updated ${relTime(f.nflverseUpdatedAt)}.`
-              : f.nflverse ? "Downloads from GitHub about once a day, starting the next time the agent starts." : "Off. The agent won't download or use nflverse data."),
-          h("label", {}, "Betting lines"), h("span", { class: "toggle-label" }, toggle(f.vegas, (on) => save({ "fantasy.vegas": on }), "Betting lines"), "Spreads, implied team points and weather in previews and answers"),
-          h("label", {}, "Expert rankings"), h("span", { class: "toggle-label" }, toggle(f.rankings, (on) => save({ "fantasy.rankings": on }), "Expert rankings"), "FantasyPros consensus rankings for start/sit questions"),
-          h("label", {}, "Trade values"), h("span", { class: "toggle-label" }, toggle(f.tradeValues, (on) => save({ "fantasy.tradeValues": on }), "Trade values"), "FantasyCalc values for \"is this trade fair?\""),
-          h("label", {}, "Start/sit cards"), h("span", { class: "toggle-label" }, toggle(f.startSitCards, (on) => save({ "fantasy.startSitCards": on }), "Start/sit cards"), "Send a comparison image with \u201cwho should I start?\u201d answers"),
-          h("label", {}, "Trade cards"), h("span", { class: "toggle-label" }, toggle(f.tradeCards, (on) => save({ "fantasy.tradeCards": on }), "Trade cards"), "Send a trade analysis image with trade evaluations"),
-          h("label", {}, "Comparison cards"), h("span", { class: "toggle-label" }, toggle(f.compareCards, (on) => save({ "fantasy.compareCards": on }), "Comparison cards"), "Send a season comparison image when comparing two players"),
-          h("label", {}, "Dynasty league"), h("span", { class: "toggle-label" }, toggle(f.dynasty, (on) => save({ "fantasy.dynasty": on }), "Dynasty league"), "Value players for future seasons too (trade values)"),
+          } catch (e) {
+            toast(e.message, true);
+            provider.value = s.provider;
+          }
+        });
+        const planLabel = (p) => ({ free: "Free", go: "Go", plus: "Plus", pro: "Pro", team: "Business", business: "Business", edu: "Edu", enterprise: "Enterprise" })[p] ?? p;
+        const account = g.signedIn
+          ? h("div", { class: "inline" },
+              h("span", { class: "toggle-label" }, icon("check", 16), `Signed in${g.plan ? ` · ${planLabel(g.plan)} plan` : ""}`),
+              button("Sign out", async () => {
+                await api.chatgptSignOut();
+                toast("Signed out of ChatGPT");
+                render();
+              }))
+          : h("div", { class: "inline" },
+              h("span", { class: "toggle-label", style: "color:var(--warn)" }, icon("alert", 16), "Not signed in"),
+              button("Sign in with ChatGPT", async (b) => {
+                b.textContent = "Finish signing in in your browser…";
+                try {
+                  const acct = await api.chatgptSignIn();
+                  toast(`Signed in to ChatGPT${acct.plan ? ` (${planLabel(acct.plan)} plan)` : ""}`);
+                } finally {
+                  render();
+                }
+              }, { primary: true }));
+        const assistantRows =
+          s.provider === "chatgpt"
+            ? [
+                h("label", {}, "ChatGPT account"), account,
+                h("div", { class: "hint" }, "Opens your browser. Waterboy keeps its own ChatGPT sign-in, separate from the ChatGPT and Codex apps. Replies count toward your ChatGPT plan's limits; Free and Go have the smallest, and busy group chats can run into them."),
+                h("label", {}, "Model"), selectSetting("chatgpt.model", [["", "ChatGPT plan default"], ...g.models.map((m) => [m.id, m.name])], g.model, {}, "Model saved"),
+                h("div", { class: "hint" }, g.models.length ? "Models available on your ChatGPT plan." : "More models appear here after the first reply."),
+              ]
+            : [h("label", {}, "Model"), selectSetting("model", models, s.model, {}, "Model saved"), h("div", { class: "hint" }, "Uses your Claude Code sign-in.")];
+        return [
+          card(
+            h("h3", {}, "Assistant"),
+            h("div", { class: "form" },
+              h("label", {}, "Name"), textSetting("agentName", s.agentName),
+              h("div", { class: "hint" }, "What the agent calls itself in replies."),
+              h("label", {}, "Assistant"), provider,
+              h("div", { class: "hint" }, "Who writes the replies. Switching starts fresh conversations (memory is kept). Changes apply after a restart."),
+              ...assistantRows,
+            ),
+          ),
+          // One release of pointing the way: Google Calendar used to be on this page.
+          h("p", { class: "note", style: "margin:0 4px" }, "Google Calendar access is now under ", h("button", { class: "link", onclick: () => (location.hash = "#connections") }, "Connections"), "."),
+        ];
+      },
+      conversations: () => [
+        card(
+          h("h3", {}, "Group chats"),
+          h("div", { class: "form" },
+            h("label", {}, "Wake words"), textSetting("groupTriggers", s.groupTriggers.join(", ")),
+            h("div", { class: "hint" }, "Comma-separated. The agent replies in groups when a message contains one of these."),
+            h("label", {}, "Reply to everything"), toggleSetting("respondToAllInGroups", s.respondToAllInGroups, "Reply to every group message", "Answer every group message, not only mentions"),
+          ),
         ),
+        card(
+          h("h3", {}, "Messages"),
+          h("div", { class: "form" },
+            h("label", {}, "Transcribe"), toggleSetting("voice.enabled", s.voice.enabled, "Transcribe voice messages", "Transcribe incoming voice messages on this Mac"),
+            h("div", { class: "hint" }, "Uses whisper.cpp locally. Nothing is uploaded."),
+            h("label", {}, "Typing indicator"), toggleSetting("typingIndicators", s.typingIndicators, "Typing indicator", "Show “typing…” in the chat while a reply is being written"),
+            h("div", { class: "hint" }, "Needs Accessibility access for Waterboy (System Settings → Privacy & Security → Accessibility). Uses a hidden second copy of Messages; one chat shows typing at a time."),
+            h("label", {}, "Threaded replies"),
+            selectSetting("threadedReplies", [["auto", "When the chat has moved on"], ["always", "Always"], ["off", "Never"]], s.threadedReplies, { "aria-label": "Threaded replies in group chats" }, "Threaded replies saved"),
+            h("div", { class: "hint" }, "In group chats, answer as a reply to the message that asked, so it's clear who it's for. Messages that only need a thumbs-up or a laugh get a tapback instead of a text. Both use the same helper and Accessibility access as the typing indicator."),
+          ),
+        ),
+      ],
+      fantasy: () => {
+        const f = s.fantasy;
+        if (!f) return [noLeague()];
+        const mine = selectSetting("fantasy.myTeamId", [["", "Not set"], ...teams.map((t) => [String(t.id), t.name])], f.myTeamId == null ? "" : String(f.myTeamId), { "aria-label": "Default team" });
+        return [
+          card(
+            h("h3", {}, "League"),
+            h("div", { class: "form" },
+              h("label", {}, "ESPN league ID"), textSetting("fantasy.espnLeagueId", f.espnLeagueId, { class: "mono", style: "max-width:200px" }, () => render()),
+              h("label", {}, "Default team"), mine,
+              h("div", { class: "hint" }, 'Used for "my team" when the person asking has no team set in Conversations.'),
+              h("label", {}, "Dynasty league"), toggleSetting("fantasy.dynasty", f.dynasty, "Dynasty league", "Value players for future seasons too (trade values)"),
+            ),
+          ),
+          card(
+            h("h3", {}, "Data sources"),
+            h("div", { class: "form" },
+              h("label", {}, "Sleeper data"), toggleSetting("fantasy.sleeper", f.sleeper, "Sleeper data", "Second-opinion projections and trending players"),
+              h("label", {}, "NFL usage stats"), toggleSetting("fantasy.nflverse", f.nflverse, "NFL usage stats", "Snap %, targets, expected points and injury reports from nflverse"),
+              h("div", { class: "hint" },
+                f.nflverseUpdatedAt
+                  ? `Downloaded from GitHub about once a day. Last updated ${relTime(f.nflverseUpdatedAt)}.`
+                  : f.nflverse ? "Downloads from GitHub about once a day, starting the next time the agent starts." : "Off. The agent won't download or use nflverse data."),
+              h("label", {}, "Betting lines"), toggleSetting("fantasy.vegas", f.vegas, "Betting lines", "Spreads, implied team points and weather in previews and answers"),
+              h("label", {}, "Expert rankings"), toggleSetting("fantasy.rankings", f.rankings, "Expert rankings", "FantasyPros consensus rankings for start/sit questions"),
+              h("label", {}, "Trade values"), toggleSetting("fantasy.tradeValues", f.tradeValues, "Trade values", "FantasyCalc values for \"is this trade fair?\""),
+            ),
+          ),
+          card(
+            h("h3", {}, "Image cards"),
+            h("div", { class: "form" },
+              h("label", {}, "Start/sit cards"), toggleSetting("fantasy.startSitCards", f.startSitCards, "Start/sit cards", "Send a comparison image with “who should I start?” answers"),
+              h("label", {}, "Trade cards"), toggleSetting("fantasy.tradeCards", f.tradeCards, "Trade cards", "Send a trade analysis image with trade evaluations"),
+              h("label", {}, "Comparison cards"), toggleSetting("fantasy.compareCards", f.compareCards, "Comparison cards", "Send a season comparison image when comparing two players"),
+            ),
+          ),
+        ];
+      },
+      alerts: () => (s.fantasy ? [liveAlertsCard(s.fantasy.liveAlerts, plan, save, numSetting, tagged)] : [noLeague()]),
+      advanced: () => [
+        card(
+          h("h3", {}, "Limits and safety"),
+          h("div", { class: "form" },
+            h("label", {}, "Max steps per reply"), textSetting("maxTurns", String(s.maxTurns), { style: "max-width:90px" }),
+            s.provider === "chatgpt" ? h("div", { class: "hint" }, "Claude only. ChatGPT replies are limited by the reply timeout.") : null,
+            h("label", {}, "Reply timeout (min)"), (() => {
+              let minutes = String(Math.round(s.turnTimeoutMs / 60000));
+              const input = tagged(h("input", { type: "text", value: minutes, style: "max-width:90px" }), "turnTimeoutMs");
+              const b = button("Save", async () => {
+                await save({ turnTimeoutMs: Number(input.value) * 60000 });
+                minutes = input.value;
+                b.disabled = true;
+              });
+              b.disabled = true;
+              input.addEventListener("input", () => (b.disabled = input.value === minutes || !(Number(input.value) > 0)));
+              input.addEventListener("keydown", (e) => e.key === "Enter" && !b.disabled && b.click());
+              return h("div", { class: "inline" }, input, b);
+            })(),
+            // Re-render so the tab's warning follows the switch.
+            h("label", {}, "Shell commands"), toggleSetting("allowBash", s.allowBash, "Allow shell commands", "Let the agent run commands on this Mac", () => render()),
+            h("div", { class: "hint", style: s.allowBash ? "color:var(--warn)" : "" },
+              s.provider === "chatgpt"
+                ? "Anyone in an allowed 1:1 conversation could then run commands here. With ChatGPT they run in a sandbox that can read this Mac but only write to the chat folder, without network access. Leave off unless you need it."
+                : "Anyone in an allowed 1:1 conversation could then run commands here. Leave off unless you need it."),
+          ),
+        ),
+      ],
+    };
+
+    // Fantasy and Live alerts without a league: say so and offer the setup step, rather than an empty tab.
+    function noLeague() {
+      return card(
+        h("h3", {}, "No fantasy league yet"),
+        h("p", { class: "desc" }, "Connect your ESPN league to get start/sit, trade and matchup answers, image cards and live scoring alerts."),
+        button("Set up your league", () => {
+          setupStep(3);
+          location.hash = "#setup";
+        }, { primary: true }),
       );
-      alertsCard = liveAlertsCard(f.liveAlerts, plan, save, numSetting);
+    }
+
+    // Tabs: a ⚠ on Advanced while shell commands are on, a dot on Fantasy while there's no league.
+    const flag = (id) =>
+      id === "advanced" && s.allowBash
+        ? h("span", { class: "tab-flag bad-icon", role: "img", "aria-label": "Shell commands are on", title: "Shell commands are on" }, icon("alert", 12))
+        : id === "fantasy" && !s.fantasy?.espnLeagueId
+          ? h("span", { class: "tab-dot", role: "img", "aria-label": "No league set", title: "No league set" })
+          : null;
+    const goTab = (id) => {
+      if (id !== tab) location.hash = `#settings/${id}`;
+    };
+    const tabs = h("div", { class: "segmented tabs", role: "tablist", "aria-label": "Settings sections" },
+      TABS.map((t) =>
+        h("button", {
+          role: "tab",
+          id: `settings-tab-${t.id}`,
+          class: t.id === tab ? "on" : "",
+          "aria-selected": t.id === tab ? "true" : "false",
+          "aria-controls": "settings-panel",
+          tabindex: t.id === tab ? "0" : "-1",
+          onclick: () => goTab(t.id),
+        }, t.label, flag(t.id))));
+    // Arrow keys, Home and End move between tabs (and open them), keeping focus on the tab bar.
+    tabs.addEventListener("keydown", (e) => {
+      const i = TABS.findIndex((t) => t.id === tab);
+      const to = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: TABS.length - 1 }[e.key];
+      if (to === undefined) return;
+      e.preventDefault();
+      state.focusSettingsTab = true;
+      goTab(TABS[(to + TABS.length) % TABS.length].id);
+    });
+    if (state.focusSettingsTab) {
+      state.focusSettingsTab = false;
+      setTimeout(() => $(`#settings-tab-${tab}`)?.focus());
     }
 
     return h(
@@ -1034,117 +1174,59 @@
       { class: "page" },
       pageHead("Settings", "Choose how the agent behaves on this Mac."),
       restartBanner(),
-      card(
-        h("h3", {}, "Assistant"),
-        h("div", { class: "form" },
-          h("label", {}, "Name"), textSetting("agentName", s.agentName),
-          h("div", { class: "hint" }, "What the agent calls itself in replies."),
-          h("label", {}, "Assistant"), provider,
-          h("div", { class: "hint" }, "Who writes the replies. Switching starts fresh conversations (memory is kept). Changes apply after a restart."),
-          ...assistantRows,
-        ),
-      ),
-      card(
-        h("h3", {}, "Group chats"),
-        h("div", { class: "form" },
-          h("label", {}, "Wake words"), textSetting("groupTriggers", s.groupTriggers.join(", ")),
-          h("div", { class: "hint" }, "Comma-separated. The agent replies in groups when a message contains one of these."),
-          h("label", {}, "Reply to everything"), h("span", { class: "toggle-label" }, toggle(s.respondToAllInGroups, (on) => save({ respondToAllInGroups: on }), "Reply to every group message"), "Answer every group message, not only mentions"),
-        ),
-      ),
-      card(
-        h("h3", {}, "Google Calendar"),
-        (() => {
-          const level = h("select", { "aria-label": "Google Calendar access" },
-            h("option", { value: "off" }, "Off"),
-            h("option", { value: "read" }, "Read only"),
-            h("option", { value: "full" }, "Read and edit"));
-          level.value = s.connectors.googleCalendar;
-          level.disabled = s.provider === "chatgpt";
-          const hint = h("div", { class: "hint" });
-          const describe = () => {
-            if (s.provider === "chatgpt") return (hint.textContent = "");
-            hint.textContent = {
-              off: "The agent can't see your calendar.",
-              read: "The agent can check your schedule, find events and suggest free times.",
-              full: "The agent can also create, change and delete events and respond to invites. Anyone with Everything access can ask it to.",
-            }[level.value];
-            hint.style.color = level.value === "full" ? "var(--warn)" : "";
-          };
-          describe();
-          level.addEventListener("change", async () => {
-            try {
-              await api.setConnector("googleCalendar", level.value);
-              describe();
-              saved(`Google Calendar: ${level.selectedOptions[0].text.toLowerCase()}`);
-              await refreshOverview();
-            } catch (e) {
-              toast(e.message, true);
-            }
-          });
-          return h("div", { class: "form" },
-            h("label", {}, "Access"), level, describe && hint,
-            h("p", { class: "note full", style: "margin:0" },
-              s.provider === "chatgpt"
-                ? "Only available with Claude as the assistant: it uses the Google Calendar connector on your Claude account."
-                : "Uses the Google Calendar connector on your Claude account (claude.ai → Settings → Connectors) and only works in 1:1 chats with Everything access. Group chats and fantasy-only people never get it."),
-          );
-        })(),
-      ),
-      card(
-        h("h3", {}, "Messages"),
-        h("div", { class: "form" },
-          h("label", {}, "Transcribe"), h("span", { class: "toggle-label" }, toggle(s.voice.enabled, (on) => save({ "voice.enabled": on }), "Transcribe voice messages"), "Transcribe incoming voice messages on this Mac"),
-          h("div", { class: "hint" }, "Uses whisper.cpp locally. Nothing is uploaded."),
-          h("label", {}, "Typing indicator"), h("span", { class: "toggle-label" }, toggle(s.typingIndicators, (on) => save({ typingIndicators: on }), "Typing indicator"), "Show \u201ctyping\u2026\u201d in the chat while a reply is being written"),
-          h("div", { class: "hint" }, "Needs Accessibility access for Waterboy (System Settings → Privacy & Security → Accessibility). Uses a hidden second copy of Messages; one chat shows typing at a time."),
-          h("label", {}, "Threaded replies"), (() => {
-            const sel = h("select", { "aria-label": "Threaded replies in group chats" },
-              h("option", { value: "auto" }, "When the chat has moved on"),
-              h("option", { value: "always" }, "Always"),
-              h("option", { value: "off" }, "Never"));
-            sel.value = s.threadedReplies;
-            sel.addEventListener("change", () => save({ threadedReplies: sel.value }, "Threaded replies saved").catch((e) => toast(e.message, true)));
-            return sel;
-          })(),
-          h("div", { class: "hint" }, "In group chats, answer as a reply to the message that asked, so it's clear who it's for. Messages that only need a thumbs-up or a laugh get a tapback instead of a text. Both use the same helper and Accessibility access as the typing indicator."),
-        ),
-      ),
-      card(
-        h("h3", {}, "Limits and safety"),
-        h("div", { class: "form" },
-          h("label", {}, "Max steps per reply"), textSetting("maxTurns", String(s.maxTurns), { style: "max-width:90px" }),
-          s.provider === "chatgpt" ? h("div", { class: "hint" }, "Claude only. ChatGPT replies are limited by the reply timeout.") : null,
-          h("label", {}, "Reply timeout (min)"), (() => {
-            let minutes = String(Math.round(s.turnTimeoutMs / 60000));
-            const input = h("input", { type: "text", value: minutes, style: "max-width:90px" });
-            const b = button("Save", async () => {
-              await save({ turnTimeoutMs: Number(input.value) * 60000 });
-              minutes = input.value;
-              b.disabled = true;
-            });
-            b.disabled = true;
-            input.addEventListener("input", () => (b.disabled = input.value === minutes || !(Number(input.value) > 0)));
-            return h("div", { class: "inline" }, input, b);
-          })(),
-          h("label", {}, "Shell commands"), h("span", { class: "toggle-label" }, toggle(s.allowBash, (on) => save({ allowBash: on }), "Allow shell commands"), "Let the agent run commands on this Mac"),
-          h("div", { class: "hint", style: s.allowBash ? "color:var(--warn)" : "" },
-            s.provider === "chatgpt"
-              ? "Anyone in an allowed 1:1 conversation could then run commands here. With ChatGPT they run in a sandbox that can read this Mac but only write to the chat folder, without network access. Leave off unless you need it."
-              : "Anyone in an allowed 1:1 conversation could then run commands here. Leave off unless you need it."),
-        ),
-      ),
-      fantasyCard,
-      alertsCard,
+      tabs,
+      h("div", { class: "tabpanel", role: "tabpanel", id: "settings-panel", "aria-labelledby": `settings-tab-${tab}` }, panel[tab]()),
     );
   };
+
+  /** Google Calendar access (claude.ai connector tools in extraAllowedTools); on the Connections page. */
+  function calendarCard(s) {
+    const level = h("select", { "aria-label": "Google Calendar access" },
+      h("option", { value: "off" }, "Off"),
+      h("option", { value: "read" }, "Read only"),
+      h("option", { value: "full" }, "Read and edit"));
+    level.value = s.connectors.googleCalendar;
+    level.disabled = s.provider === "chatgpt";
+    const hint = h("div", { class: "hint" });
+    const describe = () => {
+      if (s.provider === "chatgpt") return (hint.textContent = "");
+      hint.textContent = {
+        off: "The agent can't see your calendar.",
+        read: "The agent can check your schedule, find events and suggest free times.",
+        full: "The agent can also create, change and delete events and respond to invites. Anyone with Everything access can ask it to.",
+      }[level.value];
+      hint.style.color = level.value === "full" ? "var(--warn)" : "";
+    };
+    describe();
+    level.addEventListener("change", async () => {
+      try {
+        await api.setConnector("googleCalendar", level.value);
+        describe();
+        saved(`Google Calendar: ${level.selectedOptions[0].text.toLowerCase()}`);
+        await refreshOverview();
+        render(); // the extra allowed tools below change with it
+      } catch (e) {
+        toast(e.message, true);
+      }
+    });
+    return card(
+      h("h3", {}, "Google Calendar"),
+      h("div", { class: "form" },
+        h("label", {}, "Access"), level, hint,
+        h("p", { class: "note full", style: "margin:0" },
+          s.provider === "chatgpt"
+            ? "Only available with Claude as the assistant: it uses the Google Calendar connector on your Claude account."
+            : "Uses the Google Calendar connector on your Claude account (claude.ai → Settings → Connectors) and only works in 1:1 chats with Everything access. Group chats and fantasy-only people never get it."),
+      ),
+    );
+  }
 
   /**
    * Live scoring alerts (fantasy.liveAlerts in the service config). Only people with a fantasy
    * team can subscribe: the alert watches their own matchup, so without a team there is nothing
    * to watch. Everything below the master toggle is disabled while alerts are off.
    */
-  function liveAlertsCard(a, plan, save, numSetting) {
+  function liveAlertsCard(a, plan, save, numSetting, tagged) {
     // Subscribing is only half of it: each person also needs an automation in their own chat,
     // which is what actually runs the check. Flag anyone subscribed without one.
     const byHandle = new Map(plan.map((p) => [p.handle, p]));
@@ -1217,10 +1299,10 @@
     return card(
       h("div", { class: "card-head" },
         h("h3", {}, "Live scoring alerts"),
-        h("span", { class: "toggle-label" }, toggle(a.enabled, async (on) => {
+        h("span", { class: "toggle-label" }, tagged(toggle(a.enabled, async (on) => {
           await save({ "fantasy.liveAlerts.enabled": on });
           render();
-        }, "Live scoring alerts"), a.enabled ? "On" : "Off"),
+        }, "Live scoring alerts"), "fantasy.liveAlerts.enabled"), a.enabled ? "On" : "Off"),
       ),
       h("p", { class: "desc" }, "While games are being played, Waterboy watches each subscriber's matchup and texts them when the projected score swings. The message is written by Waterboy itself, so it costs nothing per alert."),
       body,
