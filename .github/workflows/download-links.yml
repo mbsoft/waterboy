@@ -1,32 +1,67 @@
-# After a release is published, check that the README's download links resolve to it:
-# releases/latest/download/Waterboy-arm64.dmg and -x64.dmg (unversioned copies uploaded by release.yml).
-# Prereleases don't count as "latest", so they're skipped.
+# When a signed release is published, point the README's download links at it and check them:
+#   1. scripts/readme-links.mjs rewrites the README's download-links block to that release's DMGs
+#      (versioned URLs, so the README shows the version), and the change is committed to main.
+#   2. Both DMGs and SHA256SUMS.txt must download from that release, and the unversioned
+#      releases/latest/download/Waterboy-<arch>.dmg links (uploaded by release.yml) must resolve to it.
+# Prereleases (vX.Y.Z-beta.N) are skipped: the README only advertises stable releases.
+# Run it by hand with a tag to redo the README for that release.
 name: Download links
 
 on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to link to (e.g. v0.3.0)
+        required: true
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: download-links
 
 jobs:
-  check:
+  readme:
     if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
     steps:
-      - name: README download links point at the latest release
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: The release's downloads exist
+        run: |
+          v=${TAG#v}
+          for asset in "Waterboy-$v-arm64.dmg" "Waterboy-$v-x64.dmg" SHA256SUMS.txt; do
+            url="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$asset"
+            curl -fsSIL -o /dev/null "$url" || { echo "::error::$url doesn't download"; exit 1; }
+            echo "ok $url"
+          done
+      - name: Point the README at the release
+        run: |
+          node scripts/readme-links.mjs "$TAG"
+          if git diff --quiet README.md; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "README: download links for $TAG" README.md
+          git push origin HEAD:main
+      - name: The latest/download links resolve to it
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           latest=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q .tagName)
-          echo "Latest release: $latest"
-          for asset in Waterboy-arm64.dmg Waterboy-x64.dmg SHA256SUMS.txt; do
+          if [ "$latest" != "$TAG" ]; then echo "Latest release is $latest, not $TAG; skipping."; exit 0; fi
+          for asset in Waterboy-arm64.dmg Waterboy-x64.dmg; do
             url="https://github.com/$GITHUB_REPOSITORY/releases/latest/download/$asset"
             # The first redirect names the release it resolves to; following it all the way checks the file exists.
             target=$(curl -fsSI "$url" | tr -d '\r' | awk 'tolower($1) == "location:" { print $2 }')
             curl -fsSIL -o /dev/null "$url" || { echo "::error::$url doesn't resolve to a file"; exit 1; }
             echo "$asset -> $target"
-            [[ "$target" == *"/download/$latest/$asset" ]] || { echo "::error::$url points at $target, not $latest"; exit 1; }
+            [[ "$target" == *"/download/$TAG/$asset" ]] || { echo "::error::$url points at $target, not $TAG"; exit 1; }
           done

@@ -1,5 +1,7 @@
 # Waterboy
 
+[![Latest release](https://img.shields.io/github/v/release/mbsoft/waterboy?label=latest&sort=semver)](https://github.com/mbsoft/waterboy/releases/latest)
+
 A Fantasy Football assistant you text over iMessage, running on your Mac, with Claude or ChatGPT writing the replies.
 
 Everything runs locally. Waterboy watches the Messages database, runs each conversation through the
@@ -147,10 +149,11 @@ Needs macOS 12 or later (typing indicators need macOS 13), and either a Claude P
 ChatGPT account (the Free plan works) for the assistant.
 
 1. **Download** the latest version:
-   - **[Apple silicon (M1 and later)](https://github.com/mbsoft/waterboy/releases/latest/download/Waterboy-arm64.dmg)**
-   - **[Intel](https://github.com/mbsoft/waterboy/releases/latest/download/Waterboy-x64.dmg)**
+   <!-- download-links:start -->
+   - **[Download the latest release](https://github.com/mbsoft/waterboy/releases/latest)**: `arm64` for Apple silicon, `x64` for Intel
+   <!-- download-links:end -->
 
-   Not sure which? Apple menu → About This Mac → Chip. Older versions, betas and release notes are on
+   These links are updated automatically each time a release is published. Not sure which? Apple menu → About This Mac → Chip. Older versions, betas and release notes are on
    [GitHub Releases](https://github.com/mbsoft/waterboy/releases).
 2. **Check the download (optional).** `shasum -a 256 ~/Downloads/Waterboy-*.dmg` should print the
    same hash as that file's line in the release's
