@@ -80,12 +80,16 @@ jobs:
       - name: Stage the service
         working-directory: waterboy-desktop
         run: npm run stage-agent
+      # zip (not dir): only the updatable targets write app-update.yml and latest-mac.yml.
       - name: Build the unsigned app (arm64 + x64)
         working-directory: waterboy-desktop
-        run: npx electron-builder --mac dir --arm64 --x64 --publish never -c.mac.identity=null -c.mac.notarize=false
+        run: npx electron-builder --mac zip --arm64 --x64 --publish never -c.mac.identity=null -c.mac.notarize=false
       - name: Smoke test the bundled service
         working-directory: waterboy-desktop
         run: |
+          set -x
+          test -f dist/latest-mac.yml
+          grep -q 'arm64.zip' dist/latest-mac.yml && grep -q 'x64.zip' dist/latest-mac.yml
           for app in dist/mac*/Waterboy.app; do
             agent="$app/Contents/Resources/agent"
             test -x "$agent/run.sh" && test -f "$agent/index.mjs" && test -f "$agent/mcpServer.mjs"
