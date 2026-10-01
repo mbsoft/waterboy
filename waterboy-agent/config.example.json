@@ -22,7 +22,7 @@
   "outboxStagingDir": "~/Pictures/imessage-agent-outbox",
   "pollIntervalMs": 1500,
 
-  "model": null,
+  "model": "claude-sonnet-5-5",
   "allowBash": false,
   "extraAllowedTools": [],
   "mcpServers": {},

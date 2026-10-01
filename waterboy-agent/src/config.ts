@@ -142,6 +142,8 @@ export function loadConfig(file = CONFIG_FILE, { write = true }: { write?: boole
     cfg.provider = "claude";
   }
   if (process.env.IMESSAGE_AGENT_DRY_RUN === "1") cfg.dryRun = true;
+  // Test runs (npm run repl / start:dry) pin a model here without touching config.json
+  if (process.env.WATERBOY_MODEL) cfg.model = process.env.WATERBOY_MODEL;
   cfg.dataDir = expandHome(cfg.dataDir);
   cfg.outboxStagingDir = expandHome(cfg.outboxStagingDir);
   cfg.chatDbPath = expandHome(cfg.chatDbPath);

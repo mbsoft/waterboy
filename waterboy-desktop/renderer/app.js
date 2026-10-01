@@ -940,9 +940,9 @@
     const models = [
       ["", "Claude Code default"],
       ["claude-opus-5-5", "Claude Opus 5.5"],
-      ["claude-sonnet-5", "Claude Sonnet 5"],
+      ["claude-sonnet-5-5", "Claude Sonnet 5.5"],
       ["claude-fable-5-1", "Claude Fable 5.1"],
-      ["claude-haiku-4-5-20251001", "Claude Haiku 4.5"],
+      ["claude-haiku-4-5", "Claude Haiku 4.5"],
     ];
     const model = h("select", {}, models.map(([v, l]) => h("option", { value: v }, l)));
     if (s.model && !models.some(([v]) => v === s.model)) model.append(h("option", { value: s.model }, s.model));

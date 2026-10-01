@@ -26,6 +26,9 @@ publishes it as the GitHub Release notes.
   newer version, instead of restarting over and over.
 
 ### Changed
+- Test runs use Claude Sonnet 5.5: `npm run repl` and `npm run start:dry` pin `claude-sonnet-5-5`
+  (override with `WATERBOY_MODEL`), and `config.example.json` starts on it. Settings lists Sonnet 5.5
+  instead of Sonnet 5.
 - One version for the whole product: the service now carries the app's version (was 0.1.0).
 - `config.json` and `state.db` carry a schema version and migrate forward on start. An older build
   refuses to start on newer data rather than touching it, so rolling back to v0.3 or later is safe.

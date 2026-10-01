@@ -10,14 +10,14 @@
   },
   "scripts": {
     "start": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/index.ts",
-    "repl": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/repl.ts",
+    "repl": "WATERBOY_MODEL=${WATERBOY_MODEL:-claude-sonnet-5-5} NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/repl.ts",
     "doctor": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/doctor.ts",
     "typecheck": "tsc --noEmit",
     "build": "esbuild src/index.ts src/mcpServer.ts --bundle --platform=node --format=esm --target=node22 --packages=external --log-level=warning --outdir=dist --out-extension:.js=.mjs",
     "test": "node --import tsx --test --no-warnings test/*.test.ts",
     "install-service": "bash scripts/install-launchd.sh",
     "uninstall-service": "bash scripts/uninstall-launchd.sh",
-    "start:dry": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/index.ts --dry-run"
+    "start:dry": "WATERBOY_MODEL=${WATERBOY_MODEL:-claude-sonnet-5-5} NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/index.ts --dry-run"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.280",
