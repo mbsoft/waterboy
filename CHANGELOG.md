@@ -8,6 +8,8 @@ publishes it as the GitHub Release notes.
 ## [Unreleased]
 
 ### Added
+- A landing page on GitHub Pages (https://mbsoft.github.io/waterboy/), deployed from `site/`; its
+  download buttons follow the newest stable release.
 - Usage on the Dashboard: today's, 7-day and 30-day API-equivalent cost and turns, a 30-day daily
   bar chart, and breakdowns by model, top chats and kind (replies, automations, live alerts). With
   ChatGPT it shows tokens, since ChatGPT reports no cost. Every turn is saved in `state.db` (kept 400 days).

@@ -1,0 +1,71 @@
+# The landing page (site/) on GitHub Pages: https://mbsoft.github.io/waterboy/
+# Deploys whenever site/ changes on main, whenever a release is published (so the download buttons
+# move to it), and on demand. The download blocks in the page are filled in at deploy time by
+# scripts/site-links.mjs with the newest stable release's Apple silicon and Intel DMGs; the
+# repository itself never changes. site/assets/js/downloads.js refreshes them in the browser.
+#
+# Contract for site/index.html: put <!-- downloads:start --><!-- downloads:end --> wherever the
+# download buttons go (as many as you like) and include <script src="assets/js/downloads.js" defer>.
+# The buttons are <a class="download"> (Intel also .secondary) with data-download="arm64|x64", plus
+# a <p class="download-meta"> with the version, release notes and checksums links.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", "scripts/site-links.mjs", "scripts/readme-links.mjs", ".github/workflows/pages.yml"]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # Always the site on main: a release event would otherwise check out the tagged commit.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Is there a site yet?
+        id: site
+        run: |
+          if [ -f site/index.html ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "No site/index.html on main yet; nothing to deploy."; fi
+      - name: Fill in the download links
+        if: steps.site.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf _site && cp -R site _site
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
+          for page in $(grep -rl -- '<!-- downloads:start -->' _site --include='*.html'); do
+            node scripts/site-links.mjs "$page" < "$RUNNER_TEMP/releases.json"
+          done
+          # Every DMG link on the page must download.
+          for url in $(grep -rhoE 'https://github\.com/[^"]+/releases/download/[^"]+\.dmg' _site | sort -u); do
+            curl -fsSIL -o /dev/null "$url" || { echo "::error::$url doesn't download"; exit 1; }
+            echo "ok $url"
+          done
+      - uses: actions/configure-pages@v5
+        if: steps.site.outputs.present == 'true'
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.site.outputs.present == 'true'
+        with:
+          path: _site
+      - id: deployment
+        if: steps.site.outputs.present == 'true'
+        uses: actions/deploy-pages@v4
