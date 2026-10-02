@@ -125,8 +125,9 @@ async function writeAndLoad(b, { start = true } = {}) {
   // bootout returns before the old process exits (it finishes in-flight replies first), and
   // bootstrapping too early fails with "Bad request", so wait for it to be gone.
   for (let i = 0; i < 40 && ((await isLoaded(LABEL)) || (await isLoaded(LEGACY_LABEL))); i++) await new Promise((r) => setTimeout(r, 500));
-  await run("/bin/launchctl", ["bootstrap", `gui/${UID}`, plist]);
+  // A disabled label makes bootstrap fail ("Bootstrap failed: 5: Input/output error"), so enable it first.
   await run("/bin/launchctl", ["enable", `gui/${UID}/${LABEL}`]).catch(() => {});
+  await run("/bin/launchctl", ["bootstrap", `gui/${UID}`, plist]);
 }
 
 /**
