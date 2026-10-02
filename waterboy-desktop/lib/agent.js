@@ -136,7 +136,11 @@ async function serviceStatus() {
 async function startService() {
   const s = await serviceStatus();
   if (!s.installed) throw new Error("The service isn't installed. Run `npm run install-service` in the agent project.");
-  if (!s.loaded) await run("/bin/launchctl", ["bootstrap", `gui/${UID}`, PLIST]);
+  if (!s.loaded) {
+    // A disabled label makes bootstrap fail with "5: Input/output error"
+    await run("/bin/launchctl", ["enable", `gui/${UID}/${LABEL}`]).catch(() => {});
+    await run("/bin/launchctl", ["bootstrap", `gui/${UID}`, PLIST]);
+  }
   else await run("/bin/launchctl", ["kickstart", "-k", `gui/${UID}/${LABEL}`]);
   return waitFor((st) => st.running);
 }
