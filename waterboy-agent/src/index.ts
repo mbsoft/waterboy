@@ -9,7 +9,8 @@ import { ClaudeAgentRunner } from "./assistants/claude.ts";
 import { CodexAgentRunner, chatgptAccount, verifyLockdown } from "./assistants/codex.ts";
 import { AppleScriptSender, ConsoleSender } from "./messages/sender.ts";
 import { startScheduler } from "./bot/scheduler.ts";
-import { makeConditions } from "./bot/conditions.ts";
+import { groupNotices, makeConditions } from "./bot/conditions.ts";
+import { alertsDir } from "./fantasy/cards/liveAlert.ts";
 import { dataUpdatedAt, startNflverseSync } from "./fantasy/data/nflverse.ts";
 import { setRankingsDataDir } from "./fantasy/data/rankings.ts";
 import { startIMessageHelper } from "./messages/helper.ts";
@@ -172,7 +173,7 @@ const probeTimer = cfg.dryRun ? null : setInterval(probeSending, 10 * 60_000);
 const pollTimer = setInterval(poll, cfg.pollIntervalMs);
 const schedTimer = startScheduler(
   state,
-  (t, ctx, verbatim) => (verbatim && ctx ? bot.notify(t.chatGuid, ctx) : bot.runTask(t, ctx)),
+  (t, ctx, verbatim, notice) => (verbatim && ctx ? bot.notify(t.chatGuid, notice ?? ctx) : bot.runTask(t, ctx)),
   conditions,
 );
 
@@ -185,7 +186,9 @@ const groupRunner = fantasyCfg
       requestFile: path.join(cfg.dataDir, REQUEST_FILE),
       chatInfo: (guid) => db.chat(guid),
       isPaused: (guid) => state.chat(guid).paused,
-      send: (guid, text) => bot.notify(guid, text, TEST_PREFIX),
+      send: (guid, text, swings) => {
+        for (const n of groupNotices(text, swings, alertsDir(cfg.dataDir), !!fantasyCfg.liveAlerts?.caption)) bot.notify(guid, n, TEST_PREFIX);
+      },
       fetchLive: async () => ((await anyGameActive(now())) ? fetchLeagueSnapshot(fantasyCfg) : null),
       fixture: week3Sunday as unknown as ReplayFixture,
       publish: (status) => health.setGroupAlerts(status),

@@ -170,7 +170,7 @@ test("roundup: the weekly roundup (odds + awards) still fires exactly once when 
     await conds.fantasy_week_final.init(1); // ESPN unreachable when the task was made: baseline 0
     espnUp = true;
     const first = await conds.fantasy_week_final.check(task);
-    assert.match(first ?? "", /Fantasy week 3 just finished/);
+    assert.match(String(first ?? ""), /Fantasy week 3 just finished/);
     assert.equal(await conds.fantasy_week_final.check(task), null);
     assert.equal(await conds.fantasy_week_final.check(task), null);
     // And what that run posts: awards (box scores fetched) plus odds on the standings.

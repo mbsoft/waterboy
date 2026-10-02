@@ -3,9 +3,35 @@ import { log, normalizeHandle } from "../config.ts";
 import type { State, ScheduledTask } from "./state.ts";
 import { latestCompletedWeek } from "../fantasy/roundup.ts";
 import {
-  DEFAULT_THRESHOLD_PCT, anyGameActive, diffSnapshots, fetchSnapshot, formatLiveAlert,
+  DEFAULT_THRESHOLD_PCT, diffSnapshots, fetchSnapshot, fetchStatusBoard, formatFinalAlert, formatLiveAlert, gamesActive,
+  playersLeft, teamGames,
 } from "../fantasy/live.ts";
-import type { MatchupSnapshot } from "../fantasy/live.ts";
+import type { MatchupSnapshot, RawStatusBoard } from "../fantasy/live.ts";
+import { alertsDir, finalCard, liveCaption, renderLiveCard, swingCard } from "../fantasy/cards/liveAlert.ts";
+import type { LiveCardData } from "../fantasy/cards/liveAlert.ts";
+import { now } from "../testHooks.ts";
+import { TEST_PREFIX } from "../fantasy/groupAlerts.ts";
+import type { Swing } from "../fantasy/groupAlerts.ts";
+
+/**
+ * A finished message from a verbatim condition: an image (sent alone), with `text` as the fallback
+ * when there's no image or it can't be sent. `caption`, when set, follows the image as one line.
+ */
+export interface Notice {
+  text: string;
+  image?: string;
+  caption?: string;
+}
+
+/** Draw a live alert card; on any rendering error, log it and send `text` instead. */
+export function cardNotice(card: LiveCardData, text: string, dir: string, caption: boolean): Notice {
+  try {
+    return { text, image: renderLiveCard(card, dir), caption: caption ? liveCaption(card) : undefined };
+  } catch (e) {
+    log("[conditions] live alert card failed, sending text:", (e as Error).message);
+    return { text };
+  }
+}
 
 /**
  * A condition gates a scheduled task: the cron schedule decides how often to *check*,
@@ -17,18 +43,42 @@ export interface Condition {
   /** Called when the task is created, to record the current baseline. */
   init(taskId: number): Promise<void>;
   /** Returns prompt context if the task should run now, else null. */
-  check(task: ScheduledTask): Promise<string | null>;
+  check(task: ScheduledTask): Promise<string | Notice | null>;
   /**
-   * When true, whatever `check` returns is the finished message: it is texted verbatim and the
-   * agent never runs. For alerts that fire every few minutes this keeps the wording stable and
-   * costs nothing per alert.
+   * When true, whatever `check` returns is the finished message: it is sent verbatim (a Notice's
+   * image, or its text) and the agent never runs. For alerts that fire every few minutes this keeps
+   * the wording stable and costs nothing per alert.
    */
   verbatim?: boolean;
 }
 
+/**
+ * Group test mode: one card per swing, each with the TEST ribbon. If any card can't be drawn, the
+ * check's batched text goes instead, as one message.
+ */
+export function groupNotices(text: string, swings: Swing[], dir: string, caption: boolean, at = now()): Notice[] {
+  const out: Notice[] = [];
+  for (const s of swings) {
+    const n = cardNotice({ ...swingCard(s.delta, at), test: true }, `${TEST_PREFIX} ${s.line}`, dir, caption);
+    if (!n.image) return [{ text }];
+    out.push(n);
+  }
+  return out.length ? out : [{ text }];
+}
+
 export type Conditions = Record<string, Condition>;
 
-export function makeConditions(cfg: Config, state: State): Conditions {
+/** How long after the last live check the "final for tonight" card can still go out. */
+const FINAL_WINDOW_MS = 6 * 3600_000;
+
+/** Network calls the live alert makes, replaceable in tests (a recorded timeline). */
+export interface ConditionDeps {
+  statusBoard?: () => Promise<RawStatusBoard>;
+  snapshot?: (team: string | number) => Promise<MatchupSnapshot>;
+  clock?: () => number;
+}
+
+export function makeConditions(cfg: Config, state: State, deps: ConditionDeps = {}): Conditions {
   const out: Conditions = {};
   if (cfg.fantasy) {
     const fantasy = cfg.fantasy;
@@ -69,6 +119,10 @@ export function makeConditions(cfg: Config, state: State): Conditions {
       return null;
     };
 
+    const finalKey = (id: number) => `condition:fantasy_scoring_swing:final:${id}`;
+    /** The football day a time belongs to: a Sunday night game running past midnight is still Sunday. */
+    const footballDay = (at: number) => new Date(at - 6 * 3600_000).toDateString();
+
     const readBaseline = (taskId: number): MatchupSnapshot | null => {
       const raw = state.get(key(taskId));
       if (!raw) return null;
@@ -82,8 +136,9 @@ export function makeConditions(cfg: Config, state: State): Conditions {
     out.fantasy_scoring_swing = {
       description:
         `fires while NFL games are in progress, whenever your matchup's projected score moves more than ${threshold}% ` +
-        "since the previous check (either your team or your opponent's). Schedule it for NFL game days only " +
-        `("*/${checkMinutes} * * * 0,1,4" = every ${checkMinutes} min on Sun/Mon/Thu); it is silent when nothing is being played`,
+        "since the previous check (either your team or your opponent's), and once more when nothing is left to play tonight. " +
+        `Sends one image card, no model call. Schedule it for NFL game days only ("*/${checkMinutes} * * * 0,1,4" = every ` +
+        `${checkMinutes} min on Sun/Mon/Thu); it is silent when nothing is being played`,
       verbatim: true,
       async init(taskId) {
         state.set(key(taskId), ""); // first live check becomes the baseline
@@ -91,15 +146,33 @@ export function makeConditions(cfg: Config, state: State): Conditions {
       async check(task) {
         const team = teamFor(task.chatGuid);
         if (team === null) return null;
-        if (!(await anyGameActive())) return null;
-        const next = await fetchSnapshot(fantasy, team);
+        const at = (deps.clock ?? now)();
+        const sb = await (deps.statusBoard ?? fetchStatusBoard)();
+        const active = gamesActive(sb, at);
         const prev = readBaseline(task.id);
+        // Between games, look once more if we were watching tonight: that's the "final for tonight" card.
+        if (!active && !(prev && at - prev.at < FINAL_WINDOW_MS)) return null;
+        const next = await (deps.snapshot ?? ((t: string | number) => fetchSnapshot(fantasy, t)))(team);
+        const games = teamGames(sb, at);
+        const mine = playersLeft(next.mine, games, at);
+        const theirs = next.theirs ? playersLeft(next.theirs, games, at) : { left: 0, played: 0 };
+        const dir = alertsDir(cfg.dataDir);
+        const caption = !!alerts.caption;
+
+        if (prev && mine.left + theirs.left === 0 && mine.played + theirs.played > 0 && state.get(finalKey(task.id)) !== footballDay(at)) {
+          state.set(finalKey(task.id), footballDay(at));
+          state.set(key(task.id), ""); // the next game window starts from a fresh baseline
+          log(`[conditions] final for tonight for #${task.id}: ${next.mine.name} ${next.mine.live}`);
+          return cardNotice(finalCard(prev, next, at), formatFinalAlert(next), dir, caption);
+        }
+        if (!active) return null; // keep the baseline: the final check above may still run
         state.set(key(task.id), JSON.stringify(next));
         if (!prev) return null; // nothing to compare against yet
         const d = diffSnapshots(prev, next, threshold, minPlayerPoints);
         if (!d) return null;
         log(`[conditions] live swing for #${task.id}: ${d.mine.name} ${d.mine.from} → ${d.mine.to} (${d.mine.pct}%)`);
-        return formatLiveAlert(d);
+        const card = swingCard(d, at, { mine: mine.left, theirs: next.theirs ? theirs.left : null });
+        return cardNotice(card, formatLiveAlert(d), dir, caption);
       },
     };
   }

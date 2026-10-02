@@ -17,7 +17,7 @@ import {
   BLOCK_DETAIL, DEFAULT_COOLDOWN_MINUTES, DEFAULT_MAX_PER_CHECK, GroupAlerts, groupAlertSettings, resolveTestTarget,
   type SentTimesStore,
 } from "../fantasy/groupAlerts.ts";
-import type { BlockReason, ChatInfo, GroupAlertCounters, GroupAlertSettings, LeagueSnapshot, Target } from "../fantasy/groupAlerts.ts";
+import type { BlockReason, ChatInfo, GroupAlertCounters, GroupAlertSettings, LeagueSnapshot, Swing, Target } from "../fantasy/groupAlerts.ts";
 import { now as clockNow } from "../testHooks.ts";
 
 export const REQUEST_FILE = "group-alerts-request.json";
@@ -58,7 +58,8 @@ export interface GroupTestDeps {
   requestFile: string;
   chatInfo(guid: string): ChatInfo | null;
   isPaused(guid: string): boolean;
-  send(guid: string, text: string): void;
+  /** One message: a card per swing when it can be drawn, else `text`. */
+  send(guid: string, text: string, swings: Swing[]): void;
   /** The league right now, or null when no NFL game is being played. */
   fetchLive(): Promise<LeagueSnapshot | null>;
   fixture: ReplayFixture;
@@ -150,11 +151,11 @@ export class GroupTestRunner {
       cooldownMinutes: g.cooldownMinutes ?? DEFAULT_COOLDOWN_MINUTES,
       thresholdPct: s.thresholdPct,
       minPlayerPoints: s.minPlayerPoints,
-      send: (text) => {
+      send: (text, swings) => {
         // Re-checked at send time, from a fresh read of config.json: only the one test group.
         const again = this.target();
         if (!again.ok || again.chatId !== t.chatId) return false;
-        this.deps.send(again.chatId, text);
+        this.deps.send(again.chatId, text, swings);
         return true;
       },
     });

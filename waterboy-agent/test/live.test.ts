@@ -112,13 +112,14 @@ test("the alert reads as a scoring change, not a box score", () => {
 test("snapshots keep only what the diff needs", () => {
   const preview: any = {
     week: 4,
-    home: { id: 1, name: "Waiver Wizards", proj: 118.4, live: 40.2, winProb: 44, starters: [{ espnId: 1, name: "J. Chase", proj: 14.0, actual: 8.2 }] },
+    home: { id: 1, name: "Waiver Wizards", proj: 118.4, live: 40.2, winProb: 44, starters: [{ espnId: 1, name: "J. Chase", pos: "WR", nfl: "CIN", proj: 14.0, actual: 8.2 }] },
     away: { id: 2, name: "Team Nina", proj: 121.8, live: null, winProb: 56, starters: [{ espnId: 9, name: "P. Mahomes", proj: 21.0, actual: null }] },
   };
   const s = snapshotOf(preview);
   assert.equal(s.mine.players["1"].proj, 8.2, "a played starter uses actual points");
   assert.equal(s.theirs?.players["9"].proj, 21.0, "an unplayed starter uses the projection");
   assert.equal(s.mine.teamId, 1);
+  assert.deepEqual(s.mine.players["1"], { name: "J. Chase", proj: 8.2, pos: "WR", nfl: "CIN" }, "position and NFL team, for the card");
   // It round-trips through the kv store as JSON.
   assert.deepEqual(JSON.parse(JSON.stringify(s)), s);
 });

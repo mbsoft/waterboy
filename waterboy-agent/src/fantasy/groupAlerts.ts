@@ -196,8 +196,11 @@ export interface GroupAlertCounters {
 }
 
 export interface CheckOptions {
-  /** Delivers to the test group; false when the gate refused at send time. */
-  send(text: string): boolean;
+  /**
+   * Delivers to the test group; false when the gate refused at send time. `text` is the batched
+   * message (the fallback); `swings` are what it covers, one card each.
+   */
+  send(text: string, swings: Swing[]): boolean;
   /** The test group is /paused. */
   paused: boolean;
   /** Per-check cap. */
@@ -277,7 +280,7 @@ export class GroupAlerts {
     result.suppressed.hourly = fresh.slice(take.length, allowed);
     if (take.length) {
       const text = formatGroupAlert(next.week, take);
-      if (o.send(text)) {
+      if (o.send(text, take)) {
         result.sent = take;
         result.text = text;
         for (const s of take) {

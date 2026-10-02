@@ -197,7 +197,7 @@ These sources are free but unofficial and can change without notice; if one is u
 
 - **Waiver wire report:** "waiver report", "who should I pick up?", or "waivers for Nina". The report covers the best available players at each position for the upcoming week (projection, % rostered and trend, waivers vs free agent, injury), trending adds, and the league's recent adds and drops. With a team, it adds add/drop suggestions: when a free agent projects at least 2 points above that team's weakest player at the position, it suggests the swap (or stashing an injured player instead). To get it weekly, ask for "the waiver report here every Tuesday at 6pm".
 
-- **Live scoring alerts:** off by default. Turn them on with a `liveAlerts` block in the `fantasy` config, then, in the chat that should receive them, text "alert me when my projected score swings during games". That creates a scheduled task with the `fantasy_scoring_swing` condition: every few minutes on game days it checks whether any NFL game is in progress and, if so, compares your matchup's projected finals against the previous check. A move of more than `thresholdPct` on either side is texted straight away; anything smaller is silent, and the baseline resets after each alert so a swing fires once as it happens rather than every tick.
+- **Live scoring alerts:** off by default. Turn them on with a `liveAlerts` block in the `fantasy` config, then, in the chat that should receive them, text "alert me when my projected score swings during games". That creates a scheduled task with the `fantasy_scoring_swing` condition: every few minutes on game days it checks whether any NFL game is in progress and, if so, compares your matchup's projected finals against the previous check. A move of more than `thresholdPct` on either side is sent straight away; anything smaller is silent, and the baseline resets after each alert so a swing fires once as it happens rather than every tick. Once nothing in the matchup is left to play tonight, one "final for tonight" card follows.
 
   ```json
   "liveAlerts": {
@@ -205,11 +205,12 @@ These sources are free but unofficial and can change without notice; if one is u
     "thresholdPct": 5,
     "checkMinutes": 5,
     "subscribers": ["+16145551234"],
-    "minPlayerPoints": 1
+    "minPlayerPoints": 1,
+    "caption": false
   }
   ```
 
-  `subscribers` is the opt-in list (phone numbers / emails, or `"*"` for anyone with a team in `fantasy.teams`); nobody is alerted without it, and group chats are skipped because there is no single subscriber to resolve a matchup for. Each person is alerted about their own matchup, both sides. The alert text is built in code (`src/fantasy/live.ts`) and sent verbatim, so a mid-game alert costs no model call and reads the same every time:
+  `subscribers` is the opt-in list (phone numbers / emails, or `"*"` for anyone with a team in `fantasy.teams`); nobody is alerted without it, and group chats are skipped because there is no single subscriber to resolve a matchup for. Each person is alerted about their own matchup, both sides. Each alert is **one image** (`src/fantasy/cards/liveAlert.ts`, drawn in code with the other cards, initials only): "LIVE · Week 4 · Thu night", the headline ("Steelers D/ST down 7.0"), both teams' current points and projected finals, the win-probability change, the 1–3 players who moved it (position, NFL team, before → after), and how many starters each side has left to play tonight. No model call, so it costs nothing and reads the same every time. With `"caption": true` (Settings → Live alerts → Caption) one short line follows the image, so the notification says more than "Image". If the card can't be drawn or sent, this text goes instead, as one message:
 
   ```
   🏈 Week 4 live update
@@ -223,7 +224,11 @@ These sources are free but unofficial and can change without notice; if one is u
   Win probability 44% → 61%
   ```
 
-- **Group live alerts (test mode only):** real league groups never get live alerts in this version. To try group alerts, mark one group as a test group in the app (Conversations → "Test group…", which lists its members to confirm), then turn on Settings → Live alerts → Group test mode and pick it. The service watches every matchup in the league and posts one line per swing past `thresholdPct` (both teams named), batching a check's swings into one message:
+  To see a card without waiting for a game, run `npm run alert-card` (writes `./alert-card.png` from a recorded Thursday night and opens it; nothing is sent). `--list` shows the samples (`--fixture lead-change`, `final-tonight`), `--live [--team <name|me>] [--week <n>]` draws your matchup now from the real league, and `--dark`, `--test` (ribbon), `--caption`, `--out <file.png>`, `--no-open` do what they say. `--send` sends it **only** to the marked test group, through the group test-mode gate (TEST ribbon forced, counts towards the 20-an-hour cap), and refuses otherwise. The app has the same thing under Settings → Live alerts → Preview.
+
+  Live alerts you set up yourself as ordinary automations ("every hour on Sunday, check my matchup and text me") run the model each time and used to send two messages (the matchup preview, then the alert). The app finds them under Settings → Live alerts → "Replace with built-in live alerts?": replacing turns the built-in alert on for that person with the same days and hours and pauses the old automation (not deleted). `matchup_preview` also no longer posts on scheduled runs unless the prompt asks for it.
+
+- **Group live alerts (test mode only):** real league groups never get live alerts in this version. To try group alerts, mark one group as a test group in the app (Conversations → "Test group…", which lists its members to confirm), then turn on Settings → Live alerts → Group test mode and pick it. The service watches every matchup in the league and posts one line per swing past `thresholdPct` (both teams named), one card per swing with a TEST ribbon (if a card can't be drawn, the check's swings go as one text message instead):
 
   ```
   [TEST] Week 3 live: 3 big swings

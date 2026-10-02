@@ -31,6 +31,12 @@ const isMe = (q: string) => ["me", "my", "mine", "my team"].includes(q.trim().to
  * @param post  sends text to the chat verbatim (bypassing the model), so standings are
  *              never paraphrased or recalled from an older turn.
  */
+/**
+ * matchup_preview posts only when asked (post=true), even on a scheduled run: a scheduled
+ * live-alert prompt used to post the whole preview and then add its own alert, two messages per check.
+ */
+export const previewPosts = (requested: boolean | undefined) => requested === true;
+
 export function fantasyMcpServer(
   cfg: FantasyConfig,
   post?: (text: string) => Promise<void>,
@@ -137,7 +143,7 @@ export function fantasyMcpServer(
             } else {
               text = formatSlate(league, pro, w, nflWeek, cfg.ownerNames);
             }
-            if (shouldSend(shouldPost) && post) {
+            if (previewPosts(shouldPost) && post) {
               await post(text);
               return { content: [{ type: "text", text: `Posted the week ${w} ${team ? "matchup preview" : "slate"} to the chat. Do not repeat it. Summary for any commentary:\n${text.slice(0, 1500)}` }] };
             }

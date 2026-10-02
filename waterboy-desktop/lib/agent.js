@@ -723,10 +723,15 @@ function describeSchedule(s) {
     if (/^[0-6](,[0-6])+$/.test(dow)) return `${dow.split(",").map((d) => days[Number(d)].slice(0, 3)).join(", ")} at ${time}`;
   }
   if (time && /^\d+$/.test(dom) && mon === "*" && dow === "*") return `Monthly on day ${dom} at ${time}`;
+  // Repeating within a window: "*/5 14-23 * * 0" → "Every 5 minutes, 2–11 PM Sun".
   const every = min.match(/^\*\/(\d+)$/);
-  if (every && hour === "*" && dom === "*" && mon === "*") {
-    const d = dow === "*" ? "" : dow === "1-5" ? " on weekdays" : dow === "1-3" ? " Mon–Wed" : ` (days ${dow})`;
-    return `Every ${every[1]} minutes${d}`;
+  const range = hour.match(/^(\d+)-(\d+)$/);
+  const d = dow === "*" ? "" : dow === "1-5" ? " on weekdays" : dow === "1-3" ? " Mon–Wed"
+    : /^[0-6](,[0-6])*$/.test(dow) ? ` ${dow.split(",").map((x) => days[Number(x)].slice(0, 3)).join(", ")}` : ` (days ${dow})`;
+  const hourText = (n) => new Date(2000, 0, 1, n).toLocaleTimeString(undefined, { hour: "numeric" });
+  const window = range ? `, ${hourText(Number(range[1]))}–${hourText(Number(range[2]))}` : "";
+  if ((every || min === "0") && (hour === "*" || range) && dom === "*" && mon === "*") {
+    return `${every ? `Every ${every[1]} minutes` : "Hourly"}${window}${d}`;
   }
   return s;
 }
@@ -818,6 +823,7 @@ const SETTINGS = {
   "fantasy.liveAlerts.thresholdPct": (v) => clampNum(v, 1, 100, 5),
   "fantasy.liveAlerts.checkMinutes": (v) => clampNum(v, 1, 60, 5),
   "fantasy.liveAlerts.minPlayerPoints": (v) => clampNum(v, 0, 50, 1, 1),
+  "fantasy.liveAlerts.caption": Boolean,
   // Dollars a day before the Dashboard warns; blank = off
   "usage.dailyCostAlertUsd": (v) => {
     if (v === null || v === undefined || String(v).trim() === "") return null;
@@ -915,6 +921,7 @@ function liveAlerts(cfg) {
     thresholdPct: a.thresholdPct ?? 5,
     checkMinutes: a.checkMinutes ?? 5,
     minPlayerPoints: a.minPlayerPoints ?? 1,
+    caption: a.caption === true,
     groupTest: {
       enabled: a.groupTest?.enabled === true,
       chatId: a.groupTest?.chatId ?? null,
@@ -988,6 +995,127 @@ async function createAlertAutomations() {
     }
   }
   return { created, skipped };
+}
+
+// ---------- previewing the alert card ----------
+
+/** Recorded matchups the service's alert-card tool can draw (waterboy-agent src/fantasy/cards/liveFixtures.ts). */
+const ALERT_FIXTURES = ["thursday-dst", "lead-change", "final-tonight"];
+
+/**
+ * Draw a live alert card with the service's own renderer (alertCard.mjs, run by this app's
+ * Electron as Node, like the service itself) and return it as a data: URL. `source` is a fixture
+ * name or "live" (the user's matchup now). Read-only: nothing is sent.
+ */
+async function previewAlertCard({ source = ALERT_FIXTURES[0], dark = false } = {}) {
+  if (source !== "live" && !ALERT_FIXTURES.includes(source)) throw new Error(`Unknown sample ${source}`);
+  const loc = await locate();
+  const script = [path.join(loc.project, "alertCard.mjs"), path.join(loc.project, "dist/alertCard.mjs")].find((f) => fs.existsSync(f));
+  if (!script) throw new Error("This copy of the service can't draw alert cards yet. Update Waterboy (from source: npm run build in waterboy-agent).");
+  const out = path.join(os.tmpdir(), `waterboy-alert-card-${process.pid}-${Date.now()}.png`);
+  const args = [script, "--json", "--no-open", "--out", out, ...(source === "live" ? ["--live"] : ["--fixture", source]), ...(dark ? ["--dark"] : [])];
+  try {
+    const { stdout } = await run(process.execPath, args, {
+      cwd: loc.project,
+      timeout: 30_000,
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", IMESSAGE_AGENT_CONFIG: loc.configPath, NODE_OPTIONS: "--disable-warning=ExperimentalWarning" },
+    });
+    const r = JSON.parse(stdout.trim().split("\n").pop());
+    return { headline: r.headline, image: `data:image/png;base64,${fs.readFileSync(out).toString("base64")}` };
+  } catch (e) {
+    throw new Error(String(e.stderr || e.message).trim().split("\n")[0] || "Couldn't draw the card.");
+  } finally {
+    fs.rmSync(out, { force: true });
+  }
+}
+
+// ---------- replacing home-made live alerts ----------
+
+/**
+ * A model-run automation that looks like a home-made live alert: on, no condition, and about live
+ * scoring (or calling matchup_preview several times a day). Before the built-in alert card these
+ * ran the model every hour and posted the preview plus a written alert, two messages each time.
+ */
+function isLegacyAlertTask(t) {
+  if (!t.enabled || t.condition) return false;
+  const text = `${t.description ?? ""} ${t.prompt ?? ""}`;
+  if (/\blive\b/i.test(text) && /alert|scor|swing|update/i.test(text)) return true;
+  const hour = String(t.schedule).trim().split(/\s+/)[1] ?? "";
+  return /matchup_preview/i.test(text) && /[-,*/]/.test(hour);
+}
+
+/** The built-in schedule that replaces `schedule`: the same days and hours, checked every `minutes`. */
+function alertScheduleFrom(schedule, minutes) {
+  const f = String(schedule).trim().split(/\s+/);
+  if (f.length !== 5) return alertTask("", minutes).schedule;
+  return [`*/${minutes}`, ...f.slice(1)].join(" ");
+}
+
+/**
+ * Home-made live alert automations the built-in alert can replace, with what each would become.
+ * `blocker` says why one can't be replaced (the built-in alert is 1:1 and needs a fantasy team).
+ */
+async function legacyAlerts() {
+  const cfg = await getConfig();
+  if (!cfg.fantasy) return [];
+  const rows = await withDb((db) => db.prepare("SELECT * FROM tasks ORDER BY id").all());
+  const legacy = rows.filter((r) => isLegacyAlertTask({ ...r, enabled: !!r.enabled }));
+  if (!legacy.length) return [];
+  const label = chatLabeler(await conversations());
+  const builtIn = new Set(rows.filter((r) => r.condition === ALERT_CONDITION && r.enabled).map((r) => r.chat_guid));
+  const teams = cfg.fantasy.teams ?? {};
+  const minutes = liveAlerts(cfg).checkMinutes;
+  return legacy.map((r) => {
+    const group = r.chat_guid.includes(";+;");
+    const handle = group ? null : r.chat_guid.split(";").pop();
+    const key = handle ? findKey(teams, handle) : undefined;
+    const schedule = alertScheduleFrom(r.schedule, minutes);
+    return {
+      id: Number(r.id),
+      chatGuid: r.chat_guid,
+      chatLabel: label(r.chat_guid),
+      description: r.description,
+      schedule: r.schedule,
+      scheduleText: describeSchedule(r.schedule),
+      handle,
+      team: key === undefined ? null : String(teams[key]),
+      newSchedule: schedule,
+      newScheduleText: describeSchedule(schedule),
+      hasBuiltIn: builtIn.has(r.chat_guid),
+      blocker: group
+        ? "It's a group chat. Built-in alerts go to one person's own chat."
+        : key === undefined ? "This person has no fantasy team. Set one in Conversations first." : null,
+    };
+  });
+}
+
+/**
+ * Replace home-made live alerts (all of them, or `ids`) with the built-in one: turn alerts on,
+ * subscribe each person, add a built-in automation with the same days and hours (unless their chat
+ * already has one), and pause the old automation. Paused, not deleted, so it can be undone.
+ */
+async function replaceLegacyAlerts(ids = null) {
+  const list = (await legacyAlerts()).filter((t) => !ids || ids.includes(t.id));
+  const todo = list.filter((t) => !t.blocker);
+  const replaced = [];
+  const skipped = list.filter((t) => t.blocker).map((t) => `#${t.id} ${t.description}: ${t.blocker}`);
+  if (!todo.length) return { replaced, skipped };
+  await updateConfig((cfg) => {
+    const a = (cfg.fantasy.liveAlerts = cfg.fantasy.liveAlerts ?? {});
+    a.enabled = true;
+    const subs = Array.isArray(a.subscribers) ? a.subscribers : [];
+    for (const t of todo) if (!subs.includes("*") && !subs.some((x) => sameHandle(x, t.handle))) subs.push(t.handle);
+    a.subscribers = subs;
+  });
+  for (const t of todo) {
+    if (!t.hasBuiltIn) {
+      const { prompt, condition } = alertTask(t.chatGuid, 5);
+      await createAutomation({ chatGuid: t.chatGuid, description: "Live scoring alerts", schedule: t.newSchedule, prompt, condition });
+    }
+    await setAutomationEnabled(t.id, false);
+    replaced.push({ id: t.id, description: t.description, schedule: t.hasBuiltIn ? null : t.newSchedule });
+  }
+  return { replaced, skipped };
 }
 
 /** Add or remove one person from fantasy.liveAlerts.subscribers ("*" = everyone with a team). */
@@ -1467,6 +1595,11 @@ module.exports = {
   GROUP_REQUEST_FILE,
   alertPlan,
   createAlertAutomations,
+  legacyAlerts,
+  previewAlertCard,
+  replaceLegacyAlerts,
+  isLegacyAlertTask,
+  alertScheduleFrom,
   alertTask,
   liveAlerts,
   clampNum,

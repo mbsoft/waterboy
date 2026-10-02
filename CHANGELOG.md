@@ -8,6 +8,17 @@ publishes it as the GitHub Release notes.
 ## [Unreleased]
 
 ### Added
+- Live alerts are one image card: the score, projected finals, win probability before → after, the
+  players who moved it and how many starters are left to play tonight, plus a "final for tonight"
+  card once nothing is left. Drawn in code, still no model call. Optional one-line caption
+  (Settings → Live alerts, `fantasy.liveAlerts.caption`, off). Group test mode sends the same card
+  with a TEST ribbon. If a card can't be drawn or sent, the text alert goes instead.
+- `npm run alert-card` (waterboy-agent) draws a live alert card on demand: recorded samples
+  (`--list`), `--live` for your matchup now, `--dark`, `--test`, `--caption`, `--out`. Sends nothing
+  unless `--send`, which only goes to the marked test group through the test-mode gate.
+  Settings → Live alerts → Preview shows the same card in the app.
+- Settings → Live alerts offers to replace home-made live alert automations (model-run, no
+  condition) with the built-in alert: same days and hours, the person subscribed, the old ones paused.
 - A landing page on GitHub Pages (https://mbsoft.github.io/waterboy/), deployed from `site/`; its
   download buttons follow the newest stable release.
 - Usage on the Dashboard: today's, 7-day and 30-day API-equivalent cost and turns, a 30-day daily
@@ -39,6 +50,9 @@ publishes it as the GitHub Release notes.
   warns when the configured test chat is refused.
 
 ### Changed
+- `matchup_preview` no longer posts the preview on scheduled runs unless asked (`post=true`). A
+  scheduled live-alert prompt used to send the preview and then its own alert.
+- Windowed schedules read like sentences ("Every 5 minutes, 2 PM–11 PM Sun").
 - `state.db` moves to schema version 3 (the `turns` table). Waterboy 0.3.x refuses to start on it;
   to downgrade, restore `state.db` from before the upgrade.
 

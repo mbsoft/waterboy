@@ -13,12 +13,16 @@ import { runCommand } from "./commands.ts";
 import { parseReaction, type MessageActions, type TypingIndicators } from "../messages/helper.ts";
 import { recordTurn } from "./usage.ts";
 import { now } from "../testHooks.ts";
+import type { Notice } from "./conditions.ts";
 
 type Job =
   | { kind: "messages"; msgs: IncomingMessage[] }
   | { kind: "task"; task: ScheduledTask; context?: string }
-  /** `prefix` starts every message the text is split into (group test alerts' "[TEST]") */
-  | { kind: "notice"; text: string; prefix?: string };
+  /**
+   * A finished message: `image` alone when there is one (with `caption` after it, if set), else
+   * `text`. `prefix` starts every text message (group test alerts' "[TEST]").
+   */
+  | { kind: "notice"; text: string; image?: string; caption?: string; prefix?: string };
 
 interface ChatQueue {
   target: ChatTarget;
@@ -170,15 +174,16 @@ export class Bot {
   }
 
   /**
-   * Text `text` to a chat as-is, with no agent turn. Used by verbatim conditions (live scoring
-   * alerts), where the message is already formatted and a model call would only add latency,
-   * cost and wording drift.
+   * Send a finished message to a chat as-is, with no agent turn: text, or a Notice's image (live
+   * alert cards). Used by verbatim conditions, where the message is already built and a model call
+   * would only add latency, cost and wording drift.
    */
-  notify(chatGuid: string, text: string, prefix?: string) {
+  notify(chatGuid: string, msg: string | Notice, prefix?: string) {
     const q =
       this.queues.get(chatGuid) ??
       this.queueFor({ chatGuid, isGroup: chatGuid.includes(";+;"), sender: chatGuid.split(";").pop() ?? null });
-    q.jobs.push({ kind: "notice", text, prefix });
+    const n = typeof msg === "string" ? { text: msg } : msg;
+    q.jobs.push({ kind: "notice", text: n.text, image: n.image, caption: n.caption, prefix });
     void this.drain(q);
   }
 
@@ -227,7 +232,17 @@ export class Bot {
     if (job.kind === "notice") {
       if (chat.paused) return;
       const started = Date.now();
-      await this.reply(q, job.text, false, undefined, job.prefix);
+      let sentImage = false;
+      if (job.image) {
+        try {
+          await this.sender.sendFile(q.target, job.image);
+          sentImage = true;
+        } catch (e) {
+          log(`[bot] ${q.label}: alert image failed, sending text:`, (e as Error).message);
+        }
+      }
+      if (!sentImage) await this.reply(q, job.text, false, undefined, job.prefix);
+      else if (job.caption) await this.reply(q, job.caption, false, undefined, job.prefix);
       recordTurn(
         this.state,
         { at: now(), chatId: chatGuid, model: null, provider: this.cfg.provider, costUsd: 0, inputTokens: 0, outputTokens: 0, durationMs: Date.now() - started, kind: "alert" },

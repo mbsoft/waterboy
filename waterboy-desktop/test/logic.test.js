@@ -31,6 +31,9 @@ test("schedules read like sentences", () => {
   assert.match(describeSchedule("30 8 * * 1-5"), /^Weekdays at 8:30\sAM$/);
   assert.equal(describeSchedule("*/30 * * * 1-3"), "Every 30 minutes Mon–Wed");
   assert.equal(describeSchedule("5 4 3 2 1"), "5 4 3 2 1"); // unknown shapes stay as cron
+  assert.match(describeSchedule("0 14-23 * * 0"), /^Hourly, 2\sPM–11\sPM Sun$/);
+  assert.match(describeSchedule("*/5 21-23 * * 1,4"), /^Every 5 minutes, 9\sPM–11\sPM Mon, Thu$/);
+  assert.equal(describeSchedule("*/5 * * * 0,1,4"), "Every 5 minutes Sun, Mon, Thu");
 });
 
 test("handles and chat folders match the service's rules", () => {
@@ -346,6 +349,92 @@ test("live alert automations: one per subscriber, never duplicated", async () =>
   }
 });
 
+test("home-made live alert automations are found and replaced with the built-in alert, old ones paused", async () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const { DatabaseSync } = require("node:sqlite");
+  const agent = require("../lib/agent");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-legacy-"));
+  const guid = (h) => `any;-;${h}`;
+  const cfgFile = path.join(dir, "config.json");
+  fs.writeFileSync(cfgFile, JSON.stringify({
+    dataDir: dir,
+    allowedChats: ["+16145550142", "nina@example.com"],
+    contacts: { "+16145550142": "Tess", "nina@example.com": "Nina" },
+    fantasy: { espnLeagueId: "1", teams: { "+16145550142": "Tailgaters" }, liveAlerts: { enabled: false, checkMinutes: 5 } },
+  }));
+  fs.writeFileSync(path.join(dir, "chats-index.json"), JSON.stringify({
+    chats: [
+      { guid: guid("+16145550142"), identifier: "+16145550142", isGroup: false, lastMessageAt: null },
+      { guid: guid("nina@example.com"), identifier: "nina@example.com", isGroup: false, lastMessageAt: null },
+    ],
+  }));
+  const db = new DatabaseSync(path.join(dir, "state.db"));
+  db.exec(`CREATE TABLE tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_guid TEXT NOT NULL, schedule TEXT NOT NULL, prompt TEXT NOT NULL,
+    description TEXT NOT NULL, next_run INTEGER, enabled INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL, condition TEXT);
+    CREATE TABLE chats (chat_guid TEXT PRIMARY KEY, session_id TEXT, paused INTEGER NOT NULL DEFAULT 0, label TEXT);`);
+  const add = (chat, schedule, description, prompt, condition = null, enabled = 1) =>
+    db.prepare("INSERT INTO tasks (chat_guid, schedule, prompt, description, next_run, enabled, created_at, condition) VALUES (?, ?, ?, ?, 1, ?, 0, ?)")
+      .run(chat, schedule, prompt, description, enabled, condition);
+  add(guid("+16145550142"), "0 14-23 * * 0", "Live scoring alerts (Sun)", "Check my matchup with matchup_preview and text me if anything big changed.");
+  add(guid("+16145550142"), "0 21-23 * * 1,4", "Live scoring alerts (Mon/Thu night)", "Live scoring check: tell me about swings.");
+  add(guid("+16145550142"), "0 9 * * 4", "Thursday preview", "Post my matchup_preview for the week."); // once a day: a real preview, not an alert
+  add(guid("+16145550142"), "0 8 * * 2", "Waivers", "Post the waiver report.");
+  add(guid("+16145550142"), "*/5 * * * 0,1,4", "Live scoring alerts", "Post the live scoring update for this chat.", "fantasy_scoring_swing", 0); // built-in, off
+  add(guid("nina@example.com"), "0 13-23 * * 0", "Live updates", "Live scoring alerts for my matchup"); // no team
+  add("any;+;chat-league", "0 13-23 * * 0", "League live alerts", "Post live scoring alerts"); // a group
+  add(guid("+16145550142"), "0 14-23 * * 0", "Old live alerts", "Live scoring alerts", null, 0); // already paused
+  db.close();
+  const prev = process.env.IMESSAGE_AGENT_DIR;
+  process.env.IMESSAGE_AGENT_DIR = dir;
+  try {
+    const found = await agent.legacyAlerts();
+    assert.deepEqual(found.map((t) => [t.id, t.newSchedule, !!t.blocker]), [
+      [1, "*/5 14-23 * * 0", false], [2, "*/5 21-23 * * 1,4", false], [6, "*/5 13-23 * * 0", true], [7, "*/5 13-23 * * 0", true],
+    ]);
+    assert.match(found[2].blocker, /no fantasy team/);
+    assert.match(found[3].blocker, /group chat/);
+    assert.equal(found[0].team, "Tailgaters");
+
+    const r = await agent.replaceLegacyAlerts([1, 2, 6]);
+    assert.deepEqual(r.replaced.map((x) => [x.id, x.schedule]), [[1, "*/5 14-23 * * 0"], [2, "*/5 21-23 * * 1,4"]]);
+    assert.equal(r.skipped.length, 1);
+    const cfg = JSON.parse(fs.readFileSync(cfgFile, "utf8"));
+    assert.equal(cfg.fantasy.liveAlerts.enabled, true);
+    assert.deepEqual(cfg.fantasy.liveAlerts.subscribers, ["+16145550142"]);
+
+    const rows = await agent.automations();
+    const byId = new Map(rows.map((t) => [t.id, t]));
+    assert.equal(byId.get(1).enabled, false, "paused, not deleted");
+    assert.equal(byId.get(2).enabled, false);
+    assert.equal(byId.get(3).enabled, true, "a once-a-day preview is left alone");
+    assert.equal(byId.get(6).enabled, true, "skipped ones stay as they are");
+    const made = rows.filter((t) => t.id > 8);
+    assert.deepEqual(made.map((t) => [t.chatGuid, t.schedule, t.condition, t.enabled]), [
+      [guid("+16145550142"), "*/5 14-23 * * 0", "fantasy_scoring_swing", true],
+      [guid("+16145550142"), "*/5 21-23 * * 1,4", "fantasy_scoring_swing", true],
+    ]);
+    // Nothing left to offer for Tess, and running it again changes nothing.
+    assert.deepEqual((await agent.legacyAlerts()).map((t) => t.id), [6, 7]);
+    assert.deepEqual((await agent.replaceLegacyAlerts()).replaced, []);
+    assert.equal((await agent.automations()).length, rows.length);
+  } finally {
+    if (prev === undefined) delete process.env.IMESSAGE_AGENT_DIR;
+    else process.env.IMESSAGE_AGENT_DIR = prev;
+  }
+});
+
+test("what counts as a home-made live alert, and the schedule that replaces it", () => {
+  const { isLegacyAlertTask, alertScheduleFrom } = require("../lib/agent");
+  assert.equal(isLegacyAlertTask({ enabled: true, condition: null, schedule: "0 14-23 * * 0", description: "Live scoring alerts (Sun)", prompt: "x" }), true);
+  assert.equal(isLegacyAlertTask({ enabled: true, condition: "fantasy_scoring_swing", schedule: "*/5 * * * 0", description: "Live scoring alerts", prompt: "x" }), false);
+  assert.equal(isLegacyAlertTask({ enabled: true, condition: null, schedule: "0 */2 * * 0", description: "Matchup", prompt: "call matchup_preview" }), true);
+  assert.equal(isLegacyAlertTask({ enabled: true, condition: null, schedule: "0 9 * * 4", description: "Preview", prompt: "call matchup_preview" }), false);
+  assert.equal(alertScheduleFrom("0 21-23 * * 1,4", 10), "*/10 21-23 * * 1,4");
+  assert.equal(alertScheduleFrom("2026-10-04T13:00:00", 5), "*/5 * * * 0,1,4", "a one-time date becomes the default game-day check");
+});
+
 test("live alert automations need alerts on and someone subscribed", async () => {
   const fs = require("node:fs");
   const os = require("node:os");
@@ -638,4 +727,20 @@ test("group alerts: health.json counters, and a Dashboard warning when the servi
   assert.equal(groupAlertHealth(health({ enabled: true, blocked: "no-chat", detail: "No test group is picked." }), now).warning, null, "nothing picked yet isn't an alarm");
   assert.equal(groupAlertHealth(health({ enabled: false, blocked: "off", detail: "" }), now).warning, null);
   assert.equal(groupAlertHealth({ ...health({ enabled: true, blocked: "not-marked" }), updatedAt: now - 3_600_000 }, now), null, "stale health isn't trusted");
+});
+
+test("Preview alert card runs the service's own renderer and returns the image", { skip: !require("node:fs").existsSync(require("node:path").resolve(__dirname, "../../waterboy-agent/dist/alertCard.mjs")) && "build waterboy-agent first" }, async () => {
+  const path = require("node:path");
+  const agent = require("../lib/agent");
+  const prev = process.env.IMESSAGE_AGENT_DIR;
+  process.env.IMESSAGE_AGENT_DIR = path.resolve(__dirname, "../../waterboy-agent");
+  try {
+    const r = await agent.previewAlertCard({ source: "thursday-dst", dark: true });
+    assert.equal(r.headline, "Steelers D/ST down 7.0");
+    assert.match(r.image, /^data:image\/png;base64,iVBOR/);
+    await assert.rejects(agent.previewAlertCard({ source: "../../etc" }), /Unknown sample/);
+  } finally {
+    if (prev === undefined) delete process.env.IMESSAGE_AGENT_DIR;
+    else process.env.IMESSAGE_AGENT_DIR = prev;
+  }
 });
