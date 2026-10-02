@@ -47,12 +47,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           rm -rf _site && cp -R site _site
+          rm -rf _site/README.md _site/tools   # docs and the card renderer aren't part of the site
           gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
-          for page in $(grep -rlE -- 'data-download="(arm64|x64)"' _site --include='*.html'); do
+          # Only HTML pages: (GNU grep treats --include after -- as a file name, so use find.)
+          for page in $(find _site -name '*.html' -exec grep -lE 'data-download="(arm64|x64)"' {} +); do
             node scripts/site-links.mjs "$page" < "$RUNNER_TEMP/releases.json"
           done
           # Every DMG link on the page must download.
-          for url in $(grep -rhoE 'https://github\.com/[^"]+/releases/download/[^"]+\.dmg' _site | sort -u); do
+          for url in $(find _site -name '*.html' -exec grep -hoE 'https://github\.com/[^"]+/releases/download/[^"]+\.dmg' {} + | sort -u); do
             curl -fsSIL -o /dev/null "$url" || { echo "::error::$url doesn't download"; exit 1; }
             echo "ok $url"
           done
