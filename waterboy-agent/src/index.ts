@@ -20,7 +20,7 @@ import { sourceEnabled } from "./health/sources.ts";
 import { clearStartupError, writeStartupError } from "./health/startupError.ts";
 import { withSpy } from "./messages/senderSpy.ts";
 import { GroupTestRunner, REQUEST_FILE, type ReplayFixture } from "./bot/groupTest.ts";
-import { fetchLeagueSnapshot } from "./fantasy/groupAlerts.ts";
+import { fetchLeagueSnapshot, TEST_PREFIX } from "./fantasy/groupAlerts.ts";
 import { anyGameActive } from "./fantasy/live.ts";
 import { now } from "./testHooks.ts";
 import week3Sunday from "./fantasy/replay/week3-sunday.json" with { type: "json" };
@@ -179,18 +179,23 @@ const schedTimer = startScheduler(
 // Group live alerts, test mode only: one marked, allowlisted test group (see bot/groupTest.ts).
 // It re-reads config.json itself, so test mode can be switched on and off without a restart.
 const fantasyCfg = cfg.fantasy;
-const groupTimer = fantasyCfg
+const groupRunner = fantasyCfg
   ? new GroupTestRunner({
       readConfig: () => JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8")),
       requestFile: path.join(cfg.dataDir, REQUEST_FILE),
       chatInfo: (guid) => db.chat(guid),
       isPaused: (guid) => state.chat(guid).paused,
-      send: (guid, text) => bot.notify(guid, text),
+      send: (guid, text) => bot.notify(guid, text, TEST_PREFIX),
       fetchLive: async () => ((await anyGameActive(now())) ? fetchLeagueSnapshot(fantasyCfg) : null),
       fixture: week3Sunday as unknown as ReplayFixture,
       publish: (status) => health.setGroupAlerts(status),
-    }).start()
+      sentTimes: {
+        load: () => JSON.parse(state.get("groupAlerts:sentTimes") ?? "[]"),
+        save: (times) => state.set("groupAlerts:sentTimes", JSON.stringify(times)),
+      },
+    })
   : null;
+const groupTimer = groupRunner?.start() ?? null;
 
 const shutdown = async (sig: string) => {
   log(`[main] ${sig} received, finishing in-flight turns…`);
@@ -201,6 +206,7 @@ const shutdown = async (sig: string) => {
   if (probeTimer) clearInterval(probeTimer);
   if (nflverseTimer) clearInterval(nflverseTimer);
   if (groupTimer) clearInterval(groupTimer);
+  groupRunner?.stop("The service is stopping."); // no replay sends while in-flight turns finish
   await Promise.race([bot.idle(), new Promise((r) => setTimeout(r, 15_000))]);
   await helper?.bridge.stop(); // quits the hidden Messages instance
   db.close();

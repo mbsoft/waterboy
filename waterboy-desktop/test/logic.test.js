@@ -539,9 +539,9 @@ test("data sources: health.json `sources` for the Dashboard card and the readine
   assert.deepEqual(sourcesReadiness(health({ lines: src("off", { lastError: "x" }), espn: src("ok") }), now).down, []);
   // Garbage in the file reads as unknown rather than breaking the Dashboard
   assert.equal(sourcesReadiness(health({ espn: { status: "exploded", lastOkAt: "yesterday" } }), now).list[0].status, "unknown");
-  // Before v0.4 (no key), with every source off (no fantasy), or stale: no card / a stale note
-  assert.equal(sourcesReadiness(health(undefined), now), null);
-  assert.equal(sourcesReadiness(null, now), null);
+  // Before v0.4 (no key) the card waits; with every source off (no fantasy) there is none; stale gets a note
+  assert.deepEqual(sourcesReadiness(health(undefined), now), { waiting: true, list: [], down: [] }, "a pre-v0.4 service: the card waits");
+  assert.deepEqual(sourcesReadiness(null, now), { waiting: true, list: [], down: [] });
   assert.equal(sourcesReadiness(health(Object.fromEntries(["espn", "sleeper", "nflverse", "lines", "rankings", "tradeValues"].map((id) => [id, src("off")]))), now), null);
   assert.deepEqual(sourcesReadiness({ ...v04, updatedAt: now - 3 * 3600_000 }, now), { stale: true, list: [], down: [] });
 

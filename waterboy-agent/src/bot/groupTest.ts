@@ -15,6 +15,7 @@ import fs from "node:fs";
 import { log } from "../config.ts";
 import {
   BLOCK_DETAIL, DEFAULT_COOLDOWN_MINUTES, DEFAULT_MAX_PER_CHECK, GroupAlerts, groupAlertSettings, resolveTestTarget,
+  type SentTimesStore,
 } from "../fantasy/groupAlerts.ts";
 import type { BlockReason, ChatInfo, GroupAlertCounters, GroupAlertSettings, LeagueSnapshot, Target } from "../fantasy/groupAlerts.ts";
 import { now as clockNow } from "../testHooks.ts";
@@ -62,6 +63,8 @@ export interface GroupTestDeps {
   fetchLive(): Promise<LeagueSnapshot | null>;
   fixture: ReplayFixture;
   publish(status: GroupAlertStatus): void;
+  /** Keeps the hourly cap's send times across restarts */
+  sentTimes?: SentTimesStore;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
 }
@@ -82,7 +85,7 @@ export class GroupTestRunner {
   constructor(private readonly deps: GroupTestDeps) {
     this.now = deps.now ?? clockNow;
     this.sleep = deps.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
-    this.alerts = new GroupAlerts(this.now);
+    this.alerts = new GroupAlerts(this.now, deps.sentTimes);
   }
 
   get running() {

@@ -8,6 +8,7 @@ import { ROUNDUP_PARTS, benchGap, weeklyAwards, type BoxPlayer, type RoundupAwar
 import { ROUNDUP_BUDGET, boxScores, buildRoundup, finalizedPeriods, fullRoundup, leagueOdds, type RawLeague } from "../src/fantasy/roundup.ts";
 import { makeConditions } from "../src/bot/conditions.ts";
 import { State } from "../src/bot/state.ts";
+import { bestLineup } from "../src/fantasy/lineup.ts";
 
 const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures", "leagues");
 const fixture = (name: string) => JSON.parse(fs.readFileSync(path.join(dir, `${name}.json`), "utf8"));
@@ -180,4 +181,17 @@ test("roundup: the weekly roundup (odds + awards) still fires exactly once when 
     globalThis.fetch = realFetch;
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
+});
+
+test("the best lineup fills overlapping flexes for the most points, not greedily", () => {
+  // RB/WR flex (3) is filled before WR/TE flex (5): greedy puts the WR in RB/WR and strands the RB.
+  const WR = { proj: 20, pos: "WR", eligible: [4, 3, 5, 23] };
+  const RB = { proj: 15, pos: "RB", eligible: [2, 3, 23] };
+  const TE = { proj: 10, pos: "TE", eligible: [6, 5, 23] };
+  const best = bestLineup([WR, RB, TE], { 3: 1, 5: 1 });
+  assert.equal(best.total, 35);
+  assert.deepEqual(best.starters.map((s) => [s.slotId, s.player.pos]), [[3, "RB"], [5, "WR"]]);
+  // Standard shapes keep the greedy result
+  const std = bestLineup([WR, RB, TE], { 2: 1, 4: 1, 6: 1 });
+  assert.deepEqual(std.starters.map((s) => s.player.pos), ["TE", "RB", "WR"]);
 });

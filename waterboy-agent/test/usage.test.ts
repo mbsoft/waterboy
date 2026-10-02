@@ -8,7 +8,7 @@ import { Bot } from "../src/bot/bot.ts";
 import { localDay, pruneTurns, recordTurn, startOfLocalDay, TURN_RETENTION_DAYS } from "../src/bot/usage.ts";
 import { ConsoleSender } from "../src/messages/sender.ts";
 import { turnShare } from "../src/assistants/claude.ts";
-import type { AgentRequest, AgentResponse, AgentRunner } from "../src/assistants/types.ts";
+import { AgentTurnError, type AgentRequest, type AgentResponse, type AgentRunner } from "../src/assistants/types.ts";
 import type { Config } from "../src/config.ts";
 
 // "Today" is a local day: these tests run in a US zone so the DST change on 2026-11-01 is real
@@ -176,4 +176,80 @@ test("a resumed session's running totals become this turn's own cost and tokens"
   assert.deepEqual(turnShare(state, "s1", "s1", { cost: 0.1, input: 50, output: 5 }), { cost: 0.1, input: 50, output: 5 });
   assert.deepEqual(turnShare(state, "unknown", "s9", { cost: 2, input: 9, output: 9 }), { cost: 2, input: 9, output: 9 });
   assert.ok(kv.has("usageTotals:s9"));
+});
+
+// ---------- QA fixes (v0.4 QA pass) ----------
+
+class FailingRunner implements AgentRunner {
+  async run(): Promise<AgentResponse> {
+    throw new AgentTurnError("agent ended with error_max_turns", { sessionId: "s-fail", costUsd: 3.21, model: "claude-opus-5-5", usage: { input: 9000, output: 800 } });
+  }
+}
+class SpySender {
+  texts: { chat: string; text: string }[] = [];
+  fail = false;
+  async sendText(t: { chatGuid: string }, text: string) {
+    if (this.fail) throw new Error("osascript failed");
+    this.texts.push({ chat: t.chatGuid, text });
+  }
+  async sendFile() {}
+}
+
+test("a failed turn still records and logs what it cost", async () => {
+  const dataDir = tmp();
+  const state = new State(dataDir);
+  const sender = new SpySender();
+  const bot = new Bot(config(dataDir), state, new FailingRunner(), sender as never);
+  const lines = await new Promise<string[]>((resolve) => {
+    const out: string[] = [];
+    const orig = console.log;
+    console.log = (...a: unknown[]) => void out.push(a.map(String).join(" "));
+    bot.handleIncoming([message("hi")]);
+    void bot.idle().then(() => {
+      console.log = orig;
+      resolve(out);
+    });
+  });
+  const [row] = turns(state);
+  assert.equal(row.cost_usd, 3.21);
+  assert.equal(row.model, "claude-opus-5-5");
+  assert.equal(row.kind, "reply");
+  assert.ok(lines.some((l) => /turn cost \$3\.2100 \(API-equivalent\) in [\d.]+s \(failed\)/.test(l)));
+  assert.equal(state.chat(ME).sessionId, "s-fail", "the session is kept, so the next turn's share is right");
+  assert.match(sender.texts.at(-1)?.text ?? "", /Sorry, something went wrong/, "the person still hears about it");
+});
+
+test("group test alerts: every part starts with [TEST], and a failed send is never apologised for", async () => {
+  const dataDir = tmp();
+  const state = new State(dataDir);
+  const sender = new SpySender();
+  const GROUP = "iMessage;+;chat-test";
+  const bot = new Bot(config(dataDir, { maxChunkChars: 60 }), state, new FakeRunner({ text: "ok" }), sender as never);
+  const long = ["[TEST] Week 3 live: 3 big swings", ...Array.from({ length: 3 }, (_, i) => `🚨 Team ${i} just took the lead over Team ${i + 1}: 101.2 to 99.8 projected.`)].join("\n");
+  bot.notify(GROUP, long, "[TEST]");
+  await bot.idle();
+  assert.ok(sender.texts.length > 1, "split into several messages");
+  for (const t of sender.texts) {
+    assert.ok(t.text.startsWith("[TEST]"), t.text);
+    assert.ok(t.text.length <= 60, `fits the chunk size: ${t.text.length}`);
+  }
+
+  sender.texts = [];
+  sender.fail = true;
+  bot.notify(GROUP, "[TEST] one swing", "[TEST]");
+  await bot.idle();
+  sender.fail = false;
+  await bot.idle();
+  assert.deepEqual(sender.texts, [], "no 'Sorry, something went wrong' into the test group");
+});
+
+test("orphaned per-session usage totals are pruned with the daily prune", () => {
+  const dataDir = tmp();
+  const state = new State(dataDir);
+  state.setSession(ME, "live-session");
+  state.set("usageTotals:live-session", "{}");
+  state.set("usageTotals:old-session", "{}");
+  pruneTurns(state, Date.parse("2026-10-02T12:00:00Z"));
+  assert.equal(state.get("usageTotals:live-session"), "{}");
+  assert.equal(state.get("usageTotals:old-session"), null);
 });

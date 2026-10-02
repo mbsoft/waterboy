@@ -479,7 +479,7 @@
 
   /** Cost (Claude) or tokens (ChatGPT) over the last 30 days, with breakdowns. */
   function usageCard(u) {
-    if (!u) return null;
+    if (!u) return card(h("div", { class: "card-head" }, h("h3", {}, "Usage")), h("p", { class: "desc", style: "margin-top:8px" }, "Waiting for data from the service."));
     const usd = u.unit === "usd";
     const head = h("div", { class: "card-head" }, h("h3", {}, "Usage"), h("span", { class: "meta" }, usd ? "API-equivalent cost" : "Tokens (ChatGPT has no per-reply cost)"));
     if (!u.available || !u.month.turns)
@@ -535,6 +535,7 @@
     if (!src) return null;
     const head = h("div", { class: "card-head" }, h("h3", {}, "Data sources"), h("div", { class: "actions" }, h("button", { class: "link", onclick: () => (location.hash = "#settings/fantasy") }, icon("settings", 16), "Fantasy settings")));
     if (src.stale) return card(head, h("div", { class: "empty" }, icon("alert", 18), "Not checked recently (is the service running?)"));
+    if (src.waiting) return card(head, h("p", { class: "desc", style: "margin-top:8px" }, "Waiting for data from the service. Each source shows up here once the service runs Waterboy 0.4 or later and fetches league data."));
     const ago = (ms) => relTime(new Date(ms).toISOString());
     const pct = (x) => `${Math.round(x * 1000) / 10}%`.replace(".0%", "%");
     const since = src.startedAt ? `since the agent started ${ago(src.startedAt)}` : "since the agent started";

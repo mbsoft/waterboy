@@ -40,3 +40,14 @@ export interface AgentResponse {
 export interface AgentRunner {
   run(req: AgentRequest): Promise<AgentResponse>;
 }
+
+/** A turn that ended in an error (max turns, an API error). It still cost something, so it carries that. */
+export class AgentTurnError extends Error {
+  constructor(
+    message: string,
+    readonly turn: { sessionId: string | null; costUsd?: number; model?: string; usage?: { input: number; output: number } },
+  ) {
+    super(message);
+    this.name = "AgentTurnError";
+  }
+}

@@ -194,6 +194,11 @@ export class State {
   pruneTurns(before: number): number {
     return Number(this.db.prepare("DELETE FROM turns WHERE at < ?").run(before).changes);
   }
+  /** Drops the per-session usage totals (see turnShare) of sessions no chat uses any more */
+  pruneSessionTotals(): number {
+    const sql = "DELETE FROM kv WHERE k LIKE 'usageTotals:%' AND substr(k, 13) NOT IN (SELECT session_id FROM chats WHERE session_id IS NOT NULL)";
+    return Number(this.db.prepare(sql).run().changes);
+  }
   cancelTask(chatGuid: string, id: number): boolean {
     const r = this.db.prepare("UPDATE tasks SET enabled = 0 WHERE id = ? AND chat_guid = ? AND enabled = 1").run(id, chatGuid);
     return Number(r.changes) > 0;

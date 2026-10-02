@@ -48,6 +48,7 @@ export function pruneTurns(state: State, at = now()): number {
   if (state.get("usage:prunedDay") === day) return 0;
   state.set("usage:prunedDay", day);
   const removed = state.pruneTurns(startOfLocalDay(at) - TURN_RETENTION_DAYS * 86_400_000);
+  state.pruneSessionTotals(); // totals of sessions that were replaced (a new session, a policy change)
   if (removed) log(`[usage] pruned ${removed} turn record${removed === 1 ? "" : "s"} older than ${TURN_RETENTION_DAYS} days`);
   return removed;
 }

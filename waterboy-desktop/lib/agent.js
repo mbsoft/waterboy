@@ -209,7 +209,8 @@ async function readiness() {
     sending: sendingReadiness(health),
     automation: automationReadiness(health),
     checks: serviceChecks(health),
-    sources: sourcesReadiness(health),
+    // Without a league there are no fantasy sources to wait for
+    sources: ((s) => (s?.waiting && !cfg.fantasy ? null : s))(sourcesReadiness(health)),
     groupAlerts: groupAlertHealth(health),
   };
 }
@@ -275,7 +276,8 @@ const NFLVERSE_STALE_MS = 48 * 3600_000;
  */
 function sourcesReadiness(health, now = Date.now()) {
   const raw = health?.sources;
-  if (!raw || typeof raw !== "object") return null;
+  // No health.json yet, or one from a service before v0.4: say so rather than hide the card
+  if (!raw || typeof raw !== "object") return { waiting: true, list: [], down: [] };
   if (now - (health.updatedAt ?? 0) > HEALTH_STALE_MS) return { stale: true, list: [], down: [] };
   const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
   const list = SOURCES.map((src) => {
