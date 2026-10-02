@@ -11,6 +11,8 @@ import { importAttachment, isAudio, transcribe } from "../messages/media.ts";
 import { MEMORY_FILE, MAX_MEMORY_CHARS, POLICY_VERSION, fantasyPrompt, fullPrompt, type PromptContext } from "./prompts.ts";
 import { runCommand } from "./commands.ts";
 import { parseReaction, type MessageActions, type TypingIndicators } from "../messages/helper.ts";
+import { recordTurn } from "./usage.ts";
+import { now } from "../testHooks.ts";
 
 type Job =
   | { kind: "messages"; msgs: IncomingMessage[] }
@@ -217,9 +219,16 @@ export class Bot {
     const dir = this.chatDir(chatGuid);
 
     // A notice is already written: send it and skip the agent entirely (still honouring /pause).
+    // It's recorded as an "alert" turn with no model and no cost, so the usage card counts it.
     if (job.kind === "notice") {
       if (chat.paused) return;
+      const started = Date.now();
       await this.reply(q, job.text, false);
+      recordTurn(
+        this.state,
+        { at: now(), chatId: chatGuid, model: null, provider: this.cfg.provider, costUsd: 0, inputTokens: 0, outputTokens: 0, durationMs: Date.now() - started, kind: "alert" },
+        this.cfg.usage?.dailyCostAlertUsd,
+      );
       return;
     }
 
@@ -285,9 +294,29 @@ export class Bot {
     }
     if (res.sessionId && res.sessionId !== sessionId) this.state.setSession(chatGuid, res.sessionId);
     // "in 13.4s" is the turn's duration; the desktop app's reply-time statistic reads it.
-    const took = `in ${((Date.now() - started) / 1000).toFixed(1)}s`;
+    const durationMs = Date.now() - started;
+    const took = `in ${(durationMs / 1000).toFixed(1)}s`;
     if (res.costUsd !== undefined) log(`[bot] ${q.label}: turn cost $${res.costUsd.toFixed(4)} (API-equivalent) ${took}`);
     if (res.tokens) log(`[bot] ${q.label}: turn used ${res.tokens.input + res.tokens.output} tokens (${res.tokens.cached} cached) ${took}`);
+    // The Dashboard's usage card: the same turns, with the same cost, as the two log lines above.
+    if (res.costUsd !== undefined || res.tokens) {
+      const tokens = res.tokens ?? res.usage;
+      recordTurn(
+        this.state,
+        {
+          at: now(),
+          chatId: chatGuid,
+          model: res.model ?? (this.cfg.provider === "claude" ? this.cfg.model : this.cfg.chatgpt.model),
+          provider: this.cfg.provider,
+          costUsd: res.costUsd ?? null,
+          inputTokens: tokens?.input ?? null,
+          outputTokens: tokens?.output ?? null,
+          durationMs,
+          kind: job.kind === "messages" ? "reply" : "scheduled",
+        },
+        this.cfg.usage?.dailyCostAlertUsd,
+      );
+    }
 
     const text = res.text.trim();
     const trigger = job.kind === "messages" ? job.msgs.at(-1) : undefined;

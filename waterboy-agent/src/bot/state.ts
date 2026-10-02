@@ -35,6 +35,24 @@ const STATE_MIGRATIONS: ((db: DatabaseSync) => void)[] = [
     const cols = (db.prepare("PRAGMA table_info(tasks)").all() as { name: string }[]).map((c) => c.name);
     if (!cols.includes("condition")) db.exec("ALTER TABLE tasks ADD COLUMN condition TEXT");
   },
+  // 2 -> 3: one row per model turn, for the Dashboard's usage card (bot/usage.ts).
+  // Downgrade: v0.3 refuses this file (SchemaTooNewError); restore state.db from before the upgrade.
+  (db) =>
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS turns (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        at INTEGER NOT NULL,
+        chat_id TEXT NOT NULL,
+        model TEXT,
+        provider TEXT NOT NULL,
+        cost_usd REAL,
+        input_tokens INTEGER,
+        output_tokens INTEGER,
+        duration_ms INTEGER NOT NULL,
+        kind TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS turns_at ON turns (at);
+    `),
 ];
 
 if (STATE_MIGRATIONS.length !== STATE_SCHEMA_VERSION) {
@@ -57,6 +75,20 @@ export function migrateState(db: DatabaseSync, file = "state.db"): { from: numbe
     }
   }
   return { from, to: STATE_SCHEMA_VERSION };
+}
+
+/** One finished model turn (a row of `turns`). Claude reports a cost; ChatGPT only tokens. */
+export interface TurnRecord {
+  at: number; // epoch ms, when the turn finished
+  chatId: string;
+  model: string | null;
+  provider: "claude" | "chatgpt";
+  costUsd: number | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  durationMs: number;
+  /** reply: answering messages; scheduled: an automation; alert: a live-alert automation that ran the model */
+  kind: "reply" | "scheduled" | "alert";
 }
 
 export interface ChatState {
@@ -145,6 +177,22 @@ export class State {
   updateTaskRun(id: number, nextRun: number | null) {
     if (nextRun === null) this.db.prepare("UPDATE tasks SET enabled = 0, next_run = NULL WHERE id = ?").run(id);
     else this.db.prepare("UPDATE tasks SET next_run = ? WHERE id = ?").run(nextRun, id);
+  }
+  addTurn(t: TurnRecord) {
+    this.db
+      .prepare(
+        "INSERT INTO turns (at, chat_id, model, provider, cost_usd, input_tokens, output_tokens, duration_ms, kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(t.at, t.chatId, t.model, t.provider, t.costUsd, t.inputTokens, t.outputTokens, t.durationMs, t.kind);
+  }
+  /** API-equivalent dollars spent on turns at or after `since` (epoch ms) */
+  costSince(since: number): number {
+    const r = this.db.prepare("SELECT COALESCE(SUM(cost_usd), 0) AS c FROM turns WHERE at >= ?").get(since) as { c: number };
+    return Number(r.c);
+  }
+  /** Deletes turns from before `before` (epoch ms); returns how many */
+  pruneTurns(before: number): number {
+    return Number(this.db.prepare("DELETE FROM turns WHERE at < ?").run(before).changes);
   }
   cancelTask(chatGuid: string, id: number): boolean {
     const r = this.db.prepare("UPDATE tasks SET enabled = 0 WHERE id = ? AND chat_guid = ? AND enabled = 1").run(id, chatGuid);

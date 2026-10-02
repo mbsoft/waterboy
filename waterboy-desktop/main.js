@@ -70,6 +70,7 @@ const API = {
   memories: () => agent.memories(),
   saveMemory: (dir, text) => agent.saveMemory(dir, text),
   resetSession: (guid) => agent.resetSession(guid),
+  usage: () => agent.usage(),
   settings: () => agent.settings(),
   saveSettings: (patch) => agent.saveSettings(patch),
   connections: () => agent.connections(),

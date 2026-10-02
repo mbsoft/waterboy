@@ -17,7 +17,7 @@
 /** Bump when config.json needs a migration; add the step to CONFIG_MIGRATIONS */
 export const CONFIG_SCHEMA_VERSION = 1;
 /** Bump with each migration appended to STATE_MIGRATIONS in bot/state.ts */
-export const STATE_SCHEMA_VERSION = 2;
+export const STATE_SCHEMA_VERSION = 3;
 
 export class SchemaTooNewError extends Error {
   constructor(

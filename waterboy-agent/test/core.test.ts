@@ -118,6 +118,7 @@ function setup(overrides: Partial<Config> = {}) {
     chatgpt: { model: null },
     typingIndicators: false,
     threadedReplies: "auto" as const,
+    usage: { dailyCostAlertUsd: null },
     ...overrides,
   } satisfies Config;
   const state = new State(dataDir);

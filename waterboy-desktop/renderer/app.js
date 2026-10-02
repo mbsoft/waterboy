@@ -268,6 +268,7 @@
   RENDER.dashboard = async () => {
     const o = state.overview;
     if (!o) throw new Error("Couldn't reach the agent.");
+    const usage = await api.usage().catch(() => null);
     const s = o.status;
     const name = o.agentName;
     let statusBody;
@@ -346,6 +347,7 @@
       setupBanner(),
       updateBanner(),
       restartBanner(),
+      usageBanner(usage),
       card(h("h3", {}, `${name} status`), h("div", { class: "status" }, statusBody)),
       r.sending?.failing
         ? h(
@@ -407,6 +409,7 @@
         ),
         sm.ignoredToday ? h("p", { class: "note" }, "Ignored messages came from conversations that aren't allowed. You can allow them in Conversations.") : null,
       ),
+      usageCard(usage),
       card(
         h("h3", {}, `Use ${name} in Messages`),
         h("p", { class: "desc", style: "color:var(--text);margin-top:8px" }, `Text ${name} from an allowed conversation. In group chats, mention ${name} by name to get a reply.`),
@@ -415,6 +418,83 @@
       ),
     );
   };
+  // ---------- usage (Dashboard) ----------
+
+  const money = (usd) => (usd >= 100 ? `$${Math.round(usd)}` : `$${usd.toFixed(2)}`);
+  const tokenCount = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(n >= 1e7 ? 0 : 1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
+  const turnCount = (n) => `${n} turn${n === 1 ? "" : "s"}`;
+
+  /** Today's cost reached usage.dailyCostAlertUsd: warn once per local day (dismissing hides it until tomorrow). */
+  function usageBanner(u) {
+    const a = u?.alert;
+    if (!a?.crossed || localStorage.getItem("usageAlertDismissed") === a.day) return null;
+    const el = h(
+      "div",
+      { class: "banner warn" },
+      icon("alert", 18),
+      h("div", { class: "grow" }, `Today's usage is ${money(a.todayCostUsd)} (API-equivalent), over your ${money(a.thresholdUsd)} daily alert. Nothing was sent to your chats.`),
+      h("button", { class: "link", onclick: () => (location.hash = "#settings/advanced") }, "Change alert"),
+      button("Dismiss", () => {
+        localStorage.setItem("usageAlertDismissed", a.day);
+        el.remove();
+      }),
+    );
+    return el;
+  }
+
+  /** Cost (Claude) or tokens (ChatGPT) over the last 30 days, with breakdowns. */
+  function usageCard(u) {
+    if (!u) return null;
+    const usd = u.unit === "usd";
+    const head = h("div", { class: "card-head" }, h("h3", {}, "Usage"), h("span", { class: "meta" }, usd ? "API-equivalent cost" : "Tokens (ChatGPT has no per-reply cost)"));
+    if (!u.available || !u.month.turns)
+      return card(head, h("p", { class: "desc", style: "margin-top:8px" }, u.available ? "No turns in the last 30 days. Usage shows up here a few seconds after the next reply." : "Usage shows up here once the agent has been restarted on this version and has replied."));
+    const value = (g) => (usd ? money(g.costUsd) : tokenCount(g.tokens));
+    const total = (g, lbl) => h("div", { class: "stat" }, h("div", { class: "num" }, value(g)), h("div", { class: "lbl" }, `${lbl} · ${turnCount(g.turns)}`));
+    const measure = (g) => (usd ? g.costUsd : g.tokens);
+
+    // One bar per local day; hover a bar for its numbers
+    const max = Math.max(...u.days.map(measure));
+    const fmtDay = (day, opts) => new Date(`${day}T12:00:00`).toLocaleDateString(undefined, opts);
+    const bars = h("div", { class: "usage-bars", role: "img", "aria-label": `Daily ${usd ? "cost" : "tokens"} for the last 30 days, up to ${usd ? money(max) : tokenCount(max)} a day` },
+      u.days.map((d, i) =>
+        h("div", { class: `usage-bar${i === u.days.length - 1 ? " today" : ""}`, title: `${fmtDay(d.day, { weekday: "short", month: "short", day: "numeric" })}: ${value(d)} · ${turnCount(d.turns)}` },
+          h("span", { style: `height:${max ? Math.max(measure(d) ? 2 : 0, (measure(d) / max) * 100) : 0}%` }))));
+    const chart = h("div", { class: "usage-chart" },
+      h("div", { class: "usage-max" }, usd ? money(max) : tokenCount(max)),
+      bars,
+      h("div", { class: "usage-axis" }, h("span", {}, fmtDay(u.days[0].day, { month: "short", day: "numeric" })), h("span", {}, "Today")));
+
+    // A breakdown: name, a thin bar for its share, the value
+    const top = (groups) => Math.max(...groups.map(measure), 0);
+    const breakdown = (title, groups, more) => {
+      const m = top(groups);
+      return h("div", { class: "usage-breakdown" },
+        h("div", { class: "lbl" }, title),
+        groups.map((g) =>
+          h("div", { class: "usage-row", title: `${g.name}: ${value(g)} · ${turnCount(g.turns)}` },
+            h("span", { class: "name" }, g.name),
+            h("span", { class: "share" }, h("span", { style: `width:${m ? (measure(g) / m) * 100 : 0}%` })),
+            h("span", { class: "val" }, value(g)))),
+        more ? h("div", { class: "note", style: "margin-top:4px" }, `and ${more} more`) : null);
+    };
+    const KIND = { reply: "Replies", scheduled: "Automations", alert: "Live alerts" };
+    const kinds = u.byKind.filter((k) => k.turns).map((k) => ({ ...k, name: `${KIND[k.key]} (${k.turns})` }));
+    return card(
+      head,
+      h("div", { class: "stats", style: "margin-top:10px" }, total(u.today, "Today"), total(u.week, "7 days"), total(u.month, "30 days")),
+      chart,
+      h("div", { class: "usage-breakdowns" },
+        breakdown("By model", u.byModel),
+        breakdown("Top chats", u.byChat, u.otherChats),
+        breakdown("By kind", kinds)),
+      h("p", { class: "note" },
+        usd
+          ? "API-equivalent is what these turns would cost at Anthropic's API prices. Your Claude plan's usage limits are what actually apply. Live alerts are written by Waterboy and cost nothing."
+          : "ChatGPT plans don't report a cost per reply, so this shows tokens used. They count toward your plan's limits."),
+    );
+  }
+
   const stat = (num, lbl) => h("div", { class: "stat" }, h("div", { class: "num" }, num), h("div", { class: "lbl" }, lbl));
   const linkTo = (page, label, iconName) => h("button", { class: "link", onclick: () => (location.hash = `#${page}`) }, icon(iconName, 16), label);
 
@@ -1117,6 +1197,30 @@
               s.provider === "chatgpt"
                 ? "Anyone in an allowed 1:1 conversation could then run commands here. With ChatGPT they run in a sandbox that can read this Mac but only write to the chat folder, without network access. Leave off unless you need it."
                 : "Anyone in an allowed 1:1 conversation could then run commands here. Leave off unless you need it."),
+          ),
+        ),
+        card(
+          h("h3", {}, "Usage"),
+          h("div", { class: "form" },
+            h("label", {}, "Daily cost alert"), (() => {
+              let value = s.usage.dailyCostAlertUsd === null ? "" : String(s.usage.dailyCostAlertUsd);
+              const input = tagged(h("input", { type: "text", value, placeholder: "Off", style: "max-width:80px", "aria-label": "Daily cost alert in dollars" }), "usage.dailyCostAlertUsd");
+              const ok = () => input.value.trim() === "" || Number(input.value.trim().replace(/^\$/, "")) >= 0;
+              const b = button("Save", async () => {
+                const off = input.value.trim() === "";
+                await save({ "usage.dailyCostAlertUsd": input.value }, off ? "Daily cost alert off" : "Daily cost alert saved");
+                value = input.value = off ? "" : String(Math.round(Number(input.value.trim().replace(/^\$/, "")) * 100) / 100);
+                b.disabled = true;
+              });
+              b.disabled = true;
+              input.addEventListener("input", () => (b.disabled = input.value === value || !ok()));
+              input.addEventListener("keydown", (e) => e.key === "Enter" && !b.disabled && b.click());
+              return h("div", { class: "inline" }, h("span", { class: "unit", style: "margin:0" }, "Warn me above $"), input, h("span", { class: "unit" }, "per day"), b);
+            })(),
+            h("div", { class: "hint" },
+              s.provider === "chatgpt"
+                ? "Claude only. ChatGPT doesn't report a cost per reply, so this never fires with ChatGPT."
+                : "Leave empty for off. When a day's API-equivalent cost goes over this, the Dashboard shows a warning once that day and the log notes it. Nothing is texted."),
           ),
         ),
       ],

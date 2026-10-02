@@ -94,6 +94,18 @@ On first start the service begins at the newest message, so it never answers old
 | `typingIndicators` | Show "typing…" in a chat while a reply is being written (default `true`; see below) |
 | `threadedReplies` | Group chats: reply in-thread to the message that asked: `"auto"` (default; only when other messages arrived meanwhile), `"always"` or `"off"` |
 | `voice` | whisper.cpp binary and model path |
+| `usage.dailyCostAlertUsd` | Dollars of API-equivalent cost per day (local time) before the Dashboard warns and the log notes it, once a day; `null` (default) = off. Nothing is texted. Claude only: ChatGPT reports tokens, not cost |
+
+## Usage record
+
+Every turn is saved in `state.db` (`turns`: time, chat, model, provider, cost, input and output
+tokens, duration, kind) for the Dashboard's Usage card, which totals it by local day when it's opened.
+A turn is recorded where its `turn cost` / `turn used … tokens` log line is written, with the same
+cost, so the card matches the log. ChatGPT turns have tokens and no cost. Kinds: `reply` (answering
+messages), `scheduled` (automations that ran the model, with their real cost) and `alert` (live
+scoring alerts, which the service writes itself without a model: no model, cost 0, 0 tokens; they
+count as turns but never toward cost). Rows older than 400 days are deleted, checked at startup and
+at the first turn of each day.
 
 ## ChatGPT as the assistant
 
@@ -217,7 +229,7 @@ The roundup text itself (results, standings with movement and playoff line, high
 
 ```
 ~/.imessage-agent/
-  state.db                 cursor, per-chat session ids, paused flags, scheduled tasks
+  state.db                 cursor, per-chat session ids, paused flags, scheduled tasks, usage record (turns)
   chats/<chat-guid>/       the agent's working dir for that chat
     MEMORY.md              long-term memory (shown with /memory, erased with /forget)
     inbox/  outbox/sent/   received files / files sent back
@@ -236,6 +248,12 @@ restore `config.json` and `state.db` from before the upgrade (quit the service f
 
 When a change needs a migration, add a step to `CONFIG_MIGRATIONS` (`src/schema.ts`) or
 `STATE_MIGRATIONS` (`src/bot/state.ts`) and bump the matching version. Steps are append-only.
+
+| state.db version | Release | Change |
+|---|---|---|
+| 1 | | The original tables |
+| 2 | 0.3.0 | Task conditions |
+| 3 | 0.4.0 | `turns` (the usage record). v0.3.x refuses a version-3 file: to downgrade, restore `state.db` from before the upgrade (losing only the usage record and anything since) |
 
 ## Typing indicators, tapbacks and threaded replies
 
@@ -287,3 +305,14 @@ npm run build                   # dist/index.mjs, the compiled service that ship
 The desktop installer (`../waterboy-desktop`, `npm run release`) bundles this service: `dist/index.mjs`,
 production `node_modules` and `scripts/run-app.sh` (as `run.sh`) go into `Waterboy.app/Contents/Resources/agent`,
 and the app installs the LaunchAgent itself, with the config at `~/.imessage-agent/config.json`.
+
+### Testing hooks
+
+Dev/test only, and inert unless `WATERBOY_TEST_HOOKS=1` (the launchd job never sets it).
+
+- **H1 clock** (`src/testHooks.ts`): `WATERBOY_NOW=<ISO date or epoch ms>` starts the service's clock there; it then
+  advances normally. The usage record's turn times, "today" for the daily cost alert and the 400-day pruning use it.
+- **H5 seed turns** (`scripts/seed-turns.ts`): `WATERBOY_TEST_HOOKS=1 npx tsx scripts/seed-turns.ts <dataDir> [--rows 600]
+  [--days 30] [--provider claude|chatgpt] [--seed 1]` adds realistic `turns` rows over the last `days` local days (ending at
+  the H1 clock) to `<dataDir>/state.db`, creating or migrating it with the real migrations. Same seed, same rows. For
+  Dashboard screenshots and scale tests (`--rows 100000 --days 365`).
