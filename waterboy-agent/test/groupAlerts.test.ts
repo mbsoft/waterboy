@@ -86,7 +86,7 @@ test("only a marked, allowlisted group with test mode on can be targeted", () =>
 
 test("1:1 live alerts still never fire in a group chat", async () => {
   const conds = makeConditions(
-    { fantasy: { espnLeagueId: "1", teams: { "+16145550142": "Brownie Poos" }, liveAlerts: { enabled: true, subscribers: ["*"] } } } as any,
+    { fantasy: { espnLeagueId: "1", teams: { "+16145550142": "Waiver Wizards" }, liveAlerts: { enabled: true, subscribers: ["*"] } } } as any,
     { get: () => null, set: () => {} } as any,
   );
   // Returns before any network call: a group has no single subscriber.
@@ -96,17 +96,17 @@ test("1:1 live alerts still never fire in a group chat", async () => {
 // ---------- text ----------
 
 const side = (teamId: number, name: string, proj: number): SideSnapshot => ({ teamId, name, proj, live: null, winProb: null, players: {} });
-const matchup = (a: number, b: number, at = 0): MatchupSnapshot => ({ week: 3, at, mine: side(1, "Brownie Poos", a), theirs: side(2, "Team Kathy", b) });
+const matchup = (a: number, b: number, at = 0): MatchupSnapshot => ({ week: 3, at, mine: side(1, "Waiver Wizards", a), theirs: side(2, "Team Nina", b) });
 const league = (at: number, ...m: MatchupSnapshot[]): LeagueSnapshot => ({ week: 3, at, matchups: m });
 
 test("a swing names both teams; a lead change says so", () => {
   const [lc] = leagueSwings(league(0, matchup(100, 97)), league(1, matchup(100, 107)), 5);
-  assert.equal(lc.line, "🚨 Team Kathy just took the lead over Brownie Poos: 107.0 to 100.0 projected.");
+  assert.equal(lc.line, "🚨 Team Nina just took the lead over Waiver Wizards: 107.0 to 100.0 projected.");
   assert.equal(lc.leadChange, true);
   const [up] = leagueSwings(league(0, matchup(100, 90)), league(1, matchup(110, 90)), 5);
-  assert.equal(up.line, "📈 Brownie Poos up 10.0% to 110.0 projected. Leads Team Kathy 110.0 to 90.0.");
+  assert.equal(up.line, "📈 Waiver Wizards up 10.0% to 110.0 projected. Leads Team Nina 110.0 to 90.0.");
   const [down] = leagueSwings(league(0, matchup(100, 90)), league(1, matchup(100, 81)), 5);
-  assert.equal(formatSwing(down.delta), "📉 Team Kathy down 10.0% to 81.0 projected. Trails Brownie Poos 81.0 to 100.0.");
+  assert.equal(formatSwing(down.delta), "📉 Team Nina down 10.0% to 81.0 projected. Trails Waiver Wizards 81.0 to 100.0.");
   assert.deepEqual(leagueSwings(league(0, matchup(100, 90)), league(1, matchup(102, 91)), 5), [], "under the threshold");
 });
 
@@ -114,11 +114,11 @@ test("a swing names both teams; a lead change says so", () => {
 
 /** What the fixture must produce with the defaults (threshold 5%, 3 per check, 15 min cooldown). */
 const EXPECTED = [
-  ["🚨 Team Kathy just took the lead over Brownie Poos"],
-  ["📉 Team Kathy down 7.5%"],
+  ["🚨 Team Nina just took the lead over Waiver Wizards"],
+  ["📉 Team Nina down 7.5%"],
   ["🚨 Hurts So Good just took the lead", "🚨 Saquon Deez just took the lead", "🚨 Mike's Mighty Ducks just took the lead"],
   ["🚨 Kittle Me This just took the lead"],
-  ["🚨 The Bijan Mustard just took the lead", "📈 Brownie Poos up 6.5%"],
+  ["🚨 The Bijan Mustard just took the lead", "📈 Waiver Wizards up 6.5%"],
   ["📈 Lamb Chops up 10.6%"],
 ];
 

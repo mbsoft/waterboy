@@ -7,8 +7,8 @@ const LOG = `2026-09-24T14:31:48.375Z [main] Finn agent started. Watching /x/cha
 2026-09-24T14:31:48.376Z [main] allowlisted chats: +1, +2
 2026-09-24T14:29:09.278Z [bot] ignoring message from non-allowlisted chat any;-;+16145550142 (sender +16145550142, name -)
 2026-09-24T14:32:03.000Z [agent] session 3f05 (auth: none, model: claude-sonnet-5)
-2026-09-24T14:32:10.269Z [bot] Suze: turn cost $0.0585 (API-equivalent)
-2026-09-24T14:39:52.414Z [bot] Suze: policy changed, starting a fresh session
+2026-09-24T14:32:10.269Z [bot] Tess: turn cost $0.0585 (API-equivalent)
+2026-09-24T14:39:52.414Z [bot] Tess: policy changed, starting a fresh session
 2026-09-24T14:40:00.000Z [sleeper] projections unavailable: Sleeper 500
 2026-09-24T14:41:00.000Z [main] SIGTERM received, finishing in-flight turns…
 not a log line`;
@@ -17,9 +17,9 @@ test("log lines become readable events", () => {
   const ev = parseLog(LOG);
   assert.deepEqual(ev.map((e) => e.kind), ["start", "ignored", "turn", "reply", "session", "error", "stop"]);
   const reply = ev.find((e) => e.kind === "reply");
-  assert.equal(reply.chat, "Suze");
+  assert.equal(reply.chat, "Tess");
   assert.equal(reply.seconds, 7.3); // from the matching "session" line
-  assert.equal(reply.detail, "Suze · 7.3 s");
+  assert.equal(reply.detail, "Tess · 7.3 s");
   assert.equal(ev[1].detail, "+16145550142 isn't allowed yet");
   assert.equal(ev.find((e) => e.kind === "error").title, "Sleeper data unavailable");
   const s = summarize(ev, new Date("2026-09-24T18:00:00Z"));
@@ -35,7 +35,7 @@ test("schedules read like sentences", () => {
 
 test("handles and chat folders match the service's rules", () => {
   assert.equal(normalizeHandle("(614) 555-0142"), normalizeHandle("+16145550142"));
-  assert.equal(normalizeHandle("Suze@Example.com"), "suze@example.com");
+  assert.equal(normalizeHandle("Tess@Example.com"), "tess@example.com");
   assert.equal(chatDirName("any;-;+16145550142"), "any_-_+16145550142");
   assert.equal(chatDirName("any;+;0f44"), "any_+_0f44");
 });
@@ -92,13 +92,13 @@ test("ChatGPT turns, the assistant line and the lockdown stop become events", ()
   const ev = parseLog(`2026-09-25T17:00:00.000Z [main] assistant: ChatGPT (signed in, free plan)
 2026-09-25T17:00:01.000Z [main] group and fantasy chats are off: unreviewed Codex features shiny_new_tool
 2026-09-25T17:01:00.000Z [agent] session 01a0d989 (auth: chatgpt, model: ChatGPT default)
-2026-09-25T17:01:08.700Z [bot] Suze: turn used 19848 tokens (14592 cached)`);
+2026-09-25T17:01:08.700Z [bot] Tess: turn used 19848 tokens (14592 cached)`);
   assert.deepEqual(ev.map((e) => e.kind), ["info", "error", "turn", "reply"]);
   assert.equal(ev[0].title, "Assistant: ChatGPT");
   assert.equal(ev[0].detail, "signed in, free plan");
   assert.equal(ev[1].title, "Group chats paused");
   assert.match(ev[1].detail, /shiny_new_tool/);
-  assert.equal(ev[3].chat, "Suze");
+  assert.equal(ev[3].chat, "Tess");
   assert.equal(ev[3].seconds, 8.7);
 });
 
@@ -122,9 +122,9 @@ test("phone numbers and emails are cleaned up the way Messages uses them", () =>
   assert.equal(cleanHandle("(614) 555-0142"), "+16145550142");
   assert.equal(cleanHandle("1-614-555-0142"), "+16145550142");
   assert.equal(cleanHandle("+44 20 7946 0958"), "+442079460958");
-  assert.equal(cleanHandle("  Suze@Example.com "), "suze@example.com");
+  assert.equal(cleanHandle("  Tess@Example.com "), "tess@example.com");
   assert.throws(() => cleanHandle("555-0142"), /isn't a phone number/);
-  assert.throws(() => cleanHandle("suze@"), /isn't a valid email/);
+  assert.throws(() => cleanHandle("tess@"), /isn't a valid email/);
 });
 
 test("adding a person allows them with a name, access level and team, without duplicates", async () => {
@@ -138,20 +138,20 @@ test("adding a person allows them with a name, access level and team, without du
   const prev = process.env.IMESSAGE_AGENT_DIR;
   process.env.IMESSAGE_AGENT_DIR = dir;
   try {
-    const r = await agent.addPerson({ name: " Suze ", handle: "(614) 555-0142", access: "fantasy", team: "Suze's Castaways" });
-    assert.deepEqual(r, { handle: "+16145550142", name: "Suze", access: "fantasy", team: "Suze's Castaways", updated: false });
+    const r = await agent.addPerson({ name: " Tess ", handle: "(614) 555-0142", access: "fantasy", team: "Tess's Tailgaters" });
+    assert.deepEqual(r, { handle: "+16145550142", name: "Tess", access: "fantasy", team: "Tess's Tailgaters", updated: false });
     let cfg = JSON.parse(fs.readFileSync(file, "utf8"));
     assert.deepEqual(cfg.allowedChats, ["+16145550100", "+16145550142"]);
-    assert.equal(cfg.contacts["+16145550142"], "Suze");
+    assert.equal(cfg.contacts["+16145550142"], "Tess");
     assert.equal(cfg.chatAccess["+16145550142"], "fantasy");
-    assert.equal(cfg.fantasy.teams["+16145550142"], "Suze's Castaways");
+    assert.equal(cfg.fantasy.teams["+16145550142"], "Tess's Tailgaters");
 
     // Same person in another format: updated in place, not added twice.
-    const again = await agent.addPerson({ name: "Suze W.", handle: "614.555.0142", access: "full" });
+    const again = await agent.addPerson({ name: "Tess W.", handle: "614.555.0142", access: "full" });
     assert.equal(again.updated, true);
     cfg = JSON.parse(fs.readFileSync(file, "utf8"));
     assert.equal(cfg.allowedChats.length, 2);
-    assert.equal(cfg.contacts["+16145550142"], "Suze W.");
+    assert.equal(cfg.contacts["+16145550142"], "Tess W.");
     assert.equal(cfg.chatAccess, undefined); // back to full access
     assert.equal(cfg.fantasy.teams["+16145550142"], undefined);
 
@@ -209,8 +209,8 @@ test("live alerts: settings, clamping and per-person subscriptions", async () =>
   fs.writeFileSync(file, JSON.stringify({
     dataDir: dir,
     allowedChats: [],
-    contacts: { "+16145550142": "Suze" },
-    fantasy: { espnLeagueId: "1", teams: { "+16145550142": "Suze's Castaways", "kathy@example.com": "Team Kathy" } },
+    contacts: { "+16145550142": "Tess" },
+    fantasy: { espnLeagueId: "1", teams: { "+16145550142": "Tess's Tailgaters", "nina@example.com": "Team Nina" } },
   }));
   const prev = process.env.IMESSAGE_AGENT_DIR;
   process.env.IMESSAGE_AGENT_DIR = dir;
@@ -219,7 +219,7 @@ test("live alerts: settings, clamping and per-person subscriptions", async () =>
     let a = agent.liveAlerts(read());
     assert.deepEqual([a.enabled, a.everyone, a.thresholdPct, a.checkMinutes, a.minPlayerPoints], [false, false, 5, 5, 1]);
     assert.deepEqual(a.people.map((p) => [p.name ?? p.handle, p.team, p.subscribed]),
-      [["Suze", "Suze's Castaways", false], ["kathy@example.com", "Team Kathy", false]]);
+      [["Tess", "Tess's Tailgaters", false], ["nina@example.com", "Team Nina", false]]);
 
     // A three-level key creates the nested object.
     await agent.saveSettings({ "fantasy.liveAlerts.enabled": true, "fantasy.liveAlerts.thresholdPct": 8 });
@@ -238,19 +238,19 @@ test("live alerts: settings, clamping and per-person subscriptions", async () =>
 
     // Subscribing matches a handle in any format, and unsubscribing removes exactly one person.
     await agent.setAlertSubscriber("614.555.0142", true);
-    await agent.setAlertSubscriber("kathy@example.com", true);
-    assert.deepEqual(read().fantasy.liveAlerts.subscribers, ["614.555.0142", "kathy@example.com"]);
+    await agent.setAlertSubscriber("nina@example.com", true);
+    assert.deepEqual(read().fantasy.liveAlerts.subscribers, ["614.555.0142", "nina@example.com"]);
     a = agent.liveAlerts(read());
     assert.deepEqual(a.people.map((p) => p.subscribed), [true, true], "matched despite the different format");
     await agent.setAlertSubscriber("+16145550142", false);
-    assert.deepEqual(read().fantasy.liveAlerts.subscribers, ["kathy@example.com"]);
+    assert.deepEqual(read().fantasy.liveAlerts.subscribers, ["nina@example.com"]);
 
     // "*" is its own entry and does not disturb the named ones.
     await agent.setAlertSubscriber("*", true);
-    assert.deepEqual(read().fantasy.liveAlerts.subscribers, ["kathy@example.com", "*"]);
+    assert.deepEqual(read().fantasy.liveAlerts.subscribers, ["nina@example.com", "*"]);
     assert.equal(agent.liveAlerts(read()).everyone, true);
     await agent.setAlertSubscriber("*", false);
-    assert.deepEqual(read().fantasy.liveAlerts.subscribers, ["kathy@example.com"]);
+    assert.deepEqual(read().fantasy.liveAlerts.subscribers, ["nina@example.com"]);
 
     // A setting the page doesn't own is still refused.
     await assert.rejects(agent.saveSettings({ "fantasy.liveAlerts.somethingElse": 1 }), /can't be changed here/);
@@ -291,11 +291,11 @@ test("live alert automations: one per subscriber, never duplicated", async () =>
   fs.writeFileSync(path.join(dir, "config.json"), JSON.stringify({
     dataDir: dir,
     // Dale is subscribed but never allowed, so he has nowhere to receive an alert.
-    allowedChats: ["+16145550142", "kathy@example.com"],
-    contacts: { "+16145550142": "Suze", "+16145550143": "Dale", "kathy@example.com": "Kathy" },
+    allowedChats: ["+16145550142", "nina@example.com"],
+    contacts: { "+16145550142": "Tess", "+16145550143": "Dale", "nina@example.com": "Nina" },
     fantasy: {
       espnLeagueId: "1",
-      teams: { "+16145550142": "Castaways", "+16145550143": "Bucko", "kathy@example.com": "Team Kathy" },
+      teams: { "+16145550142": "Castaways", "+16145550143": "Bucko", "nina@example.com": "Team Nina" },
       liveAlerts: { enabled: true, checkMinutes: 10, subscribers: ["+16145550142", "+16145550143"] },
     },
   }));
@@ -303,7 +303,7 @@ test("live alert automations: one per subscriber, never duplicated", async () =>
     chats: [
       { guid: guid("+16145550142"), identifier: "+16145550142", isGroup: false, lastMessageAt: null },
       { guid: guid("+16145550143"), identifier: "+16145550143", isGroup: false, lastMessageAt: null },
-      { guid: guid("kathy@example.com"), identifier: "kathy@example.com", isGroup: false, lastMessageAt: null },
+      { guid: guid("nina@example.com"), identifier: "nina@example.com", isGroup: false, lastMessageAt: null },
     ],
   }));
   const db = new DatabaseSync(path.join(dir, "state.db"));
@@ -314,12 +314,12 @@ test("live alert automations: one per subscriber, never duplicated", async () =>
   const prev = process.env.IMESSAGE_AGENT_DIR;
   process.env.IMESSAGE_AGENT_DIR = dir;
   try {
-    // Kathy has a team and an allowed chat but isn't subscribed, so she isn't in the plan at all.
+    // Nina has a team and an allowed chat but isn't subscribed, so she isn't in the plan at all.
     let plan = await agent.alertPlan();
-    assert.deepEqual(plan.map((p) => [p.name, p.allowed, p.hasAutomation]), [["Suze", true, false], ["Dale", false, false]]);
+    assert.deepEqual(plan.map((p) => [p.name, p.allowed, p.hasAutomation]), [["Tess", true, false], ["Dale", false, false]]);
 
     const r = await agent.createAlertAutomations();
-    assert.deepEqual(r.created, ["Suze"]);
+    assert.deepEqual(r.created, ["Tess"]);
     assert.deepEqual(r.skipped, ["Dale has no allowed conversation"]);
 
     const rows = await agent.automations();
@@ -331,14 +331,14 @@ test("live alert automations: one per subscriber, never duplicated", async () =>
     // Running it again is a no-op rather than a second automation for the same person.
     const again = await agent.createAlertAutomations();
     assert.deepEqual(again.created, []);
-    assert.deepEqual(again.skipped, ["Suze already has one", "Dale has no allowed conversation"]);
+    assert.deepEqual(again.skipped, ["Tess already has one", "Dale has no allowed conversation"]);
     assert.equal((await agent.automations()).length, 1);
     assert.equal((await agent.alertPlan())[0].hasAutomation, true);
 
-    // Switching to "everyone" pulls Kathy in; only the newcomer is created.
+    // Switching to "everyone" pulls Nina in; only the newcomer is created.
     await agent.setAlertSubscriber("*", true);
     const all = await agent.createAlertAutomations();
-    assert.deepEqual(all.created, ["Kathy"]);
+    assert.deepEqual(all.created, ["Nina"]);
     assert.equal((await agent.automations()).length, 2);
   } finally {
     if (prev === undefined) delete process.env.IMESSAGE_AGENT_DIR;
@@ -369,13 +369,13 @@ test("live alert automations need alerts on and someone subscribed", async () =>
 
 test("reply times: the logged duration wins, and an unfinished turn never pairs with a later reply", () => {
   const ev = parseLog(`2026-09-27T08:00:00.000Z [agent] session a (auth: none, model: m)
-2026-09-27T08:00:05.000Z [bot] Suze: something went wrong
+2026-09-27T08:00:05.000Z [bot] Tess: something went wrong
 2026-09-28T12:00:01.920Z [agent] session b (auth: none, model: m)
-2026-09-28T12:00:23.392Z [bot] Jimmie: turn cost $5.7668 (API-equivalent)
+2026-09-28T12:00:23.392Z [bot] Rowan: turn cost $5.7668 (API-equivalent)
 2026-09-28T13:43:48.582Z [agent] session b (auth: none, model: m)
-2026-09-28T13:44:01.939Z [bot] Jimmie: turn cost $6.7348 (API-equivalent) in 13.2s
+2026-09-28T13:44:01.939Z [bot] Rowan: turn cost $6.7348 (API-equivalent) in 13.2s
 2026-09-28T13:50:24.663Z [agent] session b (auth: none, model: m)
-2026-09-28T13:50:37.686Z [bot] Jimmie: turn used 19848 tokens (14592 cached) in 13.0s`);
+2026-09-28T13:50:37.686Z [bot] Rowan: turn used 19848 tokens (14592 cached) in 13.0s`);
   // The first turn (08:00) never logged a cost: it must not become a 28-hour reply.
   assert.deepEqual(ev.filter((e) => e.kind === "reply").map((e) => e.seconds), [21.5, 13.2, 13]);
   assert.equal(summarize(ev, new Date("2026-09-28T18:00:00Z")).avgSeconds, 15.9);
@@ -565,7 +565,7 @@ test("group test mode: only a marked group can be picked, and the simulation exp
   fs.writeFileSync(file, JSON.stringify({ dataDir: dir, allowedChats: ["Waterboy test", "League"], fantasy: { espnLeagueId: "1" } }));
   fs.writeFileSync(path.join(dir, "chats-index.json"), JSON.stringify({ chats: [
     { guid: TEST, identifier: "chat-test", name: "Waterboy test", isGroup: true, members: ["+16145550142"], lastMessageAt: null },
-    { guid: LEAGUE, identifier: "chat-league", name: "League", isGroup: true, members: ["+16145550142", "kathy@example.com"], lastMessageAt: null },
+    { guid: LEAGUE, identifier: "chat-league", name: "League", isGroup: true, members: ["+16145550142", "nina@example.com"], lastMessageAt: null },
   ] }));
   const prev = process.env.IMESSAGE_AGENT_DIR;
   process.env.IMESSAGE_AGENT_DIR = dir;

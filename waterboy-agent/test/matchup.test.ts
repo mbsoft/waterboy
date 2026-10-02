@@ -11,7 +11,7 @@ const league: any = {
   seasonId: 2026,
   settings: { name: "Test", scheduleSettings: { matchupPeriods: { "3": [3] } }, rosterSettings: { lineupSlotCounts: { "0": 1, "2": 2, "20": 3 } } },
   status: { currentMatchupPeriod: 3 },
-  members: [{ id: "a", firstName: "Jim", lastName: "Welch" }, { id: "b", firstName: "Kathy", lastName: "Lee" }],
+  members: [{ id: "a", firstName: "Jim", lastName: "Welch" }, { id: "b", firstName: "Nina", lastName: "Reyes" }],
   teams: [
     { id: 1, name: "Alpha", abbrev: "ALP", primaryOwner: "a", roster: { entries: [
       player(1, "Joe Starter", 1, 10, 0, 15),
@@ -34,9 +34,9 @@ const pro: any = [
 ];
 
 test("matchup preview: lineups, byes, injuries, start/sit, live points", () => {
-  const p = buildPreview(league, pro, 3, 3, 2, { "Kathy L.": "Kathy & Lee L." });
+  const p = buildPreview(league, pro, 3, 3, 2, { "Nina R.": "Nina & Theo R." });
   assert.equal(p.home.name, "Bravo"); // requested team first
-  assert.equal(p.home.owner, "Kathy & Lee L.");
+  assert.equal(p.home.owner, "Nina & Theo R.");
   assert.equal(p.home.live, 24.5);
   assert.equal(p.home.proj, 34.5); // 24.5 actual + 10 projected
   const a = p.away!;
@@ -66,7 +66,7 @@ test("matchup preview: Sleeper second opinion", () => {
 });
 
 test("findTeam by owner, partial name, id and 'me'", () => {
-  assert.equal(findTeam(league, "kathy")?.id, 2);
+  assert.equal(findTeam(league, "nina")?.id, 2);
   assert.equal(findTeam(league, "alp")?.id, 1);
   assert.equal(findTeam(league, "2")?.id, 2);
   assert.equal(findTeam(league, "me", 1)?.id, 1);

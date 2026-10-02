@@ -101,10 +101,10 @@ test("trade values: lookups, verdicts, owners", () => {
   assert.equal(lose.bonus, null);
   assert.deepEqual(lose.get.missing, ["Nobody"]);
 
-  const text = formatTrade(win, { teams: 12, ppr: 1, qbs: 1, dynasty: false }, (p) => (p.name === "Jahmyr Gibbs" ? "on Suze's Castaways" : "available here"));
+  const text = formatTrade(win, { teams: 12, ppr: 1, qbs: 1, dynasty: false }, (p) => (p.name === "Jahmyr Gibbs" ? "on Tess's Tailgaters" : "available here"));
   assert.match(text, /^FantasyCalc trade values \(redraft, 12 teams, PPR\):/);
   assert.match(text, /You give \(9800\):\n• DJ Moore WR CHI: 4800 \(WR18, #34 overall\) · available here\n• Kenneth Walker III RB SEA: 5000 \(RB12, #30 overall\) \(▲400 in 30 days\)/);
-  assert.match(text, /• Jahmyr Gibbs RB DET: 10000 \(RB1, #1 overall\) \(▼160 in 30 days\) · on Suze's Castaways/);
+  assert.match(text, /• Jahmyr Gibbs RB DET: 10000 \(RB1, #1 overall\) \(▼160 in 30 days\) · on Tess's Tailgaters/);
   assert.match(text, /Best player bonus: \+1200 to the side getting Jahmyr Gibbs/);
   assert.match(text, /\nSource: FantasyCalc$/);
 });

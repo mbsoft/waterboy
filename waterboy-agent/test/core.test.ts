@@ -266,16 +266,16 @@ test("sessions created under an older policy are not resumed", async () => {
 
 test("fantasy teams: 'me' is the asker's team, and group messages show each sender's team", async () => {
   const { bot, agent } = setup({
-    contacts: { "+16145551234": "Jim", "+16145550000": "Suze" },
+    contacts: { "+16145551234": "Jim", "+16145550000": "Tess" },
     allowedChats: ["+16145551234", "+16145550000", "league", "+19998887777"],
-    fantasy: { espnLeagueId: "1", myTeamId: 1, teams: { "+16145551234": "Brownie Poos", "(614) 555-0000": "Suze's Castaways" } },
+    fantasy: { espnLeagueId: "1", myTeamId: 1, teams: { "+16145551234": "Waiver Wizards", "(614) 555-0000": "Tess's Tailgaters" } },
   });
   const g = { chatGuid: "any;+;league", chatIdentifier: "league", chatName: "Family", isGroup: true };
 
   bot.handleIncoming([msg({ ...g, sender: "+16145550000", text: "claude how's my team" })]);
   await bot.idle();
-  assert.equal(agent.calls.at(-1)!.fantasyMe, "Suze's Castaways"); // matched despite different formatting
-  assert.match(agent.calls.at(-1)!.prompt, /Suze \(Suze's Castaways\): claude how's my team/);
+  assert.equal(agent.calls.at(-1)!.fantasyMe, "Tess's Tailgaters"); // matched despite different formatting
+  assert.match(agent.calls.at(-1)!.prompt, /Tess \(Tess's Tailgaters\): claude how's my team/);
 
   // Unmapped sender: unknown rather than falling back to myTeamId
   bot.handleIncoming([msg({ ...g, sender: "+19998887777", text: "claude my matchup" })]);
@@ -285,24 +285,24 @@ test("fantasy teams: 'me' is the asker's team, and group messages show each send
   // 1:1 chat
   bot.handleIncoming([msg({ text: "my matchup?" })]);
   await bot.idle();
-  assert.equal(agent.calls.at(-1)!.fantasyMe, "Brownie Poos");
-  assert.match(agent.calls.at(-1)!.systemAppend, /Their fantasy team is "Brownie Poos"/);
+  assert.equal(agent.calls.at(-1)!.fantasyMe, "Waiver Wizards");
+  assert.match(agent.calls.at(-1)!.systemAppend, /Their fantasy team is "Waiver Wizards"/);
 });
 
 test("chat access: a fantasy-only person gets the locked-down fantasy profile in their 1:1 chat", async () => {
   const { bot, agent } = setup({
     allowedChats: ["+16145551234", "+16145550000"],
-    contacts: { "+16145550000": "Suze" },
+    contacts: { "+16145550000": "Tess" },
     chatAccess: { "(614) 555-0000": "fantasy" },
-    fantasy: { espnLeagueId: "1", teams: { "+16145550000": "Suze's Castaways" } },
+    fantasy: { espnLeagueId: "1", teams: { "+16145550000": "Tess's Tailgaters" } },
   });
-  const suze = { sender: "+16145550000", chatGuid: "iMessage;-;+16145550000", chatIdentifier: "+16145550000" };
-  bot.handleIncoming([msg({ ...suze, text: "what's the weather?", attachments: [{ path: "/nope.jpg", mimeType: "image/jpeg", name: "x.jpg", uti: null }] })]);
+  const tess = { sender: "+16145550000", chatGuid: "iMessage;-;+16145550000", chatIdentifier: "+16145550000" };
+  bot.handleIncoming([msg({ ...tess, text: "what's the weather?", attachments: [{ path: "/nope.jpg", mimeType: "image/jpeg", name: "x.jpg", uti: null }] })]);
   await bot.idle();
   const req = agent.calls.at(-1)!;
   assert.equal(req.profile, "fantasy");
   assert.equal(req.canManageTasks, true); // her own chat
-  assert.match(req.systemAppend, /fantasy football assistant texting 1:1 with Suze, who manages "Suze's Castaways"/);
+  assert.match(req.systemAppend, /fantasy football assistant texting 1:1 with Tess, who manages "Tess's Tailgaters"/);
   assert.match(req.systemAppend, /ONLY help with this fantasy football league/);
   assert.doesNotMatch(req.systemAppend, /working directory|MEMORY\.md/); // no files
   assert.match(req.prompt, /\[sent a photo\]/); // attachments aren't imported

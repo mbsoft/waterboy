@@ -19,14 +19,14 @@ const chars = (s: string) => [...s].length;
 
 test("awards: week 1 (Bye Week Blues on a bye, equal blowout margins)", () => {
   assert.deepEqual(awardLines(1), [
-    "High score: Waiver Wire Warriors 140 · Low: Suze's Castaways 80",
+    "High score: Waiver Wire Warriors 140 · Low: Tess's Tailgaters 80",
     // 40-point wins in games 1 and 3: the earlier matchup gets it
-    "Blowout: Brownie Poos won by 40",
-    "Closest: Team Kathy over Gridiron Gurus by 0.5",
+    "Blowout: Waiver Wizards won by 40",
+    "Closest: Team Nina over Gridiron Gurus by 0.5",
     // Started the TE (5) over B. Bravo (30): best lineup 105 vs 80
-    "Bench blunder: Suze's Castaways left 25 on the bench (B. Bravo 30)",
+    "Bench blunder: Tess's Tailgaters left 25 on the bench (B. Bravo 30)",
     // Median 97.75
-    "Lucky win: Team Kathy won with just 95.5",
+    "Lucky win: Team Nina won with just 95.5",
     "Tough luck: Fourth & Long lost with 100",
     // The bye team's 50-point back doesn't count
     "Top player: W. Echo (Waiver Wire Warriors) 45",
@@ -38,28 +38,28 @@ test("awards: week 2 (a tied game, equal bench gaps and an equal top score)", ()
     "High score: Gridiron Gurus 130 · Low: Waiver Wire Warriors 70",
     "Blowout: Gridiron Gurus won by 60",
     // A tie is the closest game
-    "Closest: Suze's Castaways and Team Kathy tied at 110.2",
+    "Closest: Tess's Tailgaters and Team Nina tied at 110.2",
     // Gridiron Gurus and Fourth & Long both left 12; Gridiron Gurus' game is earlier
     "Bench blunder: Gridiron Gurus left 12 on the bench (B. Delta 42)",
     // Median 107.6; the tied teams neither won nor lost, and no loser beat the median
     "Lucky win: Bye Week Blues won with just 105",
-    // R. Bravo and W. Delta both scored 40: Suze's Castaways play in the earlier game.
-    // B. Delta's 42 was on the bench, and Brownie Poos (bye) are left out.
-    "Top player: R. Bravo (Suze's Castaways) 40",
+    // R. Bravo and W. Delta both scored 40: Tess's Tailgaters play in the earlier game.
+    // B. Delta's 42 was on the bench, and Waiver Wizards (bye) are left out.
+    "Top player: R. Bravo (Tess's Tailgaters) 40",
   ]);
 });
 
 test("awards: week 3 (Gridiron Gurus on a bye, IR points excluded, equal closest margins)", () => {
   assert.deepEqual(awardLines(3), [
-    "High score: Fourth & Long 120 · Low: Suze's Castaways 88",
+    "High score: Fourth & Long 120 · Low: Tess's Tailgaters 88",
     "Blowout: Fourth & Long won by 32",
     // Two 2-point games: the earlier one
-    "Closest: Brownie Poos over Team Kathy by 2",
-    // Team Kathy's IR player scored 50, which can't be started, so they left nothing
+    "Closest: Waiver Wizards over Team Nina by 2",
+    // Team Nina's IR player scored 50, which can't be started, so they left nothing
     "Bench blunder: Waiver Wire Warriors left 8 on the bench (L. Echo 28)",
-    "Lucky win: Brownie Poos won with just 101",
+    "Lucky win: Waiver Wizards won with just 101",
     "Tough luck: Bye Week Blues lost with 102",
-    "Top player: W. Alpha (Brownie Poos) 31",
+    "Top player: W. Alpha (Waiver Wizards) 31",
   ]);
 });
 

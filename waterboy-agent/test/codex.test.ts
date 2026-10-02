@@ -54,12 +54,12 @@ test("1:1 turns get the user's MCP servers, web search and the shell only with a
 });
 
 test("tool servers get the turn's context", () => {
-  const { config } = turnSetup(cfg({ chatgpt: { model: "gpt-x" } }), req({ profile: "group", canManageTasks: true, fantasyMe: "Suze's Castaways", scheduled: true }), opts);
+  const { config } = turnSetup(cfg({ chatgpt: { model: "gpt-x" } }), req({ profile: "group", canManageTasks: true, fantasyMe: "Tess's Tailgaters", scheduled: true }), opts);
   const s = config.mcp_servers as Record<string, { command: string; args: string[]; env: Record<string, string> }>;
   assert.deepEqual(s.fantasy.args, ["mcpServer.mjs", "fantasy"]);
   assert.equal(s.fantasy.env.ELECTRON_RUN_AS_NODE, "1");
   assert.equal(s.fantasy.env.WB_CHAT_GUID, "any;-;+16145550100");
-  assert.equal(s.fantasy.env.WB_FANTASY_ME, JSON.stringify("Suze's Castaways"));
+  assert.equal(s.fantasy.env.WB_FANTASY_ME, JSON.stringify("Tess's Tailgaters"));
   assert.equal(s.fantasy.env.WB_SCHEDULED, "1");
   assert.equal(s.fantasy.env.WB_POST_FILE, "/tmp/p.jsonl");
   assert.equal(s.scheduler.env.WB_CAN_MANAGE, "1");

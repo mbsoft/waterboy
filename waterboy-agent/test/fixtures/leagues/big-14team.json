@@ -90,7 +90,7 @@
  "members": [
   {
    "id": "{OWNER-1}",
-   "firstName": "Susan",
+   "firstName": "Tess",
    "lastName": "Walker"
   },
   {
@@ -100,8 +100,8 @@
   },
   {
    "id": "{OWNER-3}",
-   "firstName": "Kathy",
-   "lastName": "Lee"
+   "firstName": "Nina",
+   "lastName": "Reyes"
   },
   {
    "id": "{OWNER-4}",
@@ -150,7 +150,7 @@
   },
   {
    "id": "{OWNER-13}",
-   "firstName": "Kyle",
+   "firstName": "Kurt",
    "lastName": "Grant"
   },
   {
@@ -162,8 +162,8 @@
  "teams": [
   {
    "id": 1,
-   "name": "Suze's Castaways",
-   "abbrev": "SUZE",
+   "name": "Tess's Tailgaters",
+   "abbrev": "TESS",
    "primaryOwner": "{OWNER-1}",
    "divisionId": 0,
    "playoffSeed": 3,
@@ -181,8 +181,8 @@
   },
   {
    "id": 2,
-   "name": "Brownie Poos",
-   "abbrev": "BROW",
+   "name": "Waiver Wizards",
+   "abbrev": "WAIV",
    "primaryOwner": "{OWNER-2}",
    "divisionId": 0,
    "playoffSeed": 2,
@@ -200,7 +200,7 @@
   },
   {
    "id": 3,
-   "name": "Team Kathy & Lee",
+   "name": "Team Nina & Theo",
    "abbrev": "TEAM",
    "primaryOwner": "{OWNER-3}",
    "divisionId": 0,
