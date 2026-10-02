@@ -26,7 +26,7 @@ jobs:
             waterboy-agent/package-lock.json
             waterboy-desktop/package-lock.json
       - name: Versions agree
-        run: node scripts/version.mjs check && node --test scripts/version.test.mjs scripts/readme-links.test.mjs
+        run: node scripts/version.mjs check && node --test scripts/version.test.mjs scripts/readme-links.test.mjs scripts/site-links.test.mjs
       - name: Agent
         working-directory: waterboy-agent
         run: |
