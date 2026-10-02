@@ -1,6 +1,14 @@
 # Waterboy
 
-[![Latest release](https://img.shields.io/github/v/release/mbsoft/waterboy?label=latest&sort=semver)](https://github.com/mbsoft/waterboy/releases/latest)
+<p align="center">
+  <a href="https://github.com/mbsoft/waterboy/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/mbsoft/waterboy/ci.yml?branch=main&label=CI&logo=github"></a>
+  <a href="https://github.com/mbsoft/waterboy/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/mbsoft/waterboy?label=release&sort=semver&color=4c8eda"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/mbsoft/waterboy?label=license&color=4c8eda"></a>
+  <img alt="macOS 12+" src="https://img.shields.io/badge/macOS-12%2B-222?logo=apple&logoColor=white">
+  <img alt="Electron 44" src="https://img.shields.io/badge/Electron-44-222?logo=electron&logoColor=white">
+  <img alt="Node 22" src="https://img.shields.io/badge/Node-22-222?logo=nodedotjs&logoColor=white">
+  <img alt="Swift 5" src="https://img.shields.io/badge/Swift-5-222?logo=swift&logoColor=white">
+</p>
 
 A Fantasy Football assistant you text over iMessage, running on your Mac, with Claude or ChatGPT writing the replies.
 
