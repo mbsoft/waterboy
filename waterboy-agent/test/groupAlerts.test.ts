@@ -314,3 +314,21 @@ test("the sender spy records every send, and only with test hooks on", async () 
   assert.equal(typeof rows[0].at, "number");
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test("stopping the service mid-replay reports the simulation stopped right away, with no more sends", async () => {
+  const cfg = { current: config() };
+  let sendsAtShutdown = -1;
+  const h = harness(cfg, {
+    onSend: (n) => {
+      if (n === 1) {
+        h.runner.shutdown();
+        sendsAtShutdown = n;
+      }
+    },
+  });
+  await h.runner.startReplay(60);
+  assert.equal(h.sent.length, sendsAtShutdown, "nothing after shutdown");
+  const last = h.published.at(-1);
+  assert.equal(last.replay.state, "stopped");
+  assert.equal(last.replay.reason, "The service stopped.");
+});

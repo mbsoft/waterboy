@@ -9,15 +9,15 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "start": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/index.ts",
-    "repl": "WATERBOY_MODEL=${WATERBOY_MODEL:-claude-sonnet-5-5} NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/repl.ts",
-    "doctor": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/doctor.ts",
+    "start": "node scripts/check-node.mjs && NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/index.ts",
+    "repl": "node scripts/check-node.mjs && WATERBOY_MODEL=${WATERBOY_MODEL:-claude-sonnet-5-5} NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/repl.ts",
+    "doctor": "node scripts/check-node.mjs && NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/doctor.ts",
     "typecheck": "tsc --noEmit",
     "build": "esbuild src/index.ts src/mcpServer.ts --bundle --platform=node --format=esm --target=node22 --packages=external --log-level=warning --outdir=dist --out-extension:.js=.mjs",
-    "test": "node --import tsx --test --no-warnings test/*.test.ts",
+    "test": "node scripts/check-node.mjs && node --import tsx --test --no-warnings test/*.test.ts",
     "install-service": "bash scripts/install-launchd.sh",
     "uninstall-service": "bash scripts/uninstall-launchd.sh",
-    "start:dry": "WATERBOY_MODEL=${WATERBOY_MODEL:-claude-sonnet-5-5} NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/index.ts --dry-run"
+    "start:dry": "node scripts/check-node.mjs && WATERBOY_MODEL=${WATERBOY_MODEL:-claude-sonnet-5-5} NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/index.ts --dry-run"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.280",

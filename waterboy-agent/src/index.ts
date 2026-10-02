@@ -206,9 +206,10 @@ const shutdown = async (sig: string) => {
   if (probeTimer) clearInterval(probeTimer);
   if (nflverseTimer) clearInterval(nflverseTimer);
   if (groupTimer) clearInterval(groupTimer);
-  groupRunner?.stop("The service is stopping."); // no replay sends while in-flight turns finish
+  groupRunner?.shutdown(); // no replay sends while in-flight turns finish
   await Promise.race([bot.idle(), new Promise((r) => setTimeout(r, 15_000))]);
   await helper?.bridge.stop(); // quits the hidden Messages instance
+  health.write(); // now, not after the usual debounce: the process is about to exit
   db.close();
   process.exit(0);
 };
