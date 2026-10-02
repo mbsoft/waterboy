@@ -51,6 +51,8 @@ export interface SendDeps {
   sender(): Sender;
   sentTimes: { load(): number[]; save(times: number[]): void };
   now(): number;
+  /** False before the service has ever run (no migrated state.db): --send refuses rather than create one. */
+  stateReady(): boolean;
 }
 
 export class UsageError extends Error {}
@@ -81,6 +83,7 @@ export async function alertCard(argv: string[], deps: { send?: () => SendDeps | 
     if (!t.ok) throw new Error(`Not sent: ${BLOCK_DETAIL[t.reason]} --send only goes to the marked test group.`);
     const recent = send.sentTimes.load().filter((x) => send.now() - x < HOUR);
     if (recent.length >= HOURLY_CAP) throw new Error(`Not sent: the test group already had ${HOURLY_CAP} alerts in the last hour.`);
+    if (!send.stateReady()) throw new Error("Not sent: start the Waterboy service once first (it sets up the state the hourly cap is kept in).");
     target = t.chatId;
   }
 
@@ -126,8 +129,8 @@ async function realSendDeps(): Promise<SendDeps> {
   const { MessagesDb } = await import("./messages/messagesDb.ts");
   const { AppleScriptSender, ConsoleSender } = await import("./messages/sender.ts");
   const dbFile = path.join(cfg.dataDir, "state.db");
-  const kv = (fn: (db: DatabaseSync) => unknown) => {
-    const db = new DatabaseSync(dbFile);
+  const kv = (fn: (db: DatabaseSync) => unknown, readOnly = false) => {
+    const db = new DatabaseSync(dbFile, { readOnly });
     try {
       return fn(db);
     } finally {
@@ -142,12 +145,18 @@ async function realSendDeps(): Promise<SendDeps> {
         return null; // no readable config: the gate says test mode is off
       }
     },
-    chatInfo: (guid) => new MessagesDb(cfg.chatDbPath).chat(guid),
+    chatInfo: (guid) => {
+      try {
+        return new MessagesDb(cfg.chatDbPath).chat(guid);
+      } catch (e) {
+        throw new Error(`Not sent: can't read Messages' chat.db (${(e as Error).message}). This needs Full Disk Access, like the service.`);
+      }
+    },
     sender: () => (cfg.dryRun ? new ConsoleSender(true) : new AppleScriptSender(cfg.outboxStagingDir)),
     sentTimes: {
       load: () => {
         if (!fs.existsSync(dbFile)) return [];
-        const row = kv((db) => db.prepare("SELECT v FROM kv WHERE k = ?").get(SENT_TIMES_KEY)) as { v?: string } | undefined;
+        const row = kv((db) => db.prepare("SELECT v FROM kv WHERE k = ?").get(SENT_TIMES_KEY), true) as { v?: string } | undefined;
         try {
           const list = JSON.parse(row?.v ?? "[]");
           return Array.isArray(list) ? list.filter((x): x is number => typeof x === "number") : [];
@@ -158,6 +167,9 @@ async function realSendDeps(): Promise<SendDeps> {
       save: (times) => void kv((db) => db.prepare("INSERT INTO kv (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v").run(SENT_TIMES_KEY, JSON.stringify(times))),
     },
     now: () => Date.now(),
+    // Opened read-only, so checking never creates the file.
+    stateReady: () =>
+      fs.existsSync(dbFile) && !!kv((db) => db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'kv'").get(), true),
   };
 }
 
