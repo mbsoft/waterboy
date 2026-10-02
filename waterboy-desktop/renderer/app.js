@@ -2009,7 +2009,7 @@
       { class: "page" },
       pageHead("About"),
       card(
-        h("div", { class: "about-hero" }, h("img", { class: "app-icon", src: "brand.png", alt: "" }), h("div", {}, h("h3", { style: "margin:0;font-size:17px" }, "Waterboy"), h("div", { class: "desc", style: "margin:2px 0 0" }, `Version ${v.app} · Electron ${v.electron}`))),
+        h("div", { class: "about-hero" }, h("img", { class: "app-icon", src: "brand.png", alt: "" }), h("div", {}, h("h3", { style: "margin:0;font-size:17px" }, "Waterboy"), h("div", { class: "desc", style: "margin:2px 0 0" }, `Version ${v.app}`))),
         h("p", { style: "margin:14px 0 0" }, `A control panel for ${o?.agentName ?? "your agent"}, the assistant that answers iMessages on this Mac. The agent itself runs as a background service, so it keeps working when this window is closed.`),
       ),
       v.support

@@ -101,7 +101,7 @@ const API = {
     const err = await shell.openPath(target);
     if (err) throw new Error(err);
   },
-  version: () => ({ app: app.getVersion(), electron: process.versions.electron, node: process.versions.node, support: !!SUPPORT_URL }),
+  version: () => ({ app: app.getVersion(), support: !!SUPPORT_URL }),
   openSupport: async () => {
     if (!SUPPORT_URL) throw new Error("No Buy Me a Coffee link is set.");
     await shell.openExternal(SUPPORT_URL);

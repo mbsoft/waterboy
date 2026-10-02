@@ -50,6 +50,7 @@ publishes it as the GitHub Release notes.
   warns when the configured test chat is refused.
 
 ### Changed
+- About shows the Waterboy version only (no Electron version).
 - `matchup_preview` no longer posts the preview on scheduled runs unless asked (`post=true`). A
   scheduled live-alert prompt used to send the preview and then its own alert.
 - Windowed schedules read like sentences ("Every 5 minutes, 2 PM–11 PM Sun").
