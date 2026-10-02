@@ -85,8 +85,8 @@
  "teams": [
   {
    "id": 1,
-   "name": "Brownie Poos",
-   "abbrev": "BROW",
+   "name": "Waiver Wizards",
+   "abbrev": "WAIV",
    "divisionId": 0,
    "playoffSeed": 0,
    "record": {
@@ -103,8 +103,8 @@
   },
   {
    "id": 2,
-   "name": "Suze's Castaways",
-   "abbrev": "SUZE",
+   "name": "Tess's Tailgaters",
+   "abbrev": "TESS",
    "divisionId": 0,
    "playoffSeed": 0,
    "record": {
@@ -121,7 +121,7 @@
   },
   {
    "id": 3,
-   "name": "Team Kathy",
+   "name": "Team Nina",
    "abbrev": "TEAM",
    "divisionId": 0,
    "playoffSeed": 0,

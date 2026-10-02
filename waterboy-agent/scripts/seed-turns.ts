@@ -45,7 +45,7 @@ const chats: [string, number][] = [
   ["iMessage;+;chat-league", 5],
   ["iMessage;-;+16145551234", 3],
   ["iMessage;+;chat-family", 2],
-  ["iMessage;-;suze@example.com", 2],
+  ["iMessage;-;tess@example.com", 2],
   ["iMessage;-;+16145559876", 1],
   ["iMessage;-;+16145550000", 1],
 ];

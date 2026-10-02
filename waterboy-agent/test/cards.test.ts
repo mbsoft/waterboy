@@ -61,13 +61,13 @@ test("trade card: both sides, the bonus, the verdict and lineup impact", () => {
   const lineup = (total: number, byPos: Record<string, number>) => ({ starters: [], total, byPos });
   const a: TradeAnalysis = {
     league: "Test League", week: 3, format: { teams: 12, ppr: 1, qbs: 1, dynasty: false }, trade,
-    ownerOf: (p) => (p.name === "Jahmyr Gibbs" ? "Other Team" : "Brownie Poos"),
-    mine: { teamId: 1, team: "Brownie Poos", before: lineup(118.4, { QB: 16.4, RB: 33.6, WR: 40.6, TE: 11.2 }), after: lineup(126.2, { QB: 16.4, RB: 45.9, WR: 36.1, TE: 11.2 }) },
+    ownerOf: (p) => (p.name === "Jahmyr Gibbs" ? "Other Team" : "Waiver Wizards"),
+    mine: { teamId: 1, team: "Waiver Wizards", before: lineup(118.4, { QB: 16.4, RB: 33.6, WR: 40.6, TE: 11.2 }), after: lineup(126.2, { QB: 16.4, RB: 45.9, WR: 36.1, TE: 11.2 }) },
     partner: null,
     sources: ["FantasyCalc", "ESPN Fantasy"],
   };
   const { svg } = tradeSvg(a, { headshots: {} });
-  for (const s of ["Trade Analyzer", "Redraft · 12 teams · PPR", "Trading For", "Trading Away", "J. Gibbs", "D. London", "K. Williams", "+1,240", "Best player bonus +1,240", "11,576", "8,587", "You win this trade (+26%)", "Lineup Impact", "You: Brownie Poos", "+12.3", "−4.5", "118.4 → 126.2", "Sources: FantasyCalc, ESPN Fantasy"])
+  for (const s of ["Trade Analyzer", "Redraft · 12 teams · PPR", "Trading For", "Trading Away", "J. Gibbs", "D. London", "K. Williams", "+1,240", "Best player bonus +1,240", "11,576", "8,587", "You win this trade (+26%)", "Lineup Impact", "You: Waiver Wizards", "+12.3", "−4.5", "118.4 → 126.2", "Sources: FantasyCalc, ESPN Fantasy"])
     assert.ok(svg.includes(s), `missing ${s}`);
   assert.ok(!svg.includes("Them:")); // no partner row when the other team isn't known
 });

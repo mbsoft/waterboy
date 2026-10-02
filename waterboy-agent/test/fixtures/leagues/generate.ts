@@ -169,7 +169,7 @@ function league(spec: Spec) {
 
 // ---------- the awards league: every score chosen by hand ----------
 
-const TEAMS7 = ["Brownie Poos", "Suze's Castaways", "Team Kathy", "Gridiron Gurus", "Waiver Wire Warriors", "Fourth & Long", "Bye Week Blues"];
+const TEAMS7 = ["Waiver Wizards", "Tess's Tailgaters", "Team Nina", "Gridiron Gurus", "Waiver Wire Warriors", "Fourth & Long", "Bye Week Blues"];
 const LAST = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf"];
 // Roster: QB, RB1, RB2, WR1, WR2, TE, IR. Lineup: QB, RB, WR, FLEX (the TE by default).
 const ROLES = [
@@ -297,13 +297,13 @@ write("median-8team.json", league({
 write("big-14team.json", league({
   id: 1414, name: "Fourteen Team Mega League", weeks: 14, playoffTeams: 6, playedThrough: 11, seed: 2026,
   teams: [
-    "Suze's Castaways", "Brownie Poos", "Team Kathy & Lee", "Gridiron Gurus", "Waiver Wire Warriors", "Fourth & Long",
+    "Tess's Tailgaters", "Waiver Wizards", "Team Nina & Theo", "Gridiron Gurus", "Waiver Wire Warriors", "Fourth & Long",
     "Bye Week Blues", "Hail Mary Hustlers", "Pigskin Prophets", "Red Zone Rebels", "Touchdown Tycoons", "Blitz Brigade",
     "Sunday Funday", "Monday Night Misfits",
   ],
   owners: [
-    "Susan Walker", "James Welch", "Kathy Lee", "Marcus Bell", "Priya Shah", "Tom Okafor", "Dana Ruiz",
-    "Ellen Park", "Greg Moss", "Hana Kim", "Ivan Petrov", "Jill Stone", "Kyle Grant", "Lena Fox",
+    "Tess Walker", "James Welch", "Nina Reyes", "Marcus Bell", "Priya Shah", "Tom Okafor", "Dana Ruiz",
+    "Ellen Park", "Greg Moss", "Hana Kim", "Ivan Petrov", "Jill Stone", "Kurt Grant", "Lena Fox",
   ],
   means: [130, 126, 124, 120, 118, 115, 112, 110, 108, 105, 102, 98, 95, 90],
 }));

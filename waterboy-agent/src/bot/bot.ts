@@ -92,7 +92,7 @@ export class Bot {
     return askers.length === 1 ? (this.fantasyTeamFor(askers[0]) ?? null) : null;
   }
 
-  /** "Suze" or, when their fantasy team is known, "Suze (Suze's Castaways)". */
+  /** "Tess" or, when their fantasy team is known, "Tess (Tess's Tailgaters)". */
   private senderWithTeam(handle: string | null): string {
     const team = this.fantasyTeamFor(handle);
     return typeof team === "string" ? `${this.senderLabel(handle)} (${team})` : this.senderLabel(handle);

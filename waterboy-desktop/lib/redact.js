@@ -86,7 +86,7 @@ function namesToRedact(cfg, extra = []) {
   const names = new Set(extra);
   for (const v of Object.values(cfg.contacts ?? {})) names.add(v);
   for (const v of Object.values(cfg.fantasy?.ownerNames ?? {})) names.add(v);
-  // "Kathy & Lee L." → also "Kathy", "Lee L."
+  // "Nina & Theo R." → also "Nina", "Theo R."
   for (const n of [...names]) for (const part of n.split(/\s*&\s*|\s+and\s+/)) if (part.length > 2) names.add(part.trim());
   return [...names].filter((n) => n && n.length > 1);
 }

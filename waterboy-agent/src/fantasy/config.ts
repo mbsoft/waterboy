@@ -10,7 +10,7 @@ export interface FantasyConfig {
   myTeamId?: number;
   /**
    * Who owns which team: phone number / email → team name (or ESPN team id), e.g.
-   * { "+16145551234": "Brownie Poos" }. "me"/"my team" then means the asker's team.
+   * { "+16145551234": "Waiver Wizards" }. "me"/"my team" then means the asker's team.
    */
   teams?: Record<string, string | number>;
   /**
@@ -20,7 +20,7 @@ export interface FantasyConfig {
   me?: string | number | null;
   /**
    * Replace owner labels in the roundup. Key: ESPN team id ("13") or the default
-   * label ("Kathy L."); value: what to show ("Kathy & Lee L.").
+   * label ("Nina R."); value: what to show ("Nina & Theo R.").
    */
   ownerNames?: Record<string, string>;
   /** Use Sleeper's public API for second-opinion projections and trending players (default true). */

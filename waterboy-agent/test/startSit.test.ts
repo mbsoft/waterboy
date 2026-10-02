@@ -42,7 +42,7 @@ test("points allowed by position, ranked from fewest allowed", () => {
 
 const contender = (name: string, proj: number, o: Partial<Contender> & { pos?: string; injury?: string; opp?: string } = {}): Contender => ({
   line: { espnId: 1, fullName: name, name, pos: o.pos ?? "RB", nfl: "IND", opp: o.opp ?? "vs HOU", oppTeam: "HOU", kickoff: null, slot: "RB", slotId: 2, proj, actual: null, injury: o.injury ?? "", eligible: [], alt: null, vegas: null, weather: null },
-  rosteredBy: "Brownie Poos", espn: proj, sleeper: null, proj, implied: null, lineInfo: null, ecr: null, snapPct: null, history: [],
+  rosteredBy: "Waiver Wizards", espn: proj, sleeper: null, proj, implied: null, lineInfo: null, ecr: null, snapPct: null, history: [],
   dist: distribution(proj, o.pos ?? "RB", []), defense: null, ...o,
 });
 

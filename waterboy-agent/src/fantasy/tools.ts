@@ -108,7 +108,7 @@ export function fantasyMcpServer(
           "abbreviation, or 'me') for one full matchup; omit it for a one-line-per-game slate of the whole week. " +
           "`week` defaults to the current week. By default (post=false) the text comes back to you: use it to ANSWER specific " +
           "questions yourself in a few short lines, e.g. 'should I start Burrow or Stroud?', 'who's my flex?', 'am I winning?', " +
-          "'who does Suze play?' (give a clear call and why; mention Sleeper when it disagrees). Only when someone asks to see " +
+          "'who does Tess play?' (give a clear call and why; mention Sleeper when it disagrees). Only when someone asks to see " +
           "the preview/matchup itself ('preview my matchup', 'week 4 matchups') or a scheduled task says to post it, pass " +
           "post=true: it is then sent to the chat verbatim, so do NOT repeat it; add at most one short line or reply NO_REPLY.",
         {
