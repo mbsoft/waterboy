@@ -98,6 +98,14 @@ export class MessagesDb {
     }));
   }
 
+  /** One chat by GUID, or null if chat.db doesn't have it. Used to check a group-alert target. */
+  chat(guid: string): { guid: string; identifier: string; name: string | null; isGroup: boolean } | null {
+    const r = this.db.prepare("SELECT guid, chat_identifier, display_name, style FROM chat WHERE guid = ?").get(guid) as
+      | { guid: string; chat_identifier: string; display_name: string | null; style: number }
+      | undefined;
+    return r ? { guid: r.guid, identifier: r.chat_identifier, name: r.display_name || null, isGroup: r.style === 43 } : null;
+  }
+
   maxRowId(): number {
     const r = this.db.prepare("SELECT COALESCE(MAX(ROWID), 0) AS m FROM message").get() as { m: number };
     return Number(r.m);

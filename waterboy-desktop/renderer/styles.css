@@ -202,6 +202,7 @@ input, textarea, select, button { font: inherit; color: inherit; }
 .banner .grow { flex: 1; }
 .banner.warn { background: color-mix(in srgb, var(--warn) 14%, transparent); }
 .banner.warn svg { color: var(--warn); }
+.banner .link svg { color: inherit; }
 
 .pill { font-size: 11px; font-weight: 500; padding: 1px 7px; border-radius: 10px; background: rgba(127, 127, 127, 0.14); color: var(--muted); white-space: nowrap; }
 .pill.accent { background: var(--accent-soft); color: var(--accent); }
@@ -257,6 +258,15 @@ select:focus, input:focus, textarea:focus { border-color: var(--link); box-shado
 .form > label.sub { padding-left: 14px; color: var(--muted); font-size: 13px; }
 .unit { color: var(--muted); font-size: 13px; margin: 0 4px 0 -4px; }
 .inline { display: flex; gap: 8px; align-items: center; }
+/* Settings → Live alerts → Group test mode: what the service reports */
+.group-status-block { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--divider); display: flex; flex-direction: column; gap: 8px; }
+.group-status-block .hint { color: var(--faint); font-size: 12px; }
+.group-status { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.group-status.warn svg { color: var(--warn); flex: none; }
+.group-last { margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--field); border: 1px solid var(--divider); font: 12px/1.5 var(--mono); white-space: pre-wrap; }
+/* Conversations: confirming a test group lists who is in it */
+.test-confirm { padding: 10px 14px 12px 44px; border-top: 1px solid var(--divider); }
+.member-list { margin: 0; padding-left: 18px; color: var(--muted); font-size: 12.5px; columns: 2; }
 .inline > input[type="text"] { flex: 1; }
 
 .segmented { display: inline-flex; background: rgba(127, 127, 127, 0.14); border-radius: 7px; padding: 2px; }

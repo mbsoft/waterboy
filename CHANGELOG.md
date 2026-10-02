@@ -26,6 +26,15 @@ publishes it as the GitHub Release notes.
 - Weekly roundup awards: biggest blowout, closest game, bench blunder, lucky win, tough luck and
   top player, next to the high and low score, plus playoff odds on each standings row. Each can be
   switched off in Settings → Fantasy → Roundup awards, and the roundup stays under 1,200 characters.
+- Group live alerts, test mode only: mark one group as a test group in Conversations (with a
+  confirmation listing its members), then turn on Settings → Live alerts → Group test mode. Each
+  big swing in any league matchup is posted once, batched per check (at most 3, configurable), with
+  a per-matchup cooldown and a hard limit of 20 alerts an hour; every message starts with "[TEST]".
+  The service sends only to a marked, allowlisted group and re-checks that before every message.
+  Real league groups never get alerts in this version.
+- "Run simulation" plays a recorded Sunday (five matchups, 1:00 to 4:00 PM) into the test group at
+  1×, 10× or 60×. Alerts sent, suppressed and the last alert are shown in Settings, and the Dashboard
+  warns when the configured test chat is refused.
 
 ### Changed
 - `state.db` moves to schema version 3 (the `turns` table). Waterboy 0.3.x refuses to start on it;

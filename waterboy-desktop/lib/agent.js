@@ -46,7 +46,7 @@ async function locate() {
   configPath = configPath || path.join(project, "config.json");
   const cfg = readJson(configPath) ?? {};
   const dataDir = expand(cfg.dataDir || "~/.imessage-agent");
-  return {
+  return (lastLoc = {
     project,
     configPath,
     dataDir,
@@ -57,8 +57,10 @@ async function locate() {
     stateDb: path.join(dataDir, "state.db"),
     chatsDir: path.join(dataDir, "chats"),
     chatIndex: path.join(dataDir, "chats-index.json"),
-  };
+  });
 }
+/** The last locate() result, for work that can't wait for it (quitting). */
+let lastLoc = null;
 
 function readJson(file) {
   try {
@@ -208,6 +210,7 @@ async function readiness() {
     automation: automationReadiness(health),
     checks: serviceChecks(health),
     sources: sourcesReadiness(health),
+    groupAlerts: groupAlertHealth(health),
   };
 }
 
@@ -302,6 +305,30 @@ function sourcesReadiness(health, now = Date.now()) {
   };
 }
 
+/** Why the service won't send group test alerts, for the Dashboard banner (blocked while test mode is on). */
+const GROUP_BLOCKS_WORTH_A_BANNER = ["not-marked", "not-group", "not-allowlisted", "unknown-chat"];
+
+/**
+ * Group live alerts (test mode) from health.json: counters since the service started, simulation
+ * progress, and `warning` when test mode is on but the service refuses the configured chat, e.g.
+ * config.json hand-edited to point at a group that was never marked as a test group.
+ */
+function groupAlertHealth(health, now = Date.now()) {
+  const g = health?.groupAlerts;
+  if (!g || now - (health.updatedAt ?? 0) > HEALTH_STALE_MS) return null;
+  const blocked = g.testMode?.enabled && GROUP_BLOCKS_WORTH_A_BANNER.includes(g.testMode.blocked) ? g.testMode.blocked : null;
+  return {
+    sent: g.sent ?? 0,
+    messages: g.messages ?? 0,
+    suppressed: { cooldown: 0, cap: 0, hourly: 0, paused: 0, ...g.suppressed },
+    lastAlert: g.lastAlert ?? null,
+    replay: g.replay ?? null,
+    blocked: g.testMode?.blocked ?? null,
+    detail: g.testMode?.detail ?? null,
+    warning: blocked ? `Group test alerts are blocked: ${g.testMode.detail} Nothing is being sent.` : null,
+  };
+}
+
 /**
  * Why the service refused to start (startup-error.json, e.g. data from a newer Waterboy after a
  * rollback). The service removes the file once it starts normally.
@@ -385,6 +412,7 @@ async function conversations() {
         name: c.name,
         members: c.members.map((m) => ({ handle: m, name: nameFor(m) })),
         allowed: isAllowed([c.guid, c.identifier, c.name]),
+        testGroup: (cfg.testGroups ?? []).includes(c.guid),
         lastMessageAt: c.lastMessageAt,
       });
     } else {
@@ -423,6 +451,23 @@ async function setAllowed(key, allowed) {
     const list = cfg.allowedChats ?? [];
     const rest = list.filter((a) => !(a === key || (!key.includes(";") && sameHandle(a, key))));
     cfg.allowedChats = allowed ? [...rest, key] : rest;
+  });
+}
+
+/**
+ * Mark (or unmark) a group as the live-alerts test group. Only the confirmation on the Conversations
+ * page calls this, after showing the members; the service never sends group alerts to an unmarked
+ * chat, so hand-editing groupTest.chatId alone can't aim alerts at a real league group.
+ */
+async function setTestGroup(guid, on) {
+  if (!String(guid).includes(";+;")) throw new Error("Only a group chat can be a test group.");
+  return updateConfig((cfg) => {
+    const rest = (cfg.testGroups ?? []).filter((g) => g !== guid);
+    cfg.testGroups = on ? [...rest, guid] : rest;
+    if (!cfg.testGroups.length) delete cfg.testGroups;
+    // Unmarking the group in use also unpicks it.
+    const gt = cfg.fantasy?.liveAlerts?.groupTest;
+    if (!on && gt?.chatId === guid) gt.chatId = null;
   });
 }
 
@@ -774,6 +819,19 @@ const SETTINGS = {
     if (!Number.isFinite(n) || n < 0) throw new Error("The daily cost alert must be a dollar amount of 0 or more, or empty for off.");
     return Math.round(n * 100) / 100;
   },
+  // Group test mode (v0.4). chatId must also be a marked test group: checked in saveSettings.
+  "fantasy.liveAlerts.groupTest.enabled": Boolean,
+  "fantasy.liveAlerts.groupTest.chatId": (v) => {
+    if (!v) return null;
+    if (!String(v).includes(";+;")) throw new Error("Pick a group chat.");
+    return String(v);
+  },
+  "fantasy.liveAlerts.groupTest.source": (v) => {
+    if (!["replay", "live"].includes(v)) throw new Error(`Unknown source ${v}`);
+    return v;
+  },
+  "fantasy.liveAlerts.groupTest.maxPerCheck": (v) => clampNum(v, 1, 10, 3),
+  "fantasy.liveAlerts.groupTest.cooldownMinutes": (v) => clampNum(v, 0, 240, 15),
 };
 
 /** A number from the UI, clamped to a sane range and rounded to `decimals`. */
@@ -830,7 +888,7 @@ async function settings() {
           compareCards: cfg.fantasy.compareCards !== false,
           roundupAwards: Object.fromEntries(ROUNDUP_PARTS.map((k) => [k, cfg.fantasy.roundupAwards?.[k] !== false])),
           nflverseUpdatedAt: nflverseStatus(loc, cfg).updatedAt,
-          liveAlerts: liveAlerts(cfg),
+          liveAlerts: { ...liveAlerts(cfg), status: groupAlertHealth(readJson(path.join(loc.dataDir, "health.json"))) },
         }
       : null,
   };
@@ -851,6 +909,14 @@ function liveAlerts(cfg) {
     thresholdPct: a.thresholdPct ?? 5,
     checkMinutes: a.checkMinutes ?? 5,
     minPlayerPoints: a.minPlayerPoints ?? 1,
+    groupTest: {
+      enabled: a.groupTest?.enabled === true,
+      chatId: a.groupTest?.chatId ?? null,
+      source: a.groupTest?.source === "live" ? "live" : "replay",
+      maxPerCheck: a.groupTest?.maxPerCheck ?? 3,
+      cooldownMinutes: a.groupTest?.cooldownMinutes ?? 15,
+    },
+    testGroups: Array.isArray(cfg.testGroups) ? cfg.testGroups : [],
     everyone: subs.includes("*"),
     people: Object.entries(teams).map(([handle, team]) => ({
       handle,
@@ -930,6 +996,61 @@ async function setAlertSubscriber(handle, on) {
   return settings();
 }
 
+// ---------- group test mode: simulation ----------
+
+/** The request file the service polls (waterboy-agent src/bot/groupTest.ts REQUEST_FILE). */
+const GROUP_REQUEST_FILE = "group-alerts-request.json";
+const REPLAY_SPEEDS = [1, 10, 60];
+
+/**
+ * Why a simulation can't run with this config, or null. The service checks all of this again (and
+ * more: the chat must be a group in Messages); this is only so the button can explain itself.
+ */
+function simulationBlocker(cfg, groups) {
+  const a = cfg.fantasy?.liveAlerts ?? {};
+  const gt = a.groupTest ?? {};
+  if (!a.enabled) return "Turn live scoring alerts on first.";
+  if (gt.enabled !== true) return "Turn group test mode on first.";
+  if (gt.source === "live") return "The source is set to live games.";
+  if (!gt.chatId) return "Pick a test group first.";
+  const g = groups.find((x) => x.guid === gt.chatId);
+  if (!(cfg.testGroups ?? []).includes(gt.chatId)) return "The picked chat isn't marked as a test group.";
+  if (g && !g.allowed) return "The test group isn't allowed in Conversations.";
+  return null;
+}
+
+/** Ask the service to play the recorded Sunday into the test group at `speed` (1, 10 or 60). */
+async function runGroupSimulation(speed) {
+  if (!REPLAY_SPEEDS.includes(Number(speed))) throw new Error(`Unknown speed ${speed}`);
+  const [loc, cfg, conv, status] = await Promise.all([locate(), getConfig(), conversations(), serviceStatus()]);
+  const why = simulationBlocker(cfg, conv.groups);
+  if (why) throw new Error(why);
+  if (!status.running) throw new Error("Start the agent first.");
+  writeRequest(loc, { action: "run", speed: Number(speed), at: Date.now() });
+}
+
+/** Stop a running simulation (the service picks this up within a couple of seconds). */
+async function stopGroupSimulation() {
+  writeRequest(await locate(), { action: "stop", at: Date.now() });
+}
+
+/**
+ * On quit: stop a simulation this app started, so closing the app never leaves one running.
+ * Synchronous (quit doesn't wait), using the last known data folder.
+ */
+function stopGroupSimulationOnQuit() {
+  if (!lastLoc) return;
+  const replay = readJson(path.join(lastLoc.dataDir, "health.json"))?.groupAlerts?.replay;
+  if (replay?.state === "running") writeRequest(lastLoc, { action: "stop", at: Date.now() });
+}
+
+function writeRequest(loc, req) {
+  const file = path.join(loc.dataDir, GROUP_REQUEST_FILE);
+  fs.mkdirSync(loc.dataDir, { recursive: true });
+  fs.writeFileSync(`${file}.tmp`, JSON.stringify(req));
+  fs.renameSync(`${file}.tmp`, file);
+}
+
 async function saveSettings(patch) {
   await updateConfig((cfg) => {
     for (const [key, value] of Object.entries(patch)) {
@@ -949,6 +1070,8 @@ async function saveSettings(patch) {
       if (v === undefined) delete node[leaf];
       else node[leaf] = v;
     }
+    const chatId = patch["fantasy.liveAlerts.groupTest.chatId"];
+    if (chatId && !(cfg.testGroups ?? []).includes(chatId)) throw new Error("Mark the group as a test group in Conversations first.");
   });
   return settings();
 }
@@ -1329,6 +1452,13 @@ module.exports = {
   settings,
   saveSettings,
   setAlertSubscriber,
+  setTestGroup,
+  runGroupSimulation,
+  stopGroupSimulation,
+  stopGroupSimulationOnQuit,
+  simulationBlocker,
+  groupAlertHealth,
+  GROUP_REQUEST_FILE,
   alertPlan,
   createAlertAutomations,
   alertTask,

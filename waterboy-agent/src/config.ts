@@ -69,6 +69,11 @@ export interface Config {
    */
   threadedReplies: "auto" | "always" | "off";
   usage: UsageConfig;
+  /**
+   * Group chat GUIDs marked "Test group" in the app (after a confirmation listing the members).
+   * Live alerts' group test mode only ever sends to a group on this list (see fantasy/groupAlerts.ts).
+   */
+  testGroups?: string[];
 }
 
 /** The data folder a config file points at, even when the file can't be loaded (best effort) */
@@ -118,6 +123,7 @@ const DEFAULTS: Config = {
   typingIndicators: true,
   threadedReplies: "auto",
   usage: { dailyCostAlertUsd: null },
+  testGroups: [],
 };
 
 export const CONFIG_FILE = process.env.IMESSAGE_AGENT_CONFIG ?? "config.json";
