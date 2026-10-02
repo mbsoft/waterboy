@@ -26,19 +26,33 @@ export function allowedTools(cfg: Config): string[] {
  */
 type UsageTotals = { cost: number; input: number; output: number };
 
+/** A turn's own share; `cost` is null when it can't be known (see turnShare). */
+export type TurnShare = { cost: number | null; input: number; output: number };
+
 /**
  * This turn's cost and tokens. The SDK's total_cost_usd and modelUsage are running totals for the
  * session, and a resumed session continues from the totals its transcript saved, so a turn's own
  * share is the difference from the totals seen at the end of the previous turn. The totals are kept
- * per session in the state db. A lower total than last time (the session was cleared) or a session
- * we have no totals for counts as starting from zero.
+ * per session in the state db. A new session, or a lower total than last time (the session was
+ * cleared), starts from zero.
+ *
+ * A resumed session we have no totals for (it started before v0.4, or its totals were lost) can't
+ * be split: its running total includes days of earlier turns. Its totals become the baseline and
+ * the turn's cost is unknown (null), with `own` (the SDK's tokens for this call) as the tokens.
  */
-export function turnShare(state: Pick<State, "get" | "set">, resumed: string | null, sessionId: string | null, totals: UsageTotals): UsageTotals {
+export function turnShare(
+  state: Pick<State, "get" | "set">,
+  resumed: string | null,
+  sessionId: string | null,
+  totals: UsageTotals,
+  own: { input: number; output: number } = { input: 0, output: 0 },
+): TurnShare {
   let prev: UsageTotals | null = null;
   try {
     prev = resumed ? (JSON.parse(state.get(`usageTotals:${resumed}`) ?? "null") as UsageTotals | null) : null;
   } catch {}
   if (sessionId) state.set(`usageTotals:${sessionId}`, JSON.stringify(totals));
+  if (resumed && !prev) return { cost: null, ...own };
   if (!prev || totals.cost < prev.cost) return totals;
   return {
     cost: totals.cost - prev.cost,
@@ -128,8 +142,11 @@ export class ClaudeAgentRunner implements AgentRunner {
             totals.output += u.outputTokens;
           }
           // A resumed session reports running totals that include its earlier turns; keep this turn's share.
-          const turn = turnShare(this.state, resume, sessionId, totals);
-          costUsd = turn.cost;
+          const u = msg.usage;
+          const own = { input: u.input_tokens + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0), output: u.output_tokens };
+          const turn = turnShare(this.state, resume, sessionId, totals, own);
+          if (turn.cost === null) log(`[agent] session ${sessionId} has no saved usage baseline (it started before v0.4): this turn's cost is unknown, later turns count normally`);
+          costUsd = turn.cost ?? undefined;
           usage = { input: turn.input, output: turn.output };
           denied = (msg.permission_denials ?? []).map((d) => d.tool_name);
           if (msg.subtype === "success") text = msg.result;

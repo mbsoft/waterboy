@@ -170,12 +170,44 @@ test("a resumed session's running totals become this turn's own cost and tokens"
   assert.deepEqual(turnShare(state, null, "s1", { cost: 0.5, input: 1000, output: 100 }), { cost: 0.5, input: 1000, output: 100 });
   // Resumed: the SDK reports 0.5 + this turn's 0.25
   const t2 = turnShare(state, "s1", "s1", { cost: 0.75, input: 1800, output: 160 });
-  assert.equal(t2.cost.toFixed(4), "0.2500");
+  assert.equal(t2.cost?.toFixed(4), "0.2500");
   assert.deepEqual([t2.input, t2.output], [800, 60]);
-  // A cleared session starts over; a session we've never seen counts from zero
+  // A cleared session starts over
   assert.deepEqual(turnShare(state, "s1", "s1", { cost: 0.1, input: 50, output: 5 }), { cost: 0.1, input: 50, output: 5 });
-  assert.deepEqual(turnShare(state, "unknown", "s9", { cost: 2, input: 9, output: 9 }), { cost: 2, input: 9, output: 9 });
-  assert.ok(kv.has("usageTotals:s9"));
+  // A new session after a failed resume counts from zero
+  assert.deepEqual(turnShare(state, null, "s5", { cost: 0.3, input: 70, output: 7 }), { cost: 0.3, input: 70, output: 7 });
+});
+
+test("the first turn of a session from before v0.4 has no baseline: its cost is unknown, not the session's running total", () => {
+  const kv = new Map<string, string>();
+  const state = { get: (k: string) => kv.get(k) ?? null, set: (k: string, v: string) => void kv.set(k, v) };
+  // Four days of turns already in the transcript's total: $20.67 before this turn
+  const first = turnShare(state, "old", "old", { cost: 20.79, input: 4_000_000, output: 90_000 }, { input: 21_000, output: 400 });
+  assert.deepEqual(first, { cost: null, input: 21_000, output: 400 }, "cost unknown; tokens from this call only");
+  assert.ok(kv.has("usageTotals:old"), "the baseline is saved");
+  // The next turn counts only its own share
+  const next = turnShare(state, "old", "old", { cost: 20.91, input: 4_030_000, output: 90_500 });
+  assert.equal(next.cost?.toFixed(2), "0.12");
+  assert.deepEqual([next.input, next.output], [30_000, 500]);
+});
+
+test("a turn with an unknown cost is still counted and logged, without a cost", async () => {
+  const dataDir = tmp();
+  const state = new State(dataDir);
+  const bot = new Bot(config(dataDir), state, new FakeRunner({ text: "ok", model: "claude-sonnet-5-5", usage: { input: 21000, output: 400 } }), new ConsoleSender(true));
+  const lines = await new Promise<string[]>((resolve) => {
+    const out: string[] = [];
+    const orig = console.log;
+    console.log = (...a: unknown[]) => void out.push(a.map(String).join(" "));
+    bot.handleIncoming([message("hi")]);
+    void bot.idle().then(() => ((console.log = orig), resolve(out)));
+  });
+  assert.ok(lines.some((l) => /: turn used 21400 tokens \(cost unknown\) in [\d.]+s$/.test(l)), lines.join("\n"));
+  assert.deepEqual(
+    turns(state).map((r) => [r.kind, r.cost_usd, r.input_tokens, r.output_tokens]),
+    [["reply", null, 21000, 400]],
+  );
+  assert.equal(state.costSince(0), 0, "and adds nothing to the day's cost");
 });
 
 // ---------- QA fixes (v0.4 QA pass) ----------
