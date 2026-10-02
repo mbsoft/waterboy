@@ -1,14 +1,9 @@
 # The landing page (site/) on GitHub Pages: https://mbsoft.github.io/waterboy/
-# Deploys whenever site/ changes on main, whenever a release is published (so the download buttons
-# move to it), and on demand. The download blocks in the page are filled in at deploy time by
-# scripts/site-links.mjs with the newest stable release's Apple silicon and Intel DMGs; the
-# repository itself never changes. site/assets/js/downloads.js refreshes them in the browser.
-#
-# Contract for site/index.html: either put <!-- downloads:start --><!-- downloads:end --> wherever
-# the download buttons go, or use the copy's placeholders {{VERSION}} {{ARM64_URL}} {{X64_URL}}
-# {{SUMS_URL}} {{NOTES_URL}} {{DATE}} anywhere; include <script src="assets/js/downloads.js" defer>.
-# The buttons are <a class="download"> (Intel also .secondary) with data-download="arm64|x64", plus
-# a <p class="download-meta"> with the version, release notes and checksums links.
+# Deploys whenever site/ changes on main, whenever a release is published (so the download links
+# move to it), and on demand. At deploy time scripts/site-links.mjs points every
+# <a data-download="arm64|x64"> at the newest stable release's DMG and sets the [data-release-version]
+# text; the repository itself never changes. site/assets/js/site.js does the same in the browser if
+# a link still has the generic /releases/latest URL. See site/README.md.
 name: Pages
 
 on:
@@ -53,7 +48,7 @@ jobs:
         run: |
           rm -rf _site && cp -R site _site
           gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
-          for page in $(grep -rlE -- '<!-- downloads:start -->|\{\{(VERSION|ARM64_URL|X64_URL|SUMS_URL|NOTES_URL|DATE)\}\}' _site --include='*.html'); do
+          for page in $(grep -rlE -- 'data-download="(arm64|x64)"' _site --include='*.html'); do
             node scripts/site-links.mjs "$page" < "$RUNNER_TEMP/releases.json"
           done
           # Every DMG link on the page must download.
