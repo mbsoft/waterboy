@@ -15,9 +15,10 @@ little JS: no build step, no frameworks, no web fonts or CDNs.
 
 **Download links.** Every download link carries `data-download="arm64"` or `data-download="x64"` and,
 in the source, points at `https://github.com/mbsoft/waterboy/releases/latest`. The Pages deploy
-replaces those `href`s with the newest stable release's DMG URLs. If a link still has the generic
-URL when the page loads (a local preview, or the deploy step didn't run), `site.js` asks the GitHub
-API for the latest release and fills it in, along with the `[data-release-version]` text.
+(`scripts/site-links.mjs`) replaces those `href`s with the newest stable release's DMG URLs and sets
+the `[data-release-version]` text. If a link still has the generic URL when the page loads (a local
+preview, or the deploy step didn't run), `site.js` asks the GitHub API for the latest release and
+fills it in.
 
 **Rules for content:** no real people, phone numbers or leagues (every name in the mockups and cards
 is made up), macOS 12+, and no `brew install` line until the Homebrew tap exists.

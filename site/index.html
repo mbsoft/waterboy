@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Waterboy · Your fantasy football assistant, one iMessage away</title>
-  <meta name="description" content="Text Waterboy from your phone or your league's group chat. It runs on your Mac, uses your Claude or ChatGPT, and answers with real data from ESPN, Sleeper and nflverse.">
+  <title>Waterboy: a fantasy football assistant you text over iMessage</title>
+  <meta name="description" content="Text your fantasy football questions over iMessage. Waterboy runs on your Mac, uses Claude or ChatGPT, and answers with live ESPN, Sleeper and nflverse data.">
   <meta name="theme-color" content="#1d4ed8">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
   <link rel="icon" type="image/png" sizes="64x64" href="assets/img/favicon-64.png">
@@ -15,15 +15,16 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Waterboy">
   <meta property="og:title" content="Waterboy: your fantasy football assistant, one iMessage away">
-  <meta property="og:description" content="Start/sit, waivers, trades and a weekly roundup, right in your league's group chat. Runs on your Mac.">
+  <meta property="og:description" content="Waivers, start/sit, trades and a weekly league roundup, answered in your iMessage group chat. Free, open source, runs on your Mac.">
   <meta property="og:url" content="https://mbsoft.github.io/waterboy/">
   <meta property="og:image" content="https://mbsoft.github.io/waterboy/assets/img/og.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Waterboy, a smiling water bottle, next to the words: Your Fantasy Football assistant, one iMessage away">
+  <meta property="og:image:alt" content="Waterboy mascot, a smiling water bottle, next to the text &quot;Your fantasy football assistant, one iMessage away&quot;">
   <meta name="twitter:card" content="summary_large_image">
 
   <link rel="stylesheet" href="assets/css/style.css">
+  <!-- pages.yml writes the newest release's DMG links in; site.js fills them from the GitHub API if it didn't -->
   <script src="assets/js/site.js" defer></script>
 </head>
 <body>
@@ -36,11 +37,12 @@
         <span>Waterboy</span>
       </a>
       <nav class="nav" aria-label="Sections">
+        <a href="#how">How it works</a>
         <a href="#features">Features</a>
         <a href="#privacy">Privacy</a>
         <a href="#install">Install</a>
-        <a href="#faq">FAQ</a>
         <a href="https://github.com/mbsoft/waterboy">GitHub</a>
+        <a class="nav-cta" href="#install">Download</a>
       </nav>
     </div>
   </header>
@@ -50,37 +52,35 @@
     <section class="hero" id="top">
       <div class="wrap hero-grid">
         <div class="hero-copy">
-          <p class="eyebrow">Fantasy football · iMessage · your Mac</p>
+          <p class="eyebrow">Free for Mac · open source</p>
           <h1>Your fantasy football assistant, one iMessage away.</h1>
-          <p class="lede">Text Waterboy from your phone or your league's group chat. It runs on your Mac, uses your Claude or ChatGPT, and answers with real data from ESPN, Sleeper and nflverse.</p>
+          <p class="lede">Text Waterboy the questions your league argues about: who to pick up, who to start, whether that trade is fair. It runs on your Mac, thinks with your Claude or ChatGPT account, and answers in Messages with live data from ESPN, Sleeper and nflverse.</p>
           <div class="cta-row">
-            <!-- Download links: pages.yml writes the newest release's DMG URLs here at deploy time;
-                 site.js fills them from the GitHub API if they're still the generic fallback. -->
-            <a class="btn btn-primary" data-download="arm64" href="https://github.com/mbsoft/waterboy/releases/latest">
+            <a class="btn btn-primary download" data-download="arm64" href="https://github.com/mbsoft/waterboy/releases/latest">
               <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.7-1-2.7-4.1zM13.9 5c.7-.9 1.2-2 1.1-3.2-1 0-2.3.7-3 1.6-.7.8-1.3 2-1.1 3.1 1.1.1 2.3-.6 3-1.5z"/></svg>
               Download for Apple silicon
             </a>
-            <a class="btn btn-ghost" data-download="x64" href="https://github.com/mbsoft/waterboy/releases/latest">Download for Intel</a>
+            <a class="btn btn-ghost download secondary" data-download="x64" href="https://github.com/mbsoft/waterboy/releases/latest">Download for Intel</a>
           </div>
-          <p class="hero-meta">
-            <span data-release-version>Latest release on GitHub</span>
-            <span aria-hidden="true">·</span>
-            <a href="https://support.apple.com/en-us/116943">Which Mac do I have?</a>
-          </p>
+          <details class="which-mac">
+            <summary>Which Mac do I have?</summary>
+            <p>Apple menu → About This Mac. If Chip says Apple M1 or later, pick Apple silicon. If it says Intel, pick Intel.</p>
+          </details>
+          <p class="hero-meta"><span data-release-version>Latest release</span> · <a href="https://github.com/mbsoft/waterboy/releases/latest">Release notes</a></p>
           <ul class="trust" aria-label="At a glance">
-            <li>Free and open source (MIT)</li>
-            <li>No server, no account</li>
+            <li>Free and open source, MIT</li>
+            <li>No server, no account to create</li>
             <li>macOS 12 or later</li>
           </ul>
         </div>
 
-        <!-- A group chat, drawn in HTML/CSS (fictional league and people) -->
-        <figure class="phone" aria-label="Example: Waterboy answering in a group chat">
-          <div class="phone-bar"><span class="phone-title">Sunday Funday League</span><span class="phone-sub">5 people</span></div>
+        <!-- A group chat, drawn in HTML/CSS (invented league and people) -->
+        <figure class="phone" aria-label="Example: Waterboy answering a start/sit question in a group chat">
+          <div class="phone-bar"><span class="phone-title">Tuesday Night Losers</span><span class="phone-sub">8 people</span></div>
           <div class="chat">
-            <p class="msg in"><span class="who">Mike</span>waterboy who should I start, Vale or Okafor?</p>
-            <p class="msg in bot"><span class="who">Waterboy</span>Start <b>Marcus Vale</b>. 17.9 projected vs 11.5, a 25.5-point Vegas total, and Carolina gives up the most points to running backs. Okafor's at San Francisco.</p>
-            <figure class="msg in bot card"><img src="assets/img/cards/start-sit.png" width="1080" height="2344" alt="Start/sit card comparing two running backs' projections, matchups and boom/bust odds" loading="lazy"></figure>
+            <p class="msg in"><span class="who">Dave</span>waterboy start Vale or Okafor?</p>
+            <p class="msg in bot"><span class="who">Waterboy</span>Start <b>M. Vale</b>. 17.9 projected to 11.5, a 25.5-point team total, and Carolina gives up the most to running backs. Okafor's on the road at San Francisco.</p>
+            <figure class="msg in bot card"><img src="assets/img/cards/start-sit.png" width="1080" height="2344" alt="A Waterboy start/sit card comparing two running backs' projections, with the recommended pick highlighted" loading="lazy"></figure>
             <p class="msg out">trust the waterboy 💧</p>
           </div>
         </figure>
@@ -89,30 +89,50 @@
 
     <!-- ======================================================= what's new -->
     <section class="wrap new-box" aria-labelledby="new-title">
-      <h2 id="new-title" class="new-title"><span class="pill">New in 0.3</span> A setup walkthrough from download to first reply, updates that install themselves, and a heads-up if macOS stops letting it send. Coming in 0.4: usage tracking, playoff odds and weekly awards.</h2>
-      <a class="arrow-link" href="https://github.com/mbsoft/waterboy/blob/main/CHANGELOG.md">What changed <span aria-hidden="true">→</span></a>
+      <div>
+        <h2 id="new-title" class="new-title"><span class="pill">New in 0.3.0</span></h2>
+        <ul class="new-list">
+          <li>A setup walkthrough that gets you from download to first reply</li>
+          <li>Updates install themselves</li>
+          <li>A heads-up on the Dashboard if macOS stops letting it send</li>
+        </ul>
+      </div>
+      <a class="arrow-link" href="https://github.com/mbsoft/waterboy/blob/main/CHANGELOG.md">Read the changelog <span aria-hidden="true">→</span></a>
+    </section>
+
+    <!-- ===================================================== how it works -->
+    <section class="section" id="how">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">How it works</p>
+          <h2>Three steps.</h2>
+        </div>
+        <ol class="steps three">
+          <li><h3>Install it on a Mac that stays on.</h3><p>An old MacBook or a Mac mini is perfect. Waterboy runs quietly in the background.</p></li>
+          <li><h3>Connect your league.</h3><p>The setup walkthrough handles permissions, signs you in to Claude or ChatGPT, and links your ESPN league (private leagues too).</p></li>
+          <li><h3>Text it.</h3><p>From your phone, or in your league's group chat by name. It answers like a league-mate who has actually read the injury report.</p></li>
+        </ol>
+      </div>
     </section>
 
     <!-- ========================================================= features -->
-    <section class="section" id="features">
+    <section class="section alt" id="features">
       <div class="wrap">
         <div class="feature">
           <div class="feature-copy">
             <p class="eyebrow">Ask</p>
             <h2>Ask it anything your league argues about.</h2>
-            <p>Waiver pickups, start/sit, trade value, matchup previews. Waterboy looks at your actual roster and this week's projections before it answers.</p>
+            <p>Waivers, start/sit, trade value, matchup previews, game lines and expert rankings, answered in plain English with the numbers to back them up. Waterboy pulls from ESPN, Sleeper, nflverse, FantasyPros and FantasyCalc, and cites where each answer came from.</p>
             <ul class="ticks">
-              <li>Your ESPN league: rosters, matchups, standings</li>
-              <li>Sleeper projections and trends, nflverse usage, betting lines</li>
-              <li>Remembers who's who in the chat and which team is theirs</li>
+              <li>"Who should I pick up?" Best available by position, plus what's trending</li>
+              <li>"Start Burrow or Stroud?" A pick and the reason</li>
+              <li>"Is Walker for Moore fair?" Trade values and your lineup before and after</li>
             </ul>
           </div>
-          <figure class="phone small" aria-label="Example: asking about the waiver wire">
+          <figure class="phone small" aria-label="Example: asking who to pick up">
             <div class="chat">
-              <p class="msg out">who's the best RB on waivers this week?</p>
-              <p class="msg in bot"><span class="who">Waterboy</span><b>Jalen Pruitt</b> (TEN). Took 64% of snaps after the injury ahead of him, 14 touches last week, and plays the 29th-ranked run defense. He's on 18% of rosters, so put in a $9 claim before Wednesday.</p>
-              <p class="msg out">and if he's gone?</p>
-              <p class="msg in bot"><span class="who">Waterboy</span>Next up: <b>Corey Bram</b> (NYG), 11 touches and goal-line work. Lower ceiling, safer floor.</p>
+              <p class="msg out">who should I pick up at WR this week?</p>
+              <p class="msg in bot"><span class="who">Waterboy</span>Your best add is <b>J. Pruitt</b> (34% rostered, trending up). He's seen 8+ targets in 3 straight games and has a soft matchup vs. CAR. If you need a stash, <b>C. Bram</b> returns from IR in week 7. <i>Sources: ESPN, Sleeper trends, nflverse</i></p>
             </div>
           </figure>
         </div>
@@ -121,43 +141,33 @@
           <div class="feature-copy">
             <p class="eyebrow">Show</p>
             <h2>Answers you can screenshot.</h2>
-            <p>Start/sit calls, trades and player comparisons come with a card made for the group chat: the numbers side by side, and the verdict on top.</p>
+            <p>Start/sit, trade and player comparisons come with a rendered card: headshots, projections, usage, the verdict. They're made for dropping into the group chat to win an argument.</p>
             <ul class="ticks">
-              <li>Start/sit: projections, matchup, usage trend</li>
-              <li>Trades: value in and out, and your lineup before and after</li>
-              <li>Comparisons: a season side by side</li>
+              <li>Start/sit, trade and comparison cards, each switchable</li>
+              <li>Drawn in code on your Mac, so no image service is involved</li>
             </ul>
           </div>
           <div class="cards" aria-label="Example cards">
-            <div class="card-crop"><img src="assets/img/cards/trade.png" width="1080" height="1910" alt="Trade card showing the value of each side and the verdict" loading="lazy"></div>
-            <div class="card-crop"><img src="assets/img/cards/compare.png" width="1080" height="2326" alt="Comparison card with two players' season stats side by side" loading="lazy"></div>
+            <div class="card-crop"><img src="assets/img/cards/trade.png" width="1080" height="1910" alt="A Waterboy trade card showing the value of each side and the verdict" loading="lazy"></div>
+            <div class="card-crop"><img src="assets/img/cards/compare.png" width="1080" height="2326" alt="A Waterboy comparison card with two receivers' seasons side by side" loading="lazy"></div>
           </div>
         </div>
 
         <div class="feature">
           <div class="feature-copy">
             <p class="eyebrow">Follow</p>
-            <h2>It shows up on Tuesday, so you don't have to.</h2>
-            <p>When the last game of the week is final, Waterboy posts the roundup: results, standings, the playoff line and the highlights. During games, it can text you when your matchup swings.</p>
+            <h2>It shows up on Tuesday so you don't have to.</h2>
+            <p>Set it once by text ("post the roundup here every week") and Waterboy posts the weekly roundup as soon as every game is final: results, standings, the playoff line and the highlights. Turn on live alerts and it texts you when your matchup swings.</p>
             <ul class="ticks">
-              <li>Weekly roundup built from ESPN data, posted once every game is final</li>
-              <li>Playoff odds and weekly awards (shown here) arrive in 0.4</li>
-              <li>Live alerts when your projected score moves</li>
-              <li>Your own schedules too: "every Thursday at 6, preview my matchup"</li>
+              <li>Weekly roundup that waits for Monday night to finish</li>
+              <li>Live scoring alerts, opt-in per person</li>
+              <li>Anything else on a schedule: "post the matchup slate every Thursday at noon"</li>
             </ul>
           </div>
-          <figure class="phone small" aria-label="Example: the weekly roundup">
+          <figure class="phone small" aria-label="Example: the weekly roundup in a group chat">
+            <div class="phone-bar"><span class="phone-title">Tuesday Night Losers</span></div>
             <div class="chat">
-              <p class="msg in bot roundup"><span class="who">Waterboy</span><b>Week 5 is final 🏁</b><br>
-                Gridiron Gurus 132.4 – 98.1 Taco Tuesday<br>
-                Couch Coaches 104.6 – 104.2 Sunday Scaries<br>
-                <br><b>Standings</b><br>
-                1. Gridiron Gurus 5-0 · 97%<br>
-                2. Couch Coaches 4-1 · 81%<br>
-                3. Fourth & Long 3-2 · 58%<br>
-                <br>🏆 High score: Gridiron Gurus 132.4<br>
-                😬 Bench blunder: Taco Tuesday left 31.2 on the bench<br>
-                🍀 Lucky win: Couch Coaches, by 0.4</p>
+              <p class="msg in bot"><span class="who">Waterboy</span>🏈 <b>Week 4 is final.</b> Priya takes 1st after a 41-point blowout. Marcus left 28 on the bench and still won by 0.6. Dave is officially below the playoff line. Full standings ↓</p>
             </div>
           </figure>
         </div>
@@ -166,97 +176,107 @@
           <div class="feature-copy">
             <p class="eyebrow">Group chat</p>
             <h2>Built for the group chat.</h2>
-            <p>Add it to your league's thread and mention it by name when you want it. It knows which team belongs to whom, so "my matchup" works for everyone.</p>
+            <p>Add Waterboy to your league's chat and everyone can use it. Mention it by name and it answers. It knows who's talking, so "how's my matchup?" works for every person in the thread.</p>
             <ul class="ticks">
-              <li>Answers only when it's called by name</li>
-              <li>"Fantasy only" people get the league tools and nothing else</li>
-              <li>Admins can pause it with /pause</li>
+              <li>Each person mapped to their own fantasy team</li>
+              <li>Typing indicators, tapbacks and threaded replies, just like a real person</li>
+              <li>In groups it sticks to fantasy, and it ignores everything it isn't named in</li>
             </ul>
           </div>
-          <figure class="phone small" aria-label="Example: a group chat asking about their matchups">
+          <figure class="phone small" aria-label="Example: Dave asking about his matchup in the group chat">
+            <div class="phone-bar"><span class="phone-title">Tuesday Night Losers</span></div>
             <div class="chat">
-              <p class="msg in"><span class="who">Kathy</span>waterboy how's my matchup looking?</p>
-              <p class="msg in bot"><span class="who">Waterboy</span>Kathy, Fourth &amp; Long is projected 118.6 to 111.0 over Sunday Scaries. Your edge is at WR; their kicker's in a dome.</p>
-              <p class="msg in"><span class="who">Dev</span>waterboy and mine?</p>
-              <p class="msg in bot"><span class="who">Waterboy</span>Dev, it's close: Taco Tuesday 101.4, Couch Coaches 103.9. Starting Pruitt over Hale would flip it.</p>
+              <p class="msg in tapped"><span class="who">Priya</span>first place feels nice ngl<span class="tapback" aria-label="Waterboy liked this">👍</span></p>
+              <p class="msg in"><span class="who">Dave</span>waterboy how's my matchup</p>
+              <p class="msg in bot"><span class="who">Waterboy</span>Dave, Couch Coaches is projected 103.9 to 101.4 over Taco Titans. It's close: starting Pruitt over Hale would flip it.</p>
             </div>
           </figure>
+        </div>
+
+        <div class="grid3 way">
+          <div class="tile"><h3>Claude or ChatGPT.</h3><p>Use your Claude Pro or Max plan, or a ChatGPT account (the free plan works). Switch any time.</p></div>
+          <div class="tile"><h3>A control panel for everything.</h3><p>See who it's talking to, what it remembers, its schedule and its logs, all from a native Mac app.</p></div>
+          <div class="tile"><h3>Remembers what matters.</h3><p>Tell it "remember I'm rebuilding" and it will. You can view or erase its memory per chat.</p></div>
         </div>
       </div>
     </section>
 
     <!-- ========================================================== privacy -->
-    <section class="section alt" id="privacy">
+    <section class="section" id="privacy">
       <div class="wrap">
         <div class="section-head">
           <p class="eyebrow">Privacy</p>
           <h2>No server in the middle. Only the message it's answering leaves your Mac.</h2>
-          <p>There's no Waterboy server and no account. It reads Messages on your Mac and only sends the conversation it's answering to your AI provider.</p>
+          <p>Waterboy has no server and no account to create. It reads Messages on your own Mac, and the only thing that goes out is the message it's answering, sent to the AI you picked using your own sign-in. Every fantasy data source is free and needs no account.</p>
         </div>
         <div class="grid3">
-          <div class="tile">
-            <h3>Runs where your messages are</h3>
-            <p>A small service on your Mac watches Messages and replies through it. Close the app and it keeps working; it starts with your Mac.</p>
-          </div>
-          <div class="tile">
-            <h3>Only chats you allow</h3>
-            <p>Waterboy ignores every conversation you haven't allowed. In groups it answers only when it's called by name.</p>
-          </div>
-          <div class="tile">
-            <h3>Free data, no sign-ups</h3>
-            <p>ESPN, Sleeper, nflverse, FantasyPros and FantasyCalc are public. Private ESPN leagues need two cookies, kept on your Mac.</p>
-          </div>
+          <div class="tile"><h3>Nothing answers by default.</h3><p>It only replies in chats you allow.</p></div>
+          <div class="tile"><h3>Group chats stay on topic.</h3><p>In groups it can only use the fantasy tools: no files, no web, no shell.</p></div>
+          <div class="tile"><h3>Open source.</h3><p>Every line is on <a href="https://github.com/mbsoft/waterboy">GitHub</a>, MIT-licensed. Read it, build it, change it.</p></div>
         </div>
-        <p class="note">Why not the Mac App Store? Apps there can't read the Messages database, and that's how Waterboy sees new texts. So it's signed and notarized by Apple and downloaded from GitHub instead.</p>
+        <p class="note"><b>Why isn't it on the Mac App Store?</b> Reading Messages on your Mac is exactly what the App Store's sandbox forbids. So Waterboy is distributed the other common way, signed and notarized by Apple, straight from GitHub.</p>
       </div>
     </section>
 
     <!-- ========================================================== install -->
-    <section class="section" id="install">
+    <section class="section alt" id="install">
       <div class="wrap">
         <div class="section-head">
           <p class="eyebrow">Install</p>
-          <h2>On your Mac in a few minutes.</h2>
+          <h2>Up and running in about ten minutes.</h2>
         </div>
         <ol class="steps">
-          <li><h3>Download</h3><p>Pick <a data-download="arm64" href="https://github.com/mbsoft/waterboy/releases/latest">Apple silicon</a> or <a data-download="x64" href="https://github.com/mbsoft/waterboy/releases/latest">Intel</a>.</p></li>
-          <li><h3>Drag to Applications</h3><p>Open the DMG, drag Waterboy in, then open it.</p></li>
-          <li><h3>Follow the setup</h3><p>Full Disk Access and Messages permissions, Claude or ChatGPT sign-in, your first chat and your ESPN league.</p></li>
-          <li><h3>Text it</h3><p>From an allowed chat, say hi. In a group, start with "waterboy".</p></li>
+          <li><h3>Download</h3><p>The version for your Mac: <a data-download="arm64" href="https://github.com/mbsoft/waterboy/releases/latest">Apple silicon</a> · <a data-download="x64" href="https://github.com/mbsoft/waterboy/releases/latest">Intel</a></p></li>
+          <li><h3>Drag Waterboy to Applications</h3><p>And open it from there.</p></li>
+          <li><h3>Follow the setup walkthrough</h3><p>It asks for Full Disk Access (to read Messages), permission to control Messages (to send replies), and optionally Accessibility (for typing indicators). Then it signs you in and connects your league.</p></li>
+          <li><h3>Text it</h3><p>Allow your first conversation and say hi.</p></li>
         </ol>
-        <p class="note">Each release lists <a href="https://github.com/mbsoft/waterboy/releases/latest">SHA-256 checksums</a>. Updates install themselves from the app.</p>
-        <p class="note"><b>Best setup:</b> give Waterboy its own Apple Account on a Mac that stays on, then text it like any other contact. It ignores messages sent from the account it runs on, because those look like its own replies. <a href="https://github.com/mbsoft/waterboy/blob/main/waterboy-agent/README.md">Why?</a></p>
+        <ul class="small-print">
+          <li>Signed and notarized by Apple, so macOS opens it without warnings.</li>
+          <li>Updates install themselves; you'll see "Restart to update" when one's ready.</li>
+          <li>Verify your download: <a href="https://github.com/mbsoft/waterboy/releases/latest">SHA256SUMS.txt on the release page</a> · <a href="https://github.com/mbsoft/waterboy/releases">All releases</a></li>
+        </ul>
+        <aside class="tip"><b>Best setup:</b> give Waterboy its own Apple Account and macOS user on a Mac that stays on, then text it like any other contact. Messages you send <i>from</i> the account it runs on look like its own replies, so it ignores them. <a href="https://github.com/mbsoft/waterboy/blob/main/waterboy-agent/README.md">Why? →</a></aside>
       </div>
     </section>
 
     <!-- ============================================================== faq -->
-    <section class="section alt" id="faq">
+    <section class="section" id="faq">
       <div class="wrap narrow">
         <div class="section-head">
           <p class="eyebrow">FAQ</p>
           <h2>Questions</h2>
         </div>
         <details>
-          <summary>Does my Mac need to stay on?</summary>
-          <p>Yes. Waterboy answers from your Mac, so it needs to be awake and signed in to Messages. A Mac mini or a laptop that stays plugged in works well.</p>
+          <summary>Does my Mac have to stay on?</summary>
+          <p>Yes. Waterboy runs on your Mac, so it answers while the Mac is on and awake. A Mac mini or an old laptop that stays plugged in works well.</p>
         </details>
         <details>
-          <summary>Do I need a paid Claude or ChatGPT plan?</summary>
-          <p>For Claude, you need a Claude Pro or Max plan. For ChatGPT, any account works, including the free plan. Waterboy uses your own sign-in, so busy group chats count against your plan's usage limits.</p>
+          <summary>Do I need a paid AI plan?</summary>
+          <p>For Claude, you need a Claude Pro or Max plan. For ChatGPT, any ChatGPT account works, including the free plan. Waterboy uses your own sign-in, so there's nothing else to pay for, and busy group chats count against your plan's usage limits.</p>
         </details>
         <details>
-          <summary>Which leagues work?</summary>
+          <summary>Which fantasy platforms does it support?</summary>
           <p>ESPN leagues today, public or private. Sleeper and Yahoo are on the roadmap.</p>
         </details>
         <details>
-          <summary>What does it cost?</summary>
-          <p>Waterboy is free and open source. The only cost is your AI plan, and every data source it uses is free.</p>
+          <summary>Can my whole league use it?</summary>
+          <p>Yes. Add it to the group chat, map each person to their team, and anyone can ask it things by name. You decide who's allowed.</p>
         </details>
         <details>
-          <summary>Can my league-mates use it without a Mac?</summary>
-          <p>Yes. Only the person who runs it needs a Mac. Everyone else just texts it from their iPhone or the group chat.</p>
+          <summary>Is it free?</summary>
+          <p>Yes: free and open source under the MIT license. If it wins you a trade, there's a <a href="https://buymeacoffee.com/jgauntlettk">Buy me a beer</a> link.</p>
+        </details>
+        <details>
+          <summary>What can it do outside of fantasy football?</summary>
+          <p>In your own 1:1 chat it's a capable general assistant with memory, scheduling and file handling. In group chats it sticks to fantasy, on purpose.</p>
         </details>
       </div>
+    </section>
+
+    <!-- ===================================================== coming next -->
+    <section class="wrap coming" aria-label="Coming in 0.4">
+      <p><b>Coming in 0.4:</b> a usage and cost tracker, data-source health on the Dashboard, and weekly league awards (closest game, biggest blowout, bench blunder). <a href="https://github.com/mbsoft/waterboy/releases">Follow along on GitHub →</a></p>
     </section>
 
     <!-- ============================================================= cta -->
@@ -265,8 +285,8 @@
         <img src="assets/img/icon-512.png" width="96" height="96" alt="" loading="lazy">
         <h2>Keep the Waterboy hydrated.</h2>
         <div class="cta-row center">
-          <a class="btn btn-light" data-download="arm64" href="https://github.com/mbsoft/waterboy/releases/latest">Download for Apple silicon</a>
-          <a class="btn btn-outline" data-download="x64" href="https://github.com/mbsoft/waterboy/releases/latest">Download for Intel</a>
+          <a class="btn btn-light download" data-download="arm64" href="https://github.com/mbsoft/waterboy/releases/latest">Download for Apple silicon</a>
+          <a class="btn btn-outline download secondary" data-download="x64" href="https://github.com/mbsoft/waterboy/releases/latest">Download for Intel</a>
         </div>
       </div>
     </section>
@@ -274,15 +294,17 @@
 
   <footer class="site-footer">
     <div class="wrap footer-row">
-      <span>Waterboy · MIT License</span>
+      <span>Waterboy</span>
       <nav aria-label="Project links">
         <a href="https://github.com/mbsoft/waterboy">GitHub</a>
         <a href="https://github.com/mbsoft/waterboy/releases">Releases</a>
         <a href="https://github.com/mbsoft/waterboy/blob/main/CHANGELOG.md">Changelog</a>
-        <a href="https://github.com/mbsoft/waterboy/issues">Issues</a>
+        <a href="https://github.com/mbsoft/waterboy/issues">Report an issue</a>
+        <a href="https://github.com/mbsoft/waterboy/blob/main/LICENSE">License (MIT)</a>
         <a href="https://buymeacoffee.com/jgauntlettk">Buy me a beer 🍺</a>
       </nav>
     </div>
+    <p class="wrap fine">Not affiliated with ESPN, the NFL, Apple, Anthropic or OpenAI. Made for fun by James Welch.</p>
   </footer>
 </body>
 </html>
