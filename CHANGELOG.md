@@ -55,6 +55,56 @@ publishes it as the GitHub Release notes.
 - The logged turn cost (and token count) for a resumed conversation was the conversation's running
   total, not that turn's. Each turn now records only its own share.
 
+## [0.4.0-beta.1] - 2026-10-02
+
+### Added
+- Usage on the Dashboard: today's, 7-day and 30-day API-equivalent cost and turns, a 30-day daily
+  bar chart, and breakdowns by model, top chats and kind (replies, automations, live alerts). With
+  ChatGPT it shows tokens, since ChatGPT reports no cost. Every turn is saved in `state.db` (kept 400 days).
+- An optional daily cost alert (Settings → Advanced, `usage.dailyCostAlertUsd`): when a day's cost
+  goes over it, the Dashboard shows a banner once that day and the log notes it. Nothing is texted.
+- Data-source health: the service records every fetch from ESPN, Sleeper, nflverse, the ESPN
+  scoreboard (betting lines), FantasyPros rankings and FantasyCalc, and publishes ok / degraded /
+  down / off per source in `health.json`. A new Dashboard card shows each source with when it last
+  worked, its last error and a link to its Settings → Fantasy switch; setup readiness flags any
+  enabled source that is down. Errors are stripped of URLs' query strings, cookies and keys.
+- Playoff odds: ask "what are my playoff chances?" or "who's in?" for each team's playoff and bye
+  chances, seed range and whether it has clinched or been eliminated, as of the latest week. The
+  odds come from 10,000 seeded simulations of the rest of the regular season (same data, same
+  answer); clinched and eliminated are exact, never a points tiebreak that hasn't happened. Median
+  scoring, odd team counts and ties are supported; leagues with divisions are declined.
+- Weekly roundup awards: biggest blowout, closest game, bench blunder, lucky win, tough luck and
+  top player, next to the high and low score, plus playoff odds on each standings row. Each can be
+  switched off in Settings → Fantasy → Roundup awards, and the roundup stays under 1,200 characters.
+- Group live alerts, test mode only: mark one group as a test group in Conversations (with a
+  confirmation listing its members), then turn on Settings → Live alerts → Group test mode. Each
+  big swing in any league matchup is posted once, batched per check (at most 3, configurable), with
+  a per-matchup cooldown and a hard limit of 20 alerts an hour; every message starts with "[TEST]".
+  The service sends only to a marked, allowlisted group and re-checks that before every message.
+  Real league groups never get alerts in this version.
+- "Run simulation" plays a recorded Sunday (five matchups, 1:00 to 4:00 PM) into the test group at
+  1×, 10× or 60×. Alerts sent, suppressed and the last alert are shown in Settings, and the Dashboard
+  warns when the configured test chat is refused.
+
+### Changed
+- `state.db` moves to schema version 3 (the `turns` table). Waterboy 0.3.x refuses to start on it;
+  to downgrade, restore `state.db` from before the upgrade.
+
+### Fixed
+- `npm start`, `npm run doctor`, `repl` and `test` on a Node older than 22.13 now say so (and how to
+  use an installed Node 22) instead of failing with a stack trace about `node:sqlite`.
+- Stopping the service mid-simulation no longer leaves the app showing the simulation as running.
+- A turn that ended in an error (for example hitting the step limit) still counts its cost in the log
+  and the usage record.
+- Group test alerts: every part of a long alert starts with "[TEST]", a failed alert is never
+  followed by an apology in the group, alerts per check are capped at 10 whatever config.json says,
+  the 20-an-hour limit survives a restart, and stopping the service stops a running simulation.
+- Bench blunder (and trade lineups) find the best lineup when flex slots overlap, not just a good one.
+- The Dashboard's Usage and Data sources cards say they're waiting for the service instead of
+  disappearing while it's on an older version.
+- The logged turn cost (and token count) for a resumed conversation was the conversation's running
+  total, not that turn's. Each turn now records only its own share.
+
 ## [0.3.0] - 2026-10-01
 
 ### Added
