@@ -20,7 +20,11 @@ const GAME_RUNTIME_MS = 4 * 3600_000;
 
 // ---------- is anything being played? ----------
 
-interface RawStatusEvent { date: string; status?: { type?: { state?: string } } }
+interface RawStatusEvent {
+  date: string;
+  status?: { type?: { state?: string } };
+  competitions?: { competitors?: { team?: { abbreviation?: string } }[] }[];
+}
 export interface RawStatusBoard { events?: RawStatusEvent[] }
 
 /**
@@ -36,9 +40,54 @@ export function gamesActive(sb: RawStatusBoard, now = Date.now()): boolean {
   return false;
 }
 
+export async function fetchStatusBoard(): Promise<RawStatusBoard> {
+  return espnGet<RawStatusBoard>(NFL_SCOREBOARD);
+}
+
 export async function anyGameActive(now = Date.now()): Promise<boolean> {
-  const sb = await espnGet<RawStatusBoard>(NFL_SCOREBOARD);
-  return gamesActive(sb, now);
+  return gamesActive(await fetchStatusBoard(), now);
+}
+
+export type GameState = "pre" | "in" | "post";
+export type TeamGames = Record<string, { state: GameState; kickoff: number }>;
+
+/** Each NFL team on the scoreboard, by abbreviation: its game's state and kickoff. Same fallback as gamesActive. */
+export function teamGames(sb: RawStatusBoard, now = Date.now()): TeamGames {
+  const out: TeamGames = {};
+  for (const e of sb.events ?? []) {
+    const kickoff = Date.parse(e.date);
+    const raw = e.status?.type?.state;
+    const state: GameState =
+      raw === "in" || raw === "post" ? raw
+        : !Number.isNaN(kickoff) && now >= kickoff && now < kickoff + GAME_RUNTIME_MS ? "in"
+          : "pre";
+    for (const c of e.competitions?.[0]?.competitors ?? []) {
+      const abbr = c.team?.abbreviation;
+      if (abbr) out[abbr.toUpperCase()] = { state, kickoff };
+    }
+  }
+  return out;
+}
+
+/** A game counts as "tonight" if it kicks off within this long. Later ones (Thursday → Sunday) don't. */
+const TONIGHT_MS = 8 * 3600_000;
+/** And a starter "played today" if their game kicked off within this long ago. */
+const TODAY_MS = 14 * 3600_000;
+
+/**
+ * Starters still to play tonight (in progress, or kicking off within a few hours) and starters who
+ * played today. Players without a team on the scoreboard (byes, old baselines) count as neither.
+ */
+export function playersLeft(s: SideSnapshot, games: TeamGames, now = Date.now()): { left: number; played: number } {
+  let left = 0;
+  let played = 0;
+  for (const p of Object.values(s.players)) {
+    const g = p.nfl ? games[p.nfl.toUpperCase()] : undefined;
+    if (!g) continue;
+    if (g.state === "in" || (g.state === "pre" && g.kickoff - now < TONIGHT_MS)) left++;
+    if (g.state !== "pre" && now - g.kickoff < TODAY_MS) played++;
+  }
+  return { left, played };
 }
 
 // ---------- snapshots ----------
@@ -50,8 +99,8 @@ export interface SideSnapshot {
   proj: number;
   live: number | null;
   winProb: number | null;
-  /** Starter projected finals (actual once played), keyed by ESPN player id. */
-  players: Record<string, { name: string; proj: number }>;
+  /** Starter projected finals (actual once played), keyed by ESPN player id. pos/nfl are missing in older baselines. */
+  players: Record<string, { name: string; proj: number; pos?: string; nfl?: string }>;
 }
 
 export interface MatchupSnapshot {
@@ -63,7 +112,9 @@ export interface MatchupSnapshot {
 
 function side(t: TeamSheet): SideSnapshot {
   const players: SideSnapshot["players"] = {};
-  for (const s of t.starters) players[String(s.espnId)] = { name: s.name, proj: s.actual ?? s.proj };
+  for (const s of t.starters) {
+    players[String(s.espnId)] = { name: s.name, proj: s.actual ?? s.proj, ...(s.pos && { pos: s.pos }), ...(s.nfl && { nfl: s.nfl }) };
+  }
   return { teamId: t.id, name: t.name, proj: t.proj, live: t.live, winProb: t.winProb, players };
 }
 
@@ -81,7 +132,7 @@ export async function fetchSnapshot(cfg: FantasyConfig, team: string | number): 
 
 // ---------- change detection ----------
 
-export interface PlayerDelta { name: string; from: number; to: number }
+export interface PlayerDelta { name: string; from: number; to: number; pos?: string; nfl?: string }
 
 export interface SideDelta {
   name: string;
@@ -116,7 +167,7 @@ function playerDeltas(from: SideSnapshot, to: SideSnapshot, minPoints: number): 
   for (const [id, now] of Object.entries(to.players)) {
     const was = from.players[id];
     if (!was) continue; // lineup change: covered by the team total, not worth its own line
-    if (Math.abs(now.proj - was.proj) >= minPoints) out.push({ name: now.name, from: r1(was.proj), to: r1(now.proj) });
+    if (Math.abs(now.proj - was.proj) >= minPoints) out.push({ name: now.name, from: r1(was.proj), to: r1(now.proj), pos: now.pos, nfl: now.nfl });
   }
   return out.sort((a, b) => Math.abs(b.to - b.from) - Math.abs(a.to - a.from));
 }
@@ -174,5 +225,14 @@ export function formatLiveAlert(d: MatchupDelta, maxPlayers = 4): string {
   }
   const { winProbFrom: wf, winProbTo: wt } = d.mine;
   if (wf !== null && wt !== null && wf !== wt) out.push("", `Win probability ${wf}% → ${wt}%`);
+  return out.join("\n");
+}
+
+/** The "final for tonight" text, for when the card can't be drawn or sent. */
+export function formatFinalAlert(s: MatchupSnapshot): string {
+  const pts = (x: SideSnapshot) => r1(x.live ?? x.proj);
+  const out = [`🏈 Week ${s.week}: final for tonight`, "", `${s.mine.name}  ${pts(s.mine)}`];
+  if (s.theirs) out.push(`vs ${s.theirs.name}  ${pts(s.theirs)}`);
+  if (s.mine.winProb !== null) out.push("", `Win probability ${s.mine.winProb}%`);
   return out.join("\n");
 }

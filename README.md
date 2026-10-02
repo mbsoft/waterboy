@@ -74,9 +74,9 @@ individually switchable.
 - **Weekly roundup** — fires once, as soon as every NFL game of the week is final (the
   `fantasy_week_final` condition polls every 30 min Mon–Wed).
 - **Live scoring alerts** — off by default. While games are in progress, checks each subscriber's
-  matchup every few minutes and texts them when either side's projected final swings past a
-  configurable percentage. The alert text is built in code and sent verbatim, so it costs no model
-  call. Opt-in per person; group chats are skipped (no single subscriber to resolve a matchup for).
+  matchup every few minutes and sends them one image when either side's projected final swings past a
+  configurable percentage: the score, win probability and the players who moved it, plus a "final for
+  tonight" card. The card is drawn in code, so it costs no model call. Opt-in per person; group chats are skipped (no single subscriber to resolve a matchup for).
 - Anything else on a plain schedule — "post the matchup slate here every Thursday at noon".
 
 **Who is "me".** Map each person's phone number or email to their team (`fantasy.teams`), and "my

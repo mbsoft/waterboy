@@ -25,6 +25,7 @@
       label: "Live alerts",
       settings: [
         "fantasy.liveAlerts.enabled", "fantasy.liveAlerts.thresholdPct", "fantasy.liveAlerts.checkMinutes", "fantasy.liveAlerts.minPlayerPoints",
+        "fantasy.liveAlerts.caption",
         "fantasy.liveAlerts.groupTest.enabled", "fantasy.liveAlerts.groupTest.chatId", "fantasy.liveAlerts.groupTest.source",
         "fantasy.liveAlerts.groupTest.maxPerCheck", "fantasy.liveAlerts.groupTest.cooldownMinutes",
       ],

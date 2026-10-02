@@ -68,6 +68,11 @@ export interface LiveAlertConfig {
   subscribers?: string[];
   /** Smallest per-player move worth listing in the alert, in points (default 1). */
   minPlayerPoints?: number;
+  /**
+   * Alerts are one image. With this on, a one-line caption follows it, so the notification says
+   * more than "Image" (default false).
+   */
+  caption?: boolean;
   /** Group chat alerts, test mode only (see fantasy/groupAlerts.ts). Real league groups never get alerts. */
   groupTest?: GroupTestConfig;
 }

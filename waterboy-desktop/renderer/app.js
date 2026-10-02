@@ -1103,11 +1103,12 @@
     const tab = parseRoute(location.hash).tab;
     // The sidebar's Settings link reopens the last tab this session; plain #settings links open General.
     $('#nav a[data-page="settings"]').setAttribute("href", `#settings/${tab}`);
-    const [s, teams, plan, conv] = await Promise.all([
+    const [s, teams, plan, conv, legacy] = await Promise.all([
       api.settings(),
       tab === "fantasy" ? api.fantasyTeams().catch(() => []) : [],
       tab === "alerts" ? api.alertPlan().catch(() => []) : [],
       tab === "alerts" ? api.conversations().catch(() => ({ groups: [] })) : { groups: [] },
+      tab === "alerts" ? api.legacyAlerts().catch(() => []) : [],
     ]);
     const save = async (patch, msg) => {
       await api.saveSettings(patch);
@@ -1291,7 +1292,7 @@
       },
       alerts: () =>
         s.fantasy
-          ? [liveAlertsCard(s.fantasy.liveAlerts, plan, save, numSetting, tagged), groupTestCard(s.fantasy.liveAlerts, conv.groups, save, numSetting, selectSetting, tagged)]
+          ? [legacyAlertsCard(legacy), liveAlertsCard(s.fantasy.liveAlerts, plan, save, numSetting, tagged, toggleSetting), groupTestCard(s.fantasy.liveAlerts, conv.groups, save, numSetting, selectSetting, tagged)]
           : [noLeague()],
       advanced: () => [
         card(
@@ -1470,7 +1471,7 @@
    * team can subscribe: the alert watches their own matchup, so without a team there is nothing
    * to watch. Everything below the master toggle is disabled while alerts are off.
    */
-  function liveAlertsCard(a, plan, save, numSetting, tagged) {
+  function liveAlertsCard(a, plan, save, numSetting, tagged, toggleSetting) {
     // Subscribing is only half of it: each person also needs an automation in their own chat,
     // which is what actually runs the check. Flag anyone subscribed without one.
     const byHandle = new Map(plan.map((p) => [p.handle, p]));
@@ -1520,6 +1521,9 @@
       h("div", { class: "hint" }, "Only while NFL games are being played. Between games nothing is fetched and nothing is sent."),
       h("label", {}, "List players moving"), numSetting("fantasy.liveAlerts.minPlayerPoints", a.minPlayerPoints, "pts"),
       h("div", { class: "hint" }, "Smallest per-player change worth naming in the alert."),
+      h("label", {}, "Caption"),
+      toggleSetting("fantasy.liveAlerts.caption", a.caption, "Add a one-line caption", "Add a one-line caption"),
+      h("div", { class: "hint" }, "Each alert is one image. With a caption, a short line follows it, so the notification says more than \u201cImage\u201d."),
       ...rows,
       h("span"),
       h("div", { class: "inline", style: "margin-top:4px" },
@@ -1548,8 +1552,45 @@
           render();
         }, "Live scoring alerts"), "fantasy.liveAlerts.enabled"), a.enabled ? "On" : "Off"),
       ),
-      h("p", { class: "desc" }, "While games are being played, Waterboy watches each subscriber's matchup and texts them when the projected score swings. The message is written by Waterboy itself, so it costs nothing per alert."),
+      h("p", { class: "desc" }, "While games are being played, Waterboy watches each subscriber's matchup and sends them one image when the projected score swings: the score, win probability and the players who moved it, plus a final card when nothing is left to play tonight. Waterboy draws it itself, so it costs nothing per alert."),
       body,
+    );
+  }
+
+  /**
+   * Home-made live alerts (model-run automations about live scoring, from before the built-in
+   * alert card) and the offer to replace them. Hidden when there are none.
+   */
+  function legacyAlertsCard(legacy) {
+    if (!legacy.length) return null;
+    const ready = legacy.filter((t) => !t.blocker);
+    const rows = legacy.map((t) =>
+      h("li", {},
+        h("strong", {}, `#${t.id} ${t.description}`), ` \u00b7 ${t.chatLabel} \u00b7 ${t.scheduleText}`,
+        h("div", { class: "hint" },
+          t.blocker
+            ? t.blocker
+            : t.hasBuiltIn
+              ? "Already has a built-in alert: this one is just paused."
+              : `Becomes: ${t.newScheduleText}, built-in${t.team ? ` (team ${t.team})` : ""}.`),
+      ));
+    const replace = button(ready.length > 1 ? `Replace ${ready.length} automations` : "Replace", async () => {
+      const r = await api.replaceLegacyAlerts(ready.map((t) => t.id));
+      toast(r.replaced.length
+        ? `Replaced ${r.replaced.map((x) => `#${x.id}`).join(", ")} with built-in live alerts. The old ones are paused.`
+        : r.skipped.join("; ") || "Nothing to replace");
+      await refreshOverview();
+      render();
+    }, { primary: true });
+    if (!ready.length) replace.disabled = true;
+    return card(
+      h("div", { class: "card-head" }, h("h3", {}, "Replace with built-in live alerts?"), h("span", { class: "pill warn" }, `${legacy.length} found`)),
+      h("p", { class: "desc" },
+        "These automations ask the AI for live scoring updates. Each run costs a model turn and sends two messages (the matchup preview, then the alert). " +
+        "The built-in alert sends one image only when the score really moves, and costs nothing."),
+      h("ul", { class: "legacy-alerts" }, ...rows),
+      h("div", { class: "inline", style: "margin-top:4px" }, replace),
+      h("div", { class: "hint", style: "margin-top:8px" }, "Turns live alerts on, subscribes each person and keeps the same days and hours. The old automations are paused, not deleted: turn them back on under Automations to undo."),
     );
   }
 
