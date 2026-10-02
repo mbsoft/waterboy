@@ -5,6 +5,7 @@
  * For each architecture, build/agent/<arch>/agent/ gets
  *   index.mjs            the service, compiled from src/ by esbuild (npm packages left external)
  *   mcpServer.mjs        Waterboy's tools as stdio MCP servers, for the ChatGPT (Codex) assistant
+ *   alertCard.mjs        draws a live alert card on demand (Settings → Live alerts → Preview)
  *   bin/waterboy-imessage  typing-indicator helper (../waterboy-imessage, Beeper's platform-imessage), thinned
  *                        to that architecture; skipped with a warning if it hasn't been built
  *   node_modules/        production dependencies for that architecture (the Agent SDK's Claude binary is per-arch)
@@ -39,6 +40,7 @@ for (const arch of arches) {
   const copy = (from, to = path.basename(from)) => fs.copyFileSync(path.join(AGENT, from), path.join(dir, to));
   copy("dist/index.mjs");
   copy("dist/mcpServer.mjs");
+  copy("dist/alertCard.mjs");
   copy("package.json");
   copy("package-lock.json");
   copy("config.example.json");

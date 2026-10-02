@@ -61,9 +61,12 @@ export async function dataUri(url: string): Promise<string | null> {
   return uri;
 }
 
+export const svgToPng = (svg: string): Buffer =>
+  Buffer.from(new Resvg(svg, { font: { loadSystemFonts: true, defaultFontFamily: FONT } }).render().asPng());
+
 /** Render an SVG to `dir/<name>-<timestamp>.png` and return the path. Cards older than a day are removed. */
 export function renderPng(svg: string, dir: string, name: string): string {
-  const png = new Resvg(svg, { font: { loadSystemFonts: true, defaultFontFamily: FONT } }).render().asPng();
+  const png = svgToPng(svg);
   fs.mkdirSync(dir, { recursive: true });
   // Cards are only needed until Messages has uploaded them; keep a day's worth.
   for (const f of fs.readdirSync(dir)) {

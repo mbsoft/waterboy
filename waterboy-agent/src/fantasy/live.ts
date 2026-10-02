@@ -122,9 +122,9 @@ export function snapshotOf(p: Preview): MatchupSnapshot {
   return { week: p.week, at: Date.now(), mine: side(p.home), theirs: p.away ? side(p.away) : null };
 }
 
-/** Fetch the current state of `team`'s matchup. `team` is an ESPN team id or a name (see findTeam). */
-export async function fetchSnapshot(cfg: FantasyConfig, team: string | number): Promise<MatchupSnapshot> {
-  const { league, pro, week, nflWeek } = await fetchWeek(cfg);
+/** Fetch the current state of `team`'s matchup (or of week `forWeek`). `team` is an ESPN team id or a name (see findTeam). */
+export async function fetchSnapshot(cfg: FantasyConfig, team: string | number, forWeek?: number): Promise<MatchupSnapshot> {
+  const { league, pro, week, nflWeek } = await fetchWeek(cfg, forWeek);
   const t = typeof team === "number" ? league.teams.find((x) => x.id === team) : findTeam(league, team, cfg.myTeamId);
   if (!t) throw new Error(`No fantasy team matching "${team}"`);
   return snapshotOf(buildPreview(league, pro, week, nflWeek, t.id, cfg.ownerNames ?? {}));
@@ -230,7 +230,7 @@ export function formatLiveAlert(d: MatchupDelta, maxPlayers = 4): string {
 
 /** The "final for tonight" text, for when the card can't be drawn or sent. */
 export function formatFinalAlert(s: MatchupSnapshot): string {
-  const pts = (x: SideSnapshot) => r1(x.live ?? x.proj);
+  const pts = (x: SideSnapshot) => r1(x.live ?? 0); // points so far; not played yet is 0
   const out = [`🏈 Week ${s.week}: final for tonight`, "", `${s.mine.name}  ${pts(s.mine)}`];
   if (s.theirs) out.push(`vs ${s.theirs.name}  ${pts(s.theirs)}`);
   if (s.mine.winProb !== null) out.push("", `Win probability ${s.mine.winProb}%`);

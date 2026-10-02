@@ -13,6 +13,10 @@ publishes it as the GitHub Release notes.
   card once nothing is left. Drawn in code, still no model call. Optional one-line caption
   (Settings → Live alerts, `fantasy.liveAlerts.caption`, off). Group test mode sends the same card
   with a TEST ribbon. If a card can't be drawn or sent, the text alert goes instead.
+- `npm run alert-card` (waterboy-agent) draws a live alert card on demand: recorded samples
+  (`--list`), `--live` for your matchup now, `--dark`, `--test`, `--caption`, `--out`. Sends nothing
+  unless `--send`, which only goes to the marked test group through the test-mode gate.
+  Settings → Live alerts → Preview shows the same card in the app.
 - Settings → Live alerts offers to replace home-made live alert automations (model-run, no
   condition) with the built-in alert: same days and hours, the person subscribed, the old ones paused.
 - A landing page on GitHub Pages (https://mbsoft.github.io/waterboy/), deployed from `site/`; its

@@ -1544,6 +1544,26 @@
     );
     if (!missing.length) createBtn.disabled = true; // nothing to add
     if (!a.enabled) for (const el of body.querySelectorAll("input, select, button")) el.disabled = true;
+
+    // Preview: works with alerts off too, and sends nothing.
+    const sample = h("select", { "aria-label": "Alert card sample" },
+      h("option", { value: "thursday-dst" }, "Sample: a player drops"),
+      h("option", { value: "lead-change" }, "Sample: lead change"),
+      h("option", { value: "final-tonight" }, "Sample: final for tonight"),
+      h("option", { value: "live" }, "My matchup now (live)"));
+    const shot = h("div", { class: "alert-preview" });
+    const preview = button("Preview alert card", async () => {
+      preview.disabled = true;
+      try {
+        const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+        const r = await api.previewAlertCard({ source: sample.value, dark });
+        shot.replaceChildren(h("img", { src: r.image, alt: `Live alert card: ${r.headline}` }));
+      } catch (e) {
+        toast(e.message, true);
+      } finally {
+        preview.disabled = false;
+      }
+    }, { iconName: "play" });
     return card(
       h("div", { class: "card-head" },
         h("h3", {}, "Live scoring alerts"),
@@ -1554,6 +1574,14 @@
       ),
       h("p", { class: "desc" }, "While games are being played, Waterboy watches each subscriber's matchup and sends them one image when the projected score swings: the score, win probability and the players who moved it, plus a final card when nothing is left to play tonight. Waterboy draws it itself, so it costs nothing per alert."),
       body,
+      h("div", { class: "form" },
+        h("label", {}, "Preview"),
+        h("div", { class: "inline" }, sample, preview),
+        h("span"),
+        h("div", { class: "hint" }, "Draws a card the way an alert would look. Nothing is sent. From Terminal: npm run alert-card in waterboy-agent."),
+        h("span"),
+        shot,
+      ),
     );
   }
 

@@ -196,8 +196,10 @@ export interface GroupAlertCounters {
 }
 
 export interface CheckOptions {
-  /** Delivers to the test group; false when the gate refused at send time. */
-  /** `text` is the batched message (the fallback); `swings` are what it covers, one card each. */
+  /**
+   * Delivers to the test group; false when the gate refused at send time. `text` is the batched
+   * message (the fallback); `swings` are what it covers, one card each.
+   */
   send(text: string, swings: Swing[]): boolean;
   /** The test group is /paused. */
   paused: boolean;

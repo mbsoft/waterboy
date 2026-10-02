@@ -65,6 +65,7 @@ const API = {
   stopGroupSimulation: () => agent.stopGroupSimulation(),
   createAlertAutomations: () => agent.createAlertAutomations(),
   legacyAlerts: () => agent.legacyAlerts(),
+  previewAlertCard: (o) => agent.previewAlertCard(o),
   replaceLegacyAlerts: (ids) => agent.replaceLegacyAlerts(ids),
   automations: () => agent.automations(),
   createAutomation: (t) => agent.createAutomation(t),

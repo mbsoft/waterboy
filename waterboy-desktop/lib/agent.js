@@ -997,6 +997,38 @@ async function createAlertAutomations() {
   return { created, skipped };
 }
 
+// ---------- previewing the alert card ----------
+
+/** Recorded matchups the service's alert-card tool can draw (waterboy-agent src/fantasy/cards/liveFixtures.ts). */
+const ALERT_FIXTURES = ["thursday-dst", "lead-change", "final-tonight"];
+
+/**
+ * Draw a live alert card with the service's own renderer (alertCard.mjs, run by this app's
+ * Electron as Node, like the service itself) and return it as a data: URL. `source` is a fixture
+ * name or "live" (the user's matchup now). Read-only: nothing is sent.
+ */
+async function previewAlertCard({ source = ALERT_FIXTURES[0], dark = false } = {}) {
+  if (source !== "live" && !ALERT_FIXTURES.includes(source)) throw new Error(`Unknown sample ${source}`);
+  const loc = await locate();
+  const script = [path.join(loc.project, "alertCard.mjs"), path.join(loc.project, "dist/alertCard.mjs")].find((f) => fs.existsSync(f));
+  if (!script) throw new Error("This copy of the service can't draw alert cards yet. Update Waterboy (from source: npm run build in waterboy-agent).");
+  const out = path.join(os.tmpdir(), `waterboy-alert-card-${process.pid}-${Date.now()}.png`);
+  const args = [script, "--json", "--no-open", "--out", out, ...(source === "live" ? ["--live"] : ["--fixture", source]), ...(dark ? ["--dark"] : [])];
+  try {
+    const { stdout } = await run(process.execPath, args, {
+      cwd: loc.project,
+      timeout: 30_000,
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", IMESSAGE_AGENT_CONFIG: loc.configPath, NODE_OPTIONS: "--disable-warning=ExperimentalWarning" },
+    });
+    const r = JSON.parse(stdout.trim().split("\n").pop());
+    return { headline: r.headline, image: `data:image/png;base64,${fs.readFileSync(out).toString("base64")}` };
+  } catch (e) {
+    throw new Error(String(e.stderr || e.message).trim().split("\n")[0] || "Couldn't draw the card.");
+  } finally {
+    fs.rmSync(out, { force: true });
+  }
+}
+
 // ---------- replacing home-made live alerts ----------
 
 /**
@@ -1564,6 +1596,7 @@ module.exports = {
   alertPlan,
   createAlertAutomations,
   legacyAlerts,
+  previewAlertCard,
   replaceLegacyAlerts,
   isLegacyAlertTask,
   alertScheduleFrom,

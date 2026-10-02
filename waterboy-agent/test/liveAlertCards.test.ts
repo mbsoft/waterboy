@@ -9,7 +9,8 @@ import { State } from "../src/bot/state.ts";
 import { Bot } from "../src/bot/bot.ts";
 import { makeConditions, groupNotices, type Notice } from "../src/bot/conditions.ts";
 import { startScheduler } from "../src/bot/scheduler.ts";
-import { gameWindow, liveAlertSvg, liveCaption, swingCard, finalCard } from "../src/fantasy/cards/liveAlert.ts";
+import { gameWindow, liveAlertSvg, liveCaption, swingCard, finalCard, statusCard } from "../src/fantasy/cards/liveAlert.ts";
+import { alertCard, type SendDeps } from "../src/alertCard.ts";
 import { diffSnapshots, playersLeft, teamGames } from "../src/fantasy/live.ts";
 import type { MatchupSnapshot, RawStatusBoard, SideSnapshot } from "../src/fantasy/live.ts";
 import { leagueSwings, TEST_PREFIX } from "../src/fantasy/groupAlerts.ts";
@@ -171,6 +172,9 @@ test("the card shows the score, projected finals, win probability and the movers
   assert.ok(!/[▲▼→]/.test(svg), "arrows are drawn: Avenir Next has no glyph for them");
   assert.ok(!svg.includes("TEST"), "no ribbon outside test mode");
   assert.ok(liveAlertSvg({ ...card, test: true }).includes(">TEST<"));
+  const dark = liveAlertSvg(card, { dark: true });
+  assert.ok(dark.includes('fill="#1c1c1e"') && !dark.includes("#111827"), "dark card: no light-theme ink anywhere");
+  assert.ok(!liveAlertSvg(card).includes("#1c1c1e"), "and the next light card is light again");
 });
 
 test("a lead change says so", () => {
@@ -179,6 +183,15 @@ test("a lead change says so", () => {
   const card = swingCard(diffSnapshots(prev, next, 5, 1)!, KICKOFF);
   assert.equal(card.headline, "Waiver Wizards takes the lead");
   assert.equal(card.reason, "Waiver Wizards now projected to win, 112.0 to 106.0");
+});
+
+test("an opponent who hasn't played yet has 0 points, not their projection", () => {
+  const next = { ...TIMELINE[4][2], theirs: { ...TIMELINE[4][2].theirs!, live: null } };
+  const card = finalCard(TIMELINE[3][2], next, KICKOFF + 200 * MIN);
+  assert.equal(card.reason, "Waiver Wizards leads by 31.6 after tonight");
+  const svg = liveAlertSvg(card);
+  assert.ok(svg.includes(">0.0<") && !svg.includes(">106.0<"), "0.0 big, projection small");
+  assert.equal(liveCaption(card), "Week 4 final for tonight · 31.6–0.0 (57%)");
 });
 
 test("final card: who leads after tonight", () => {
@@ -233,4 +246,88 @@ test("matchup_preview posts only when asked, scheduled or not", () => {
   assert.equal(previewPosts(undefined), false);
   assert.equal(previewPosts(false), false);
   assert.equal(previewPosts(true), true);
+});
+
+// ---------- the alert-card CLI ----------
+
+
+const TEST_GROUP = "iMessage;+;chat-test";
+function sendDeps(o: { marked?: boolean; sentTimes?: number[] } = {}) {
+  const sent: { kind: string; body: string }[] = [];
+  let times = o.sentTimes ?? [];
+  const deps: SendDeps = {
+    rawConfig: () => ({
+      allowedChats: [TEST_GROUP], testGroups: o.marked === false ? [] : [TEST_GROUP],
+      fantasy: { liveAlerts: { enabled: true, groupTest: { enabled: true, chatId: TEST_GROUP } } },
+    }),
+    chatInfo: (guid) => ({ guid, identifier: "chat-test", name: "Test", isGroup: true }),
+    sender: () => ({
+      sendText: async (_t, text) => void sent.push({ kind: "text", body: text }),
+      sendFile: async (_t, file) => void sent.push({ kind: "file", body: file }),
+    }),
+    sentTimes: { load: () => times, save: (t) => void (times = t) },
+    now: () => Date.now(),
+  };
+  return { deps, sent, times: () => times };
+}
+
+test("alert-card with no arguments writes the Thursday fixture card, fast, and sends nothing", async () => {
+  const out = path.join(tmp(), "card.png");
+  const started = Date.now();
+  const r = await alertCard(["--out", out, "--no-open"]);
+  assert.ok(Date.now() - started < 3000, "under 3 s");
+  assert.ok(typeof r !== "string");
+  assert.equal(r.file, out);
+  assert.equal(r.sentTo, null);
+  assert.equal(r.card.headline, "Steelers D/ST down 7.0");
+  assert.equal(fs.readFileSync(out).subarray(1, 4).toString(), "PNG");
+});
+
+test("alert-card options: --list, --dark, --test, --caption, and clear usage errors", async () => {
+  assert.match(String(await alertCard(["--list"])), /thursday-dst[\s\S]*lead-change[\s\S]*final-tonight/);
+  const dir = tmp();
+  const r = await alertCard(["--fixture", "final-tonight", "--dark", "--test", "--caption", "--no-open", "--out", path.join(dir, "a.png")]);
+  assert.ok(typeof r !== "string");
+  assert.equal(r.card.test, true);
+  assert.equal(r.caption, "[TEST] Week 4 final for tonight · 31.6–0.0 (57%)");
+  await assert.rejects(alertCard(["--fixture", "nope", "--no-open", "--out", path.join(dir, "b.png")]), /No fixture "nope"/);
+  await assert.rejects(alertCard(["--live", "--fixture", "thursday-dst"]), /not both/);
+  await assert.rejects(alertCard(["--team", "me"]), /only apply with --live/);
+  await assert.rejects(alertCard(["--live", "--week", "40"]), /1-18/);
+  await assert.rejects(alertCard(["--bogus"]), /Unknown option/);
+});
+
+test("alert-card --live draws the matchup as it stands", async () => {
+  const dir = tmp();
+  const r = await alertCard(["--live", "--no-open", "--out", path.join(dir, "live.png")], {
+    live: async () => statusCard(TIMELINE[2][2], KICKOFF + 70 * MIN, { mine: 2, theirs: 0 }),
+  });
+  assert.ok(typeof r !== "string");
+  assert.equal(r.card.kind, "status");
+  assert.equal(r.card.reason, "Waiver Wizards projected to win, 117.2 to 106.0");
+  assert.ok(liveAlertSvg(r.card).includes("MATCHUP · WEEK 4 · THU NIGHT"));
+});
+
+test("alert-card --send refuses, and writes nothing, unless there is a marked test group", async () => {
+  const out = path.join(tmp(), "card.png");
+  const off = { ...sendDeps().deps, rawConfig: () => null };
+  await assert.rejects(alertCard(["--send", "--out", out], { send: () => off }), /Not sent: Group test mode is off/);
+  const unmarked = sendDeps({ marked: false });
+  await assert.rejects(alertCard(["--send", "--out", out], { send: () => unmarked.deps }), /isn't marked as a test group/);
+  assert.equal(unmarked.sent.length, 0);
+  assert.equal(fs.existsSync(out), false);
+});
+
+test("alert-card --send goes to the test group with the TEST ribbon, and counts towards the hourly cap", async () => {
+  const out = path.join(tmp(), "card.png");
+  const s = sendDeps();
+  const r = await alertCard(["--send", "--caption", "--out", out], { send: () => s.deps });
+  assert.ok(typeof r !== "string");
+  assert.equal(r.sentTo, TEST_GROUP);
+  assert.equal(r.card.test, true, "ribbon forced");
+  assert.deepEqual(s.sent, [{ kind: "file", body: out }, { kind: "text", body: "[TEST] Week 4 live: Steelers D/ST down 7.0 · 24.5–0.0 (57%)" }]);
+  assert.equal(s.times().length, 1);
+  const full = sendDeps({ sentTimes: Array.from({ length: 20 }, () => Date.now() - 60_000) });
+  await assert.rejects(alertCard(["--send", "--out", out], { send: () => full.deps }), /already had 20 alerts in the last hour/);
+  assert.equal(full.sent.length, 0);
 });

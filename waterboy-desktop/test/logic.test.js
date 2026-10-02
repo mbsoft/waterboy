@@ -728,3 +728,19 @@ test("group alerts: health.json counters, and a Dashboard warning when the servi
   assert.equal(groupAlertHealth(health({ enabled: false, blocked: "off", detail: "" }), now).warning, null);
   assert.equal(groupAlertHealth({ ...health({ enabled: true, blocked: "not-marked" }), updatedAt: now - 3_600_000 }, now), null, "stale health isn't trusted");
 });
+
+test("Preview alert card runs the service's own renderer and returns the image", { skip: !require("node:fs").existsSync(require("node:path").resolve(__dirname, "../../waterboy-agent/dist/alertCard.mjs")) && "build waterboy-agent first" }, async () => {
+  const path = require("node:path");
+  const agent = require("../lib/agent");
+  const prev = process.env.IMESSAGE_AGENT_DIR;
+  process.env.IMESSAGE_AGENT_DIR = path.resolve(__dirname, "../../waterboy-agent");
+  try {
+    const r = await agent.previewAlertCard({ source: "thursday-dst", dark: true });
+    assert.equal(r.headline, "Steelers D/ST down 7.0");
+    assert.match(r.image, /^data:image\/png;base64,iVBOR/);
+    await assert.rejects(agent.previewAlertCard({ source: "../../etc" }), /Unknown sample/);
+  } finally {
+    if (prev === undefined) delete process.env.IMESSAGE_AGENT_DIR;
+    else process.env.IMESSAGE_AGENT_DIR = prev;
+  }
+});
