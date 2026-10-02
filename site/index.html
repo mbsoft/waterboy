@@ -80,7 +80,7 @@
           <div class="chat">
             <p class="msg in"><span class="who">Mike</span>waterboy who should I start, Vale or Okafor?</p>
             <p class="msg in bot"><span class="who">Waterboy</span>Start <b>Marcus Vale</b>. 17.9 projected vs 11.5, a 25.5-point Vegas total, and Carolina gives up the most points to running backs. Okafor's at San Francisco.</p>
-            <figure class="msg in bot card"><img src="assets/img/cards/start-sit.png" width="1080" height="2344" alt="Start/sit card comparing two receivers' projections, matchups and recent usage" loading="lazy"></figure>
+            <figure class="msg in bot card"><img src="assets/img/cards/start-sit.png" width="1080" height="2344" alt="Start/sit card comparing two running backs' projections, matchups and boom/bust odds" loading="lazy"></figure>
             <p class="msg out">trust the waterboy 💧</p>
           </div>
         </figure>
@@ -89,7 +89,7 @@
 
     <!-- ======================================================= what's new -->
     <section class="wrap new-box" aria-labelledby="new-title">
-      <h2 id="new-title" class="new-title"><span class="pill">New in 0.4</span> Usage and cost on the Dashboard, data-source health, playoff odds and weekly awards in the roundup.</h2>
+      <h2 id="new-title" class="new-title"><span class="pill">New in 0.3</span> A setup walkthrough from download to first reply, updates that install themselves, and a heads-up if macOS stops letting it send. Coming in 0.4: usage tracking, playoff odds and weekly awards.</h2>
       <a class="arrow-link" href="https://github.com/mbsoft/waterboy/blob/main/CHANGELOG.md">What changed <span aria-hidden="true">→</span></a>
     </section>
 
@@ -138,9 +138,10 @@
           <div class="feature-copy">
             <p class="eyebrow">Follow</p>
             <h2>It shows up on Tuesday, so you don't have to.</h2>
-            <p>When the last game of the week is final, Waterboy posts the roundup: results, standings, playoff odds and the week's awards. During games, it can text you when your matchup swings.</p>
+            <p>When the last game of the week is final, Waterboy posts the roundup: results, standings, the playoff line and the highlights. During games, it can text you when your matchup swings.</p>
             <ul class="ticks">
-              <li>Weekly roundup with playoff odds and awards, built from ESPN data</li>
+              <li>Weekly roundup built from ESPN data, posted once every game is final</li>
+              <li>Playoff odds and weekly awards (shown here) arrive in 0.4</li>
               <li>Live alerts when your projected score moves</li>
               <li>Your own schedules too: "every Thursday at 6, preview my matchup"</li>
             </ul>
@@ -189,7 +190,7 @@
       <div class="wrap">
         <div class="section-head">
           <p class="eyebrow">Privacy</p>
-          <h2>Your messages never leave your Mac.</h2>
+          <h2>No server in the middle. Only the message it's answering leaves your Mac.</h2>
           <p>There's no Waterboy server and no account. It reads Messages on your Mac and only sends the conversation it's answering to your AI provider.</p>
         </div>
         <div class="grid3">
@@ -224,6 +225,7 @@
           <li><h3>Text it</h3><p>From an allowed chat, say hi. In a group, start with "waterboy".</p></li>
         </ol>
         <p class="note">Each release lists <a href="https://github.com/mbsoft/waterboy/releases/latest">SHA-256 checksums</a>. Updates install themselves from the app.</p>
+        <p class="note"><b>Best setup:</b> give Waterboy its own Apple Account on a Mac that stays on, then text it like any other contact. It ignores messages sent from the account it runs on, because those look like its own replies. <a href="https://github.com/mbsoft/waterboy/blob/main/waterboy-agent/README.md">Why?</a></p>
       </div>
     </section>
 
@@ -240,7 +242,7 @@
         </details>
         <details>
           <summary>Do I need a paid Claude or ChatGPT plan?</summary>
-          <p>Waterboy uses your own Claude or ChatGPT account. Busy group chats use more of your plan's limits, and the Dashboard shows how much it's using.</p>
+          <p>For Claude, you need a Claude Pro or Max plan. For ChatGPT, any account works, including the free plan. Waterboy uses your own sign-in, so busy group chats count against your plan's usage limits.</p>
         </details>
         <details>
           <summary>Which leagues work?</summary>
