@@ -46,8 +46,10 @@ for _ in $(seq 1 40); do
   launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || launchctl print "gui/$(id -u)/$LEGACY_LABEL" >/dev/null 2>&1 || break
   sleep 0.5
 done
-launchctl bootstrap "gui/$(id -u)" "$PLIST"
+# A disabled label (launchctl disable, or an earlier uninstall) makes bootstrap fail with
+# "Bootstrap failed: 5: Input/output error", so enable it first.
 launchctl enable "gui/$(id -u)/$LABEL"
+launchctl bootstrap "gui/$(id -u)" "$PLIST"
 echo "Installed $PLIST"
 echo
 echo "IMPORTANT: grant Full Disk Access to this node binary (System Settings → Privacy & Security → Full Disk Access → +):"
