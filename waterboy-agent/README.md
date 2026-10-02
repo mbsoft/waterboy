@@ -140,7 +140,7 @@ your own personal use on your own Mac.
 
 Messages from group chats run in a locked-down mode, whatever they ask for:
 
-- **Tools:** only the fantasy tools (`league_roundup`, `matchup_preview`, `waiver_report`, `trending_players`, `player_usage`, `league_status`) and the scheduler. The agent has no built-in tools in groups, so no files, web search or fetch, shell or subagents, and none of your `mcpServers` or `~/.claude` settings. The Claude Code system prompt is replaced with a short fantasy-only one, and off-topic requests get a one-line decline.
+- **Tools:** only the fantasy tools (`league_roundup`, `playoff_odds`, `matchup_preview`, `waiver_report`, `trending_players`, `player_usage`, `league_status`) and the scheduler. The agent has no built-in tools in groups, so no files, web search or fetch, shell or subagents, and none of your `mcpServers` or `~/.claude` settings. The Claude Code system prompt is replaced with a short fantasy-only one, and off-topic requests get a one-line decline.
 - **Attachments:** photos and files sent in a group aren't passed to the agent. Voice notes are still transcribed locally.
 - **Scheduling:** only `groupAdmins` can create or cancel scheduled tasks from a group; the scheduler tool itself refuses anyone else. Scheduled posts in a group also run in this mode.
 - **Commands:** `/help`, `/tasks` and `/status` work for everyone. `/pause`, `/resume`, `/new` and `/forget` are admin-only. Any other `/…` text is ignored.
@@ -149,7 +149,7 @@ The limits are enforced in code (by which tools exist for that turn), not just b
 
 ## Fantasy football (ESPN)
 
-With `"fantasy": { "espnLeagueId": "…" }` in the config, the agent gets `league_roundup`, `matchup_preview`, `waiver_report`, `trending_players`, `player_usage` and `league_status` tools. For a private league, also add `espnS2` and `swid` (your ESPN cookies).
+With `"fantasy": { "espnLeagueId": "…" }` in the config, the agent gets `league_roundup`, `playoff_odds`, `matchup_preview`, `waiver_report`, `trending_players`, `player_usage` and `league_status` tools. For a private league, also add `espnS2` and `swid` (your ESPN cookies).
 
 **nflverse usage stats (no account needed).** The service downloads nflverse's weekly player stats, snap counts, official injury reports and ffverse expected fantasy points from GitHub into `~/.imessage-agent/nflverse/` at startup and then about once a day (~9 MB; files are only re-downloaded once they're 20 hours old, and a failed download keeps the previous copy). The `player_usage` tool answers "is his role growing?" or "Burrow or Stroud?" with per-week snap %, targets and target share, carries, PPR points versus expected points, and the latest injury/practice status. New weeks appear the morning after games. Set `"nflverse": false` in the `fantasy` config to turn it off.
 
@@ -223,7 +223,11 @@ These sources are free but unofficial and can change without notice; if one is u
   Win probability 44% → 61%
   ```
 
-The roundup text itself (results, standings with movement and playoff line, highlights) is computed in code (`src/fantasy.ts`), so the numbers don't depend on the model. If ESPN hasn't officially finalized the week yet, results are decided by points; stat corrections later in the week can occasionally change a close game.
+The roundup text itself (results, standings with movement and playoff line, highlights) is computed in code (`src/fantasy/roundup.ts`), so the numbers don't depend on the model. If ESPN hasn't officially finalized the week yet, results are decided by points; stat corrections later in the week can occasionally change a close game.
+
+- **Weekly awards** (`src/fantasy/awards.ts`): high and low score, biggest blowout, closest game (a tie counts as closest), bench blunder (most points left on the bench versus the best lineup the same roster could have started, IR excluded, from ESPN's box scores), lucky win (won with a below-median score), tough luck (lost with an above-median score) and the top-scoring starter. Teams on a bye are left out, including from the median, and equal values go to the team in the earlier ESPN matchup (home side first). Turn any of them off under `roundupAwards`, e.g. `"roundupAwards": { "benchBlunder": false }`; the keys are `highLow`, `blowout`, `closest`, `benchBlunder`, `luckyWin`, `toughLoss`, `topPlayer` and `playoffOdds`, all on by default (Settings → Fantasy → Roundup awards in the app).
+- **Playoff odds** in the roundup sit at the end of each standings row (`· 62%`, `✓` clinched, `✗` out). With awards or odds on, the roundup is kept under 1,200 characters: big leagues lose, in order, the blowout and closest-game lines (the results already show margins), streaks and rank movement, owner names, points for, then more awards.
+- **`playoff_odds`** ("what are my playoff chances?", "who's in?") simulates the rest of the regular season 10,000 times (`src/fantasy/playoffs.ts`). Each team's weekly score is normal with its season mean and spread, shrunk toward the league average early in the season, and the seed comes from the league id and week, so the same data always gives the same numbers. Seeding is by winning percentage, then points for (or head-to-head when ESPN's seeding rule is `H2H_RECORD`); `playoffTeamCount` sets the field and byes fill the bracket to a power of two (6 teams → 2 byes). Median-scoring leagues (detected from ESPN's records) also simulate the weekly result against the median; odd team counts and ties work. Clinched and eliminated are not simulated: with up to 12 games left every win/loss/tie combination is checked, otherwise a bound is used, and a record tie only counts as settled when both teams are done playing, so a team is never called clinched on a points tiebreak that hasn't happened. Leagues with divisions get "Playoff odds don't support division-based seeding yet." and the roundup leaves the odds out. After the regular season the reply lists the seeds instead.
 
 ## Files
 
@@ -292,8 +296,8 @@ src/
   messages/         reading chat.db, attachments and voice, sending (AppleScript), the iMessage helper
                     (typing, tapbacks, threaded replies)
   assistants/       the runner interface (types), Claude, ChatGPT (Codex)
-  fantasy/          config, ESPN client, name matching, roundup, matchup previews, waivers, live scoring
-                    alerts, the agent tools, source names; data/ (Sleeper, nflverse, Vegas, rankings,
+  fantasy/          config, ESPN client, name matching, roundup, awards, playoff odds, matchup previews,
+                    waivers, live scoring alerts, the agent tools, source names; data/ (Sleeper, nflverse, Vegas, rankings,
                     trade values); startSit/ (+ card)
 ```
 
@@ -320,3 +324,4 @@ Dev/test only, and inert unless `WATERBOY_TEST_HOOKS=1` (the launchd job never s
   with "Test fault: …", to drive data-source health from ok to degraded to down and back. Ids: `espn`,
   `sleeper`, `nflverse`, `lines`, `rankings`, `tradeValues`. The ChatGPT tool servers get the hook
   variables too.
+- **H3 fixture leagues.** `WATERBOY_FIXTURE_LEAGUE=<file>` makes `league_roundup`, `playoff_odds` and the weekly-roundup condition read a league JSON instead of ESPN (box scores too, from its `boxScores` key; `src/fantasy/fixtureHook.ts`). The fixtures in `test/fixtures/leagues/` are synthetic ESPN snapshots written by `generate.ts` (`npx tsx test/fixtures/leagues/generate.ts`): `awards-7team` (odd team count so a bye every week, weeks 1–3 with hand-picked scores, a tie, equal margins, box scores with bench and IR players), `standard-10team` (through week 10 of 13, a tie), `enumerate-6team` (two weeks left), `median-8team` (median scoring), `divisions-10team` (two divisions), `big-14team` (long names and owners) and `final-10team` (regular season over). `standard-10team.odds.txt` is the playoff-odds snapshot the tests compare against.

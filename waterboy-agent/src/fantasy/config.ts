@@ -1,4 +1,6 @@
 /** The `fantasy` section of config.json, and who "me" is in a turn. */
+import type { RoundupAwards } from "./awards.ts";
+
 export interface FantasyConfig {
   espnLeagueId: string;
   season?: number; // default: current year
@@ -39,6 +41,11 @@ export interface FantasyConfig {
   tradeCards?: boolean;
   /** Send a player comparison image with comparisons and start/sit answers (default true). */
   compareCards?: boolean;
+  /**
+   * Parts of the weekly roundup to leave out, e.g. { "benchBlunder": false }. Keys: highLow,
+   * blowout, closest, benchBlunder, luckyWin, toughLoss, topPlayer, playoffOdds. All default on.
+   */
+  roundupAwards?: RoundupAwards;
   /** Live scoring alerts while games are being played (see fantasy/live.ts). */
   liveAlerts?: LiveAlertConfig;
 }

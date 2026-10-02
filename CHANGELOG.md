@@ -18,6 +18,14 @@ publishes it as the GitHub Release notes.
   down / off per source in `health.json`. A new Dashboard card shows each source with when it last
   worked, its last error and a link to its Settings → Fantasy switch; setup readiness flags any
   enabled source that is down. Errors are stripped of URLs' query strings, cookies and keys.
+- Playoff odds: ask "what are my playoff chances?" or "who's in?" for each team's playoff and bye
+  chances, seed range and whether it has clinched or been eliminated, as of the latest week. The
+  odds come from 10,000 seeded simulations of the rest of the regular season (same data, same
+  answer); clinched and eliminated are exact, never a points tiebreak that hasn't happened. Median
+  scoring, odd team counts and ties are supported; leagues with divisions are declined.
+- Weekly roundup awards: biggest blowout, closest game, bench blunder, lucky win, tough luck and
+  top player, next to the high and low score, plus playoff odds on each standings row. Each can be
+  switched off in Settings → Fantasy → Roundup awards, and the roundup stays under 1,200 characters.
 
 ### Changed
 - `state.db` moves to schema version 3 (the `turns` table). Waterboy 0.3.x refuses to start on it;

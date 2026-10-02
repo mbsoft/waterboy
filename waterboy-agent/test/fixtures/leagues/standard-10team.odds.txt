@@ -1,0 +1,13 @@
+🏈 Standard League: playoff odds as of week 10
+10,000 simulations of the last 3 weeks. Top 6 make the playoffs, top 2 get a bye.
+
+1. Alpha Dogs (you) 8-2: 100%, bye 98% · seeds 1-4 ✓ clinched
+2. Echo Chamber 7-2-1: 100%, bye 60% · seeds 1-6 ✓ clinched
+3. Delta Force 7-3: 100%, bye 37% · seeds 1-6 ✓ clinched
+4. Charlie Hustle 6-4: >99%, bye 3% · seeds 1-7
+5. Foxtrot Five 6-4: >99%, bye 2% · seeds 1-7
+6. Bravo Bunch 4-5-1: 88% · seeds 3-9
+7. Golf Clap 3-7: 10% · seeds 5-10
+8. Hotel Lobby 3-7: 3% · seeds 5-10
+9. India Ink 2-7-1: <1% · seeds 6-10
+10. Juliet Rising 2-7-1: <1% · seeds 6-10

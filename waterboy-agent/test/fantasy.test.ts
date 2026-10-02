@@ -35,7 +35,7 @@ test("roundup: settles an un-finalized week by points once NFL games are done", 
   assert.equal(`${charlie.wins}-${charlie.losses}`, "1-1");
   assert.match(r.text, /Week 2 Roundup\n/);
   assert.match(r.text, /— playoff line —/);
-  assert.match(r.text, /Closest game: Delta over Alpha by 0.5/);
+  assert.match(r.text, /Closest: Delta over Alpha by 0.5/);
 });
 
 test("roundup: marks a week in progress when NFL games aren't done", () => {

@@ -67,6 +67,7 @@ export function fantasyPrompt(c: PromptContext): string {
           `TOOLS`,
           `- Standings/records/results questions ("who's in first?", "what's my record?", "who scored most?"): always call league_roundup (live ESPN data, never answer from earlier messages), then answer in 1-3 short lines.`,
           `- Only when someone asks for the roundup or the full standings ("send the roundup", "show the standings"): call league_roundup with post=true.`,
+          `- Playoff chances ("what are my playoff chances?", "who's in?", "can I still make it?", "who has clinched?"): call playoff_odds and answer in 1-3 short lines, saying which week the odds are as of.`,
           `- Specific matchup questions (start/sit, "who's my flex?", "am I winning?", "who does X play?"): call matchup_preview for that team (post=false, the default), then answer in 2-4 short lines with a clear call and why. Don't post the whole preview for these.`,
           `- Only when someone asks to see a preview/matchup ("preview my matchup", "week 4 matchups"): call matchup_preview with post=true (team name, owner first name, "me", or omit team for the week's slate).`,
           `- Pickup questions about a position ("who should I add at QB?", "need a backup RB"): call waiver_report with position (and team "me" for their own team), then answer in 2-4 short lines with a clear pick and why. Don't post the full report for these.`,
@@ -117,6 +118,7 @@ export function fullPrompt(c: PromptContext): string {
       ? [
           `- Fantasy football: for standings, records or results questions ("who's in first?", "what's my record?") always call league_roundup (live ESPN data, never answer from earlier messages) and answer in a few short lines. ` +
             `Only when they ask for the roundup or full standings pass post=true; it then posts itself, so don't repeat it, just add at most one short line or reply NO_REPLY. ` +
+            `For playoff chances ("what are my playoff chances?", "who's in?", "who has clinched?") call playoff_odds and answer in a few short lines, saying which week the odds are as of. ` +
             `For specific matchup questions (start/sit, "who's my flex?", "am I winning?") call matchup_preview for the team (post=false, the default) and answer yourself in a few short lines with a clear call. ` +
             `Only when they ask to see a preview ("preview my matchup", "week 4 matchups") pass post=true (team name, owner name or "me"; no team = whole-week slate); it then posts itself, so don't repeat it. ` +
             `For a pickup question about a position ("who should I add at QB?", "backup RB?") call waiver_report with position and team "me", then answer it yourself in a few short lines with a clear pick; don't post the full report. ` +

@@ -113,7 +113,7 @@ browser through `shell.openExternal`; the renderer never gets the URL.
 | Memory | View, edit or erase each conversation's `MEMORY.md`; start a fresh conversation (like `/new`) | `~/.imessage-agent/chats/*/MEMORY.md`, `state.db` |
 | Automations | List, turn on/off, delete and create scheduled tasks | `state.db` `tasks` |
 | Logs | Readable activity feed from `agent.log` (filters, pages) plus recent `agent.err.log` lines | logs folder |
-| Settings | Tabs, each with its own route (`#settings/<tab>`, defined in `renderer/settingsTabs.js`): General (agent name, assistant and model, ChatGPT sign-in), Conversations (wake words, voice, typing, threaded replies), Fantasy (league, data sources, image cards), Live alerts, Advanced (limits, shell access, daily cost alert) | `config.json`, `~/.imessage-agent/codex` (ChatGPT sign-in) |
+| Settings | Tabs, each with its own route (`#settings/<tab>`, defined in `renderer/settingsTabs.js`): General (agent name, assistant and model, ChatGPT sign-in), Conversations (wake words, voice, typing, threaded replies), Fantasy (league, data sources, image cards, roundup awards), Live alerts, Advanced (limits, shell access, daily cost alert) | `config.json`, `~/.imessage-agent/codex` (ChatGPT sign-in) |
 
 Config changes take effect when the agent restarts; the app shows a "Restart now" banner
 whenever `config.json` is newer than the running service. Pause unloads the launchd job, so

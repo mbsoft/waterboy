@@ -1250,6 +1250,7 @@
               h("label", {}, "Comparison cards"), toggleSetting("fantasy.compareCards", f.compareCards, "Comparison cards", "Send a season comparison image when comparing two players"),
             ),
           ),
+          roundupAwardsCard(f.roundupAwards, toggleSetting),
         ];
       },
       alerts: () => (s.fantasy ? [liveAlertsCard(s.fantasy.liveAlerts, plan, save, numSetting, tagged)] : [noLeague()]),
@@ -1403,6 +1404,25 @@
             ? "Only available with Claude as the assistant: it uses the Google Calendar connector on your Claude account."
             : "Uses the Google Calendar connector on your Claude account (claude.ai → Settings → Connectors) and only works in 1:1 chats with Everything access. Group chats and fantasy-only people never get it."),
       ),
+    );
+  }
+
+  /** Settings → Fantasy: what the weekly roundup adds to results and standings. */
+  function roundupAwardsCard(on, toggleSetting) {
+    const rows = [
+      ["playoffOdds", "Playoff odds", "Each team's playoff chances next to the standings"],
+      ["highLow", "High and low score", "The week's highest and lowest scores"],
+      ["blowout", "Biggest blowout", "The week's biggest winning margin"],
+      ["closest", "Closest game", "The narrowest win, or a tie"],
+      ["benchBlunder", "Bench blunder", "Most points left on a bench versus the best lineup"],
+      ["luckyWin", "Lucky win", "A win with a below-median score"],
+      ["toughLoss", "Tough luck", "A loss with an above-median score"],
+      ["topPlayer", "Top player", "The league's highest-scoring starter"],
+    ];
+    return card(
+      h("h3", {}, "Roundup awards"),
+      h("p", { class: "desc" }, "What the weekly roundup adds to the results and standings. It's built from ESPN data without the AI, and long roundups drop detail to stay under 1,200 characters."),
+      h("div", { class: "form" }, ...rows.flatMap(([key, label, text]) => [h("label", {}, label), toggleSetting(`fantasy.roundupAwards.${key}`, on[key], label, text)])),
     );
   }
 
