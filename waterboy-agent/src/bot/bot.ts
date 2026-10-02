@@ -4,7 +4,7 @@ import type { Config } from "../config.ts";
 import { log, normalizeHandle } from "../config.ts";
 import type { IncomingMessage } from "../messages/messagesDb.ts";
 import type { State, ScheduledTask } from "./state.ts";
-import type { AgentRunner } from "../assistants/types.ts";
+import { AgentTurnError, type AgentResponse, type AgentRunner } from "../assistants/types.ts";
 import type { ChatTarget, Sender } from "../messages/sender.ts";
 import { chunk, toPlainText } from "./format.ts";
 import { importAttachment, isAudio, transcribe } from "../messages/media.ts";
@@ -17,7 +17,8 @@ import { now } from "../testHooks.ts";
 type Job =
   | { kind: "messages"; msgs: IncomingMessage[] }
   | { kind: "task"; task: ScheduledTask; context?: string }
-  | { kind: "notice"; text: string };
+  /** `prefix` starts every message the text is split into (group test alerts' "[TEST]") */
+  | { kind: "notice"; text: string; prefix?: string };
 
 interface ChatQueue {
   target: ChatTarget;
@@ -173,11 +174,11 @@ export class Bot {
    * alerts), where the message is already formatted and a model call would only add latency,
    * cost and wording drift.
    */
-  notify(chatGuid: string, text: string) {
+  notify(chatGuid: string, text: string, prefix?: string) {
     const q =
       this.queues.get(chatGuid) ??
       this.queueFor({ chatGuid, isGroup: chatGuid.includes(";+;"), sender: chatGuid.split(";").pop() ?? null });
-    q.jobs.push({ kind: "notice", text });
+    q.jobs.push({ kind: "notice", text, prefix });
     void this.drain(q);
   }
 
@@ -198,7 +199,10 @@ export class Bot {
           await this.process(q, job);
         } catch (err) {
           log(`[bot] error in ${q.target.chatGuid}:`, err);
-          await this.reply(q, `Sorry, something went wrong on my end: ${(err as Error).message.slice(0, 200)}`).catch(() => {});
+          // A notice (live alert) has no one waiting on an answer, and a test group must only ever
+          // see "[TEST]" messages, so a failed notice is logged, never apologised for.
+          if (job.kind !== "notice")
+            await this.reply(q, `Sorry, something went wrong on my end: ${(err as Error).message.slice(0, 200)}`).catch(() => {});
         }
       }
     } finally {
@@ -223,7 +227,7 @@ export class Bot {
     if (job.kind === "notice") {
       if (chat.paused) return;
       const started = Date.now();
-      await this.reply(q, job.text, false);
+      await this.reply(q, job.text, false, undefined, job.prefix);
       recordTurn(
         this.state,
         { at: now(), chatId: chatGuid, model: null, provider: this.cfg.provider, costUsd: 0, inputTokens: 0, outputTokens: 0, durationMs: Date.now() - started, kind: "alert" },
@@ -288,14 +292,43 @@ export class Bot {
         fantasyMe: this.fantasyMe(q, job),
         scheduled: job.kind === "task",
       });
+    } catch (e) {
+      // A turn that failed (max turns, an API error) still cost something: count it, then fail as before.
+      if (e instanceof AgentTurnError) {
+        if (e.turn.sessionId && e.turn.sessionId !== sessionId) this.state.setSession(chatGuid, e.turn.sessionId);
+        this.accountTurn(q, job, { text: "", sessionId: e.turn.sessionId, costUsd: e.turn.costUsd, model: e.turn.model, usage: e.turn.usage }, Date.now() - started, true);
+      }
+      throw e;
     } finally {
       this.busy--;
       await typing?.end(chatGuid);
     }
     if (res.sessionId && res.sessionId !== sessionId) this.state.setSession(chatGuid, res.sessionId);
+    this.accountTurn(q, job, res, Date.now() - started);
+
+    const text = res.text.trim();
+    const trigger = job.kind === "messages" ? job.msgs.at(-1) : undefined;
+    const reaction = parseReaction(text);
+    if (reaction) await this.react(q, trigger?.guid, reaction);
+    else if (text && text !== "NO_REPLY") await this.reply(q, text, true, this.threadTo(q, job));
+    for (const file of attachments) {
+      try {
+        await this.sender.sendFile(q.target, file);
+      } catch (e) {
+        log(`[bot] ${q.label}: couldn't send ${path.basename(file)}:`, (e as Error).message);
+      }
+    }
+    if (profile === "full") await this.sendOutbox(q, dir);
+  }
+
+  /**
+   * The log lines and the usage record for one turn (the Dashboard's usage card reads the record,
+   * and its totals match these lines). A failed turn is logged and counted the same way.
+   */
+  private accountTurn(q: ChatQueue, job: Job, res: AgentResponse, durationMs: number, failed = false) {
+    const chatGuid = q.target.chatGuid;
     // "in 13.4s" is the turn's duration; the desktop app's reply-time statistic reads it.
-    const durationMs = Date.now() - started;
-    const took = `in ${(durationMs / 1000).toFixed(1)}s`;
+    const took = `in ${(durationMs / 1000).toFixed(1)}s${failed ? " (failed)" : ""}`;
     if (res.costUsd !== undefined) log(`[bot] ${q.label}: turn cost $${res.costUsd.toFixed(4)} (API-equivalent) ${took}`);
     if (res.tokens) log(`[bot] ${q.label}: turn used ${res.tokens.input + res.tokens.output} tokens (${res.tokens.cached} cached) ${took}`);
     // The Dashboard's usage card: the same turns, with the same cost, as the two log lines above.
@@ -317,20 +350,6 @@ export class Bot {
         this.cfg.usage?.dailyCostAlertUsd,
       );
     }
-
-    const text = res.text.trim();
-    const trigger = job.kind === "messages" ? job.msgs.at(-1) : undefined;
-    const reaction = parseReaction(text);
-    if (reaction) await this.react(q, trigger?.guid, reaction);
-    else if (text && text !== "NO_REPLY") await this.reply(q, text, true, this.threadTo(q, job));
-    for (const file of attachments) {
-      try {
-        await this.sender.sendFile(q.target, file);
-      } catch (e) {
-        log(`[bot] ${q.label}: couldn't send ${path.basename(file)}:`, (e as Error).message);
-      }
-    }
-    if (profile === "full") await this.sendOutbox(q, dir);
   }
 
   private async buildPrompt(q: ChatQueue, msgs: IncomingMessage[], dir: string): Promise<string> {
@@ -410,9 +429,12 @@ export class Bot {
    * Send a reply. With `threadTo` (a message GUID), the first part goes as a threaded reply to that
    * message through the iMessage helper; if that fails it's sent normally, like the rest.
    */
-  private async reply(q: ChatQueue, text: string, format = true, threadTo?: string) {
+  private async reply(q: ChatQueue, text: string, format = true, threadTo?: string, prefix?: string) {
     const body = format ? toPlainText(text) : text;
-    const parts = chunk(body, this.cfg.maxChunkChars);
+    // With a prefix, every part carries it (the first already starts with it), and still fits.
+    const parts = prefix
+      ? chunk(body, this.cfg.maxChunkChars - prefix.length - 1).map((p) => (p.startsWith(prefix) ? p : `${prefix} ${p}`))
+      : chunk(body, this.cfg.maxChunkChars);
     for (const [i, part] of parts.entries()) {
       if (i === 0 && threadTo && this.imessage && (await this.imessage.actions.reply(q.target.chatGuid, threadTo, part))) continue;
       await this.sender.sendText(q.target, part);

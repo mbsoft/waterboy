@@ -6,7 +6,7 @@ import type { State } from "../bot/state.ts";
 import { schedulerMcpServer, SCHEDULER_TOOLS } from "../bot/scheduler.ts";
 import { fantasyMcpServer, FANTASY_TOOLS } from "../fantasy/tools.ts";
 import type { Conditions } from "../bot/conditions.ts";
-import type { AgentRequest, AgentResponse, AgentRunner } from "./types.ts";
+import { AgentTurnError, type AgentRequest, type AgentResponse, type AgentRunner } from "./types.ts";
 
 const BASE_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", "TodoWrite"];
 
@@ -135,7 +135,7 @@ export class ClaudeAgentRunner implements AgentRunner {
           if (msg.subtype === "success") text = msg.result;
           else {
             const detail = "errors" in msg && Array.isArray(msg.errors) ? msg.errors.join("; ") : "";
-            throw new Error(`agent ended with ${msg.subtype}${detail ? `: ${detail}` : ""}`);
+            throw new AgentTurnError(`agent ended with ${msg.subtype}${detail ? `: ${detail}` : ""}`, { sessionId, costUsd, model, usage });
           }
         }
       }

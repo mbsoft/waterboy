@@ -41,6 +41,14 @@ publishes it as the GitHub Release notes.
   to downgrade, restore `state.db` from before the upgrade.
 
 ### Fixed
+- A turn that ended in an error (for example hitting the step limit) still counts its cost in the log
+  and the usage record.
+- Group test alerts: every part of a long alert starts with "[TEST]", a failed alert is never
+  followed by an apology in the group, alerts per check are capped at 10 whatever config.json says,
+  the 20-an-hour limit survives a restart, and stopping the service stops a running simulation.
+- Bench blunder (and trade lineups) find the best lineup when flex slots overlap, not just a good one.
+- The Dashboard's Usage and Data sources cards say they're waiting for the service instead of
+  disappearing while it's on an older version.
 - The logged turn cost (and token count) for a resumed conversation was the conversation's running
   total, not that turn's. Each turn now records only its own share.
 

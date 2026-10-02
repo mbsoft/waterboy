@@ -24,6 +24,14 @@ export const DEFAULT_MAX_PER_CHECK = 3;
 export const DEFAULT_COOLDOWN_MINUTES = 15;
 /** Hard cap on alerts sent to the test group in any rolling hour of real time. */
 export const HOURLY_CAP = 20;
+/** Most alerts in one message, whatever config.json says (the app offers 1–10) */
+export const MAX_PER_CHECK = 10;
+
+/** Where the hourly cap's send times live, so a restart doesn't reset it (the state db in the service) */
+export interface SentTimesStore {
+  load(): number[];
+  save(times: number[]): void;
+}
 const HOUR = 3600_000;
 
 // ---------- snapshots ----------
@@ -214,10 +222,19 @@ export interface CheckResult {
 export class GroupAlerts {
   private prev: LeagueSnapshot | null = null;
   private lastAlertAt = new Map<string, number>();
-  private sentTimes: number[] = [];
+  private sentTimes: number[];
   readonly counters: GroupAlertCounters = { sent: 0, messages: 0, suppressed: { cooldown: 0, cap: 0, hourly: 0, paused: 0 }, lastAlert: null };
 
-  constructor(private readonly clock: () => number = clockNow) {}
+  constructor(
+    private readonly clock: () => number = clockNow,
+    private readonly store?: SentTimesStore,
+  ) {
+    let saved: unknown = [];
+    try {
+      saved = store?.load() ?? [];
+    } catch {}
+    this.sentTimes = Array.isArray(saved) ? saved.filter((t): t is number => typeof t === "number" && Number.isFinite(t)) : [];
+  }
 
   /** Forget the baseline and cooldowns (a new replay, or live alerts after a long gap). Counters stay. */
   reset() {
@@ -252,7 +269,7 @@ export class GroupAlerts {
     const realNow = this.clock();
     this.sentTimes = this.sentTimes.filter((t) => realNow - t < HOUR);
     const room = Math.max(0, HOURLY_CAP - this.sentTimes.length);
-    const perCheck = Math.max(1, Math.round(o.maxPerCheck ?? DEFAULT_MAX_PER_CHECK));
+    const perCheck = Math.min(MAX_PER_CHECK, Math.max(1, Math.round(o.maxPerCheck ?? DEFAULT_MAX_PER_CHECK)));
     const allowed = Math.min(perCheck, fresh.length);
     const take = fresh.slice(0, Math.min(allowed, room));
     // Past the per-check cap is "cap"; within it but over the hourly limit is "hourly".
@@ -267,6 +284,9 @@ export class GroupAlerts {
           this.lastAlertAt.set(s.key, next.at);
           this.sentTimes.push(realNow);
         }
+        try {
+          this.store?.save(this.sentTimes);
+        } catch {}
         this.counters.sent += take.length;
         this.counters.messages++;
         this.counters.lastAlert = { at: realNow, text };
