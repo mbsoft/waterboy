@@ -41,6 +41,9 @@ publishes it as the GitHub Release notes.
   to downgrade, restore `state.db` from before the upgrade.
 
 ### Fixed
+- `npm start`, `npm run doctor`, `repl` and `test` on a Node older than 22.13 now say so (and how to
+  use an installed Node 22) instead of failing with a stack trace about `node:sqlite`.
+- Stopping the service mid-simulation no longer leaves the app showing the simulation as running.
 - A turn that ended in an error (for example hitting the step limit) still counts its cost in the log
   and the usage record.
 - Group test alerts: every part of a long alert starts with "[TEST]", a failed alert is never

@@ -217,6 +217,17 @@ export class GroupTestRunner {
     if (this.running) this.stopRequested = reason;
   }
 
+  /**
+   * The service is stopping: stop a running replay and report it stopped now, since the loop won't
+   * get to its next check (otherwise health.json would show it running until the next start).
+   */
+  shutdown() {
+    if (!this.running) return;
+    this.stop("The service stopped.");
+    this.end("stopped", "The service stopped.");
+    this.publish();
+  }
+
   /** Each snapshot is one check, paced by its timestamp divided by `speed`, measured from the start. */
   private async play(speed: number) {
     const snaps = this.deps.fixture.snapshots;
