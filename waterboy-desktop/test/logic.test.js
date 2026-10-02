@@ -295,7 +295,7 @@ test("live alert automations: one per subscriber, never duplicated", async () =>
     contacts: { "+16145550142": "Tess", "+16145550143": "Dale", "nina@example.com": "Nina" },
     fantasy: {
       espnLeagueId: "1",
-      teams: { "+16145550142": "Castaways", "+16145550143": "Bucko", "nina@example.com": "Team Nina" },
+      teams: { "+16145550142": "Tailgaters", "+16145550143": "Underdogs", "nina@example.com": "Team Nina" },
       liveAlerts: { enabled: true, checkMinutes: 10, subscribers: ["+16145550142", "+16145550143"] },
     },
   }));
@@ -447,8 +447,8 @@ test("setup: the ESPN league test explains what's wrong, and saving keeps or cle
       seen = { url, headers: init.headers };
       return { status, ok: status < 300, json: async () => body };
     };
-    const ok = reply(200, { seasonId: 2026, settings: { name: "Brownie Bowl" }, status: { currentMatchupPeriod: 4 }, teams: [{}, {}, {}] });
-    assert.deepEqual(await agent.testLeague({ espnLeagueId: "123" }, { fetchImpl: ok }), { league: "Brownie Bowl", season: 2026, currentWeek: 4, teams: 3 });
+    const ok = reply(200, { seasonId: 2026, settings: { name: "Sunday Funday Bowl" }, status: { currentMatchupPeriod: 4 }, teams: [{}, {}, {}] });
+    assert.deepEqual(await agent.testLeague({ espnLeagueId: "123" }, { fetchImpl: ok }), { league: "Sunday Funday Bowl", season: 2026, currentWeek: 4, teams: 3 });
     assert.match(seen.url, /\/seasons\/\d{4}\/segments\/0\/leagues\/123\?view=mTeam/);
     assert.equal(seen.headers.Cookie, undefined, "public league: no cookies");
     assert.match(seen.headers["User-Agent"], /Mozilla/, "ESPN 403s the default node user agent");
