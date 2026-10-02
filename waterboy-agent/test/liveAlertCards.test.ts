@@ -252,7 +252,7 @@ test("matchup_preview posts only when asked, scheduled or not", () => {
 
 
 const TEST_GROUP = "iMessage;+;chat-test";
-function sendDeps(o: { marked?: boolean; sentTimes?: number[] } = {}) {
+function sendDeps(o: { marked?: boolean; sentTimes?: number[]; stateReady?: boolean } = {}) {
   const sent: { kind: string; body: string }[] = [];
   let times = o.sentTimes ?? [];
   const deps: SendDeps = {
@@ -267,6 +267,7 @@ function sendDeps(o: { marked?: boolean; sentTimes?: number[] } = {}) {
     }),
     sentTimes: { load: () => times, save: (t) => void (times = t) },
     now: () => Date.now(),
+    stateReady: () => o.stateReady ?? true,
   };
   return { deps, sent, times: () => times };
 }
@@ -315,6 +316,9 @@ test("alert-card --send refuses, and writes nothing, unless there is a marked te
   const unmarked = sendDeps({ marked: false });
   await assert.rejects(alertCard(["--send", "--out", out], { send: () => unmarked.deps }), /isn't marked as a test group/);
   assert.equal(unmarked.sent.length, 0);
+  const fresh = sendDeps({ stateReady: false });
+  await assert.rejects(alertCard(["--send", "--out", out], { send: () => fresh.deps }), /start the Waterboy service once first/);
+  assert.equal(fresh.sent.length, 0);
   assert.equal(fs.existsSync(out), false);
 });
 
