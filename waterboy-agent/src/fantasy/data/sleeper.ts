@@ -6,6 +6,7 @@
  */
 import { log } from "../../config.ts";
 import { nameKey } from "../names.ts";
+import { timed } from "../../health/sources.ts";
 
 const API = "https://api.sleeper.app/v1";
 const PROJ_API = "https://api.sleeper.com/projections/nfl";
@@ -37,10 +38,12 @@ export const sleeperTeam = (espnAbbrev: string) => {
   return TEAM_ALIAS[t] ?? t;
 };
 
-async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(30_000) });
-  if (!res.ok) throw new Error(`Sleeper ${res.status} for ${url.split("?")[0]}`);
-  return (await res.json()) as T;
+function getJson<T>(url: string): Promise<T> {
+  return timed("sleeper", async () => {
+    const res = await fetch(url, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(30_000) });
+    if (!res.ok) throw new Error(`Sleeper ${res.status} for ${url.split("?")[0]}`);
+    return (await res.json()) as T;
+  });
 }
 
 /** Cache one value per key for `ttl` ms; a failed refresh keeps serving the stale value. */

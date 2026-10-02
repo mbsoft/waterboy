@@ -483,3 +483,43 @@ test("settings tabs: every setting the app can change has exactly one tab, and r
   assert.deepEqual(parseRoute("#dashboard"), { page: "dashboard", tab: null });
   assert.deepEqual(parseRoute(""), { page: "", tab: null });
 });
+
+test("data sources: health.json `sources` for the Dashboard card and the readiness ⚠", () => {
+  const { sourcesReadiness, sendingReadiness, serviceChecks } = require("../lib/agent");
+  const now = Date.parse("2026-10-01T18:00:00Z");
+  const src = (status, extra = {}) => ({ status, lastOkAt: null, lastError: null, lastErrorAt: null, okRate24h: null, calls24h: 0, avgMs: null, ...extra });
+  const health = (sources, extra = {}) => ({ version: 1, updatedAt: now - 60_000, startedAt: now - 3600_000, checks: [], send: { status: "ok", lastOkAt: now }, sources, ...extra });
+  const v04 = health({
+    espn: src("ok", { lastOkAt: now - 12 * 60_000, okRate24h: 0.98, calls24h: 50, avgMs: 400 }),
+    sleeper: src("degraded", { lastError: "Sleeper 503 for …/projections/nfl", lastErrorAt: now }),
+    nflverse: src("ok", { dataUpdatedAt: now - 60 * 3600_000 }),
+    lines: src("down", { lastError: "fetch failed (ENOTFOUND)" }),
+    rankings: src("off"),
+    tradeValues: src("unknown"),
+    someFutureSource: src("down"),
+  });
+
+  const s = sourcesReadiness(v04, now);
+  assert.deepEqual(s.list.map((x) => [x.id, x.status]), [["espn", "ok"], ["sleeper", "degraded"], ["nflverse", "ok"], ["lines", "down"], ["rankings", "off"], ["tradeValues", "unknown"]]);
+  assert.deepEqual(s.down, ["ESPN scoreboard and lines"], "only enabled sources that are down; unknown ids are ignored");
+  assert.equal(s.list[1].lastError, "Sleeper 503 for …/projections/nfl");
+  assert.equal(s.list[2].dataStale, true, "nflverse data older than 48 h is flagged");
+  assert.equal(s.list[3].setting, "fantasy.vegas", "each row links to its Settings → Fantasy toggle");
+  assert.equal(s.startedAt, now - 3600_000);
+
+  // Off never counts as down, whatever else the file says
+  assert.deepEqual(sourcesReadiness(health({ lines: src("off", { lastError: "x" }), espn: src("ok") }), now).down, []);
+  // Garbage in the file reads as unknown rather than breaking the Dashboard
+  assert.equal(sourcesReadiness(health({ espn: { status: "exploded", lastOkAt: "yesterday" } }), now).list[0].status, "unknown");
+  // Before v0.4 (no key), with every source off (no fantasy), or stale: no card / a stale note
+  assert.equal(sourcesReadiness(health(undefined), now), null);
+  assert.equal(sourcesReadiness(null, now), null);
+  assert.equal(sourcesReadiness(health(Object.fromEntries(["espn", "sleeper", "nflverse", "lines", "rankings", "tradeValues"].map((id) => [id, src("off")]))), now), null);
+  assert.deepEqual(sourcesReadiness({ ...v04, updatedAt: now - 3 * 3600_000 }, now), { stale: true, list: [], down: [] });
+
+  // The v0.3 readers ignore the new key (acceptance 3)
+  const { sources, ...v03 } = v04;
+  assert.deepEqual(sendingReadiness(v04, now), sendingReadiness(v03, now));
+  assert.deepEqual(serviceChecks(v04, now), serviceChecks(v03, now));
+  assert.ok(sources);
+});

@@ -120,7 +120,7 @@ Limits are enforced by **which tools exist for a given turn**, not by instructio
 
 | Page | What it does |
 |---|---|
-| Dashboard | Running/paused status with Start, Pause, Restart; setup readiness (sign-in, Messages access, sending, allowed chats) and any service checks needing attention; a banner when sending through Messages fails; today's replies, reply time, ignored messages, problems; usage over the last 30 days (API-equivalent cost, or tokens with ChatGPT) by day, model, chat and kind, with an optional daily cost alert |
+| Dashboard | Running/paused status with Start, Pause, Restart; setup readiness (sign-in, Messages access, sending, allowed chats) and any service checks or fantasy data sources needing attention; a banner when sending through Messages fails; fantasy data sources (ESPN, Sleeper, nflverse, lines, rankings, trade values) with status, last success and last error; today's replies, reply time, ignored messages, problems; usage over the last 30 days (API-equivalent cost, or tokens with ChatGPT) by day, model, chat and kind, with an optional daily cost alert |
 | Setup | Opens on first launch: permissions (Full Disk Access, Automation, optional Accessibility), sign-in, the first allowed chat, and the ESPN league with a test connection. Run it again from the Dashboard |
 | Connections | Google Calendar access, built-in tools, MCP servers, extra allowed tools |
 | Conversations | Allow or block each person or group, rename contacts, mark admins, set each person's fantasy team and access level |

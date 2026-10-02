@@ -8,7 +8,8 @@
  *   WB_CAN_MANAGE          "1" = may create/cancel tasks       WB_SCHEDULED    "1" = a scheduled run
  *   WB_FANTASY_ME          JSON of the asker's team ("me"); unset = config default
  *   WB_POST_FILE           fantasy "post to chat" text ({"text"}) and images to send after the reply
- *                          ({"file"}) are appended here as JSON lines; the runner sends them
+ *                          ({"file"}) are appended here as JSON lines; the runner sends them. So are
+ *                          data-source fetch outcomes ({"sourceCall"}), for the service's health.json
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -20,6 +21,7 @@ import { schedulerMcpServer } from "./bot/scheduler.ts";
 import { makeConditions } from "./bot/conditions.ts";
 import { setNflverseDataDir } from "./fantasy/data/nflverse.ts";
 import { setRankingsDataDir } from "./fantasy/data/rankings.ts";
+import { setSourceSink } from "./health/sources.ts";
 
 // stdout is the MCP channel, so everything else logs to stderr.
 console.log = (...a: unknown[]) => console.error(...a);
@@ -37,6 +39,7 @@ if (which === "fantasy") {
   const relay = (entry: object) => fs.appendFileSync(postFile!, JSON.stringify(entry) + "\n");
   const post = postFile ? async (text: string) => relay({ text }) : undefined;
   const attach = postFile ? async (file: string) => relay({ file }) : undefined;
+  if (postFile) setSourceSink((sourceCall) => relay({ sourceCall }));
   const me = env.WB_FANTASY_ME === undefined ? {} : { me: JSON.parse(env.WB_FANTASY_ME) as string | number | null };
   server = fantasyMcpServer({ ...cfg.fantasy, ...me }, post, { scheduled: env.WB_SCHEDULED === "1", attach, cardDir: path.join(cfg.dataDir, "cards") });
 } else if (which === "scheduler") {

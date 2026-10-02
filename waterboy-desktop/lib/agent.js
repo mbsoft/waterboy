@@ -207,6 +207,7 @@ async function readiness() {
     sending: sendingReadiness(health),
     automation: automationReadiness(health),
     checks: serviceChecks(health),
+    sources: sourcesReadiness(health),
   };
 }
 
@@ -247,6 +248,57 @@ function serviceChecks(health, now = Date.now()) {
     attention: health.checks
       .filter((c) => c.status !== "pass")
       .map((c) => ({ label: c.label, detail: c.detail, hint: c.hint ?? null, ok: c.status !== "fail" || !c.required })),
+  };
+}
+
+// The service's data sources (health.json `sources`, v0.4), in Dashboard order, with the Settings →
+// Fantasy control that turns each on or off (ESPN has no switch, so it points at the league id).
+const SOURCES = [
+  { id: "espn", label: "ESPN Fantasy", setting: "fantasy.espnLeagueId" },
+  { id: "sleeper", label: "Sleeper", setting: "fantasy.sleeper" },
+  { id: "nflverse", label: "nflverse stats", setting: "fantasy.nflverse" },
+  { id: "lines", label: "ESPN scoreboard and lines", setting: "fantasy.vegas" },
+  { id: "rankings", label: "FantasyPros rankings", setting: "fantasy.rankings" },
+  { id: "tradeValues", label: "FantasyCalc trade values", setting: "fantasy.tradeValues" },
+];
+const SOURCE_STATES = ["ok", "degraded", "down", "off", "unknown"];
+/** nflverse rebuilds daily; files older than this mean the download keeps failing */
+const NFLVERSE_STALE_MS = 48 * 3600_000;
+
+/**
+ * Data-source health from health.json. null when the service doesn't report it (before v0.4) or
+ * when no fantasy source is on; `stale` when the file is too old to trust. The service keeps the
+ * numbers in memory, so after a restart sources are "unknown" until they're used again.
+ */
+function sourcesReadiness(health, now = Date.now()) {
+  const raw = health?.sources;
+  if (!raw || typeof raw !== "object") return null;
+  if (now - (health.updatedAt ?? 0) > HEALTH_STALE_MS) return { stale: true, list: [], down: [] };
+  const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  const list = SOURCES.map((src) => {
+    const x = raw[src.id] ?? {};
+    const status = SOURCE_STATES.includes(x.status) ? x.status : "unknown";
+    const dataUpdatedAt = num(x.dataUpdatedAt);
+    return {
+      ...src,
+      status,
+      lastOkAt: num(x.lastOkAt),
+      lastError: typeof x.lastError === "string" && x.lastError ? x.lastError : null,
+      lastErrorAt: num(x.lastErrorAt),
+      okRate24h: num(x.okRate24h),
+      calls24h: num(x.calls24h) ?? 0,
+      avgMs: num(x.avgMs),
+      ...(src.id === "nflverse" ? { dataUpdatedAt, dataStale: dataUpdatedAt !== null && now - dataUpdatedAt > NFLVERSE_STALE_MS } : {}),
+    };
+  });
+  if (list.every((s) => s.status === "off")) return null;
+  return {
+    stale: false,
+    checkedAt: health.updatedAt,
+    startedAt: num(health.startedAt),
+    list,
+    // Off sources never count: only enabled ones that are down
+    down: list.filter((s) => s.status === "down").map((s) => s.label),
   };
 }
 
@@ -1235,6 +1287,7 @@ module.exports = {
   sendingReadiness,
   automationReadiness,
   serviceChecks,
+  sourcesReadiness,
   cleanLeague,
   testLeague,
   saveLeague,

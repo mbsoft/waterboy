@@ -10,6 +10,8 @@ import type { Config } from "../config.ts";
 import { log } from "../config.ts";
 import type { AgentRequest, AgentResponse, AgentRunner } from "./types.ts";
 import { toolServerEntry } from "../paths.ts";
+import { sourceHealth, type SourceCall } from "../health/sources.ts";
+import { testHooksOn } from "../testHooks.ts";
 
 const run = promisify(execFile);
 
@@ -122,6 +124,8 @@ export function turnSetup(cfg: Config, req: AgentRequest, opts: { launch: ToolSe
       WB_SCHEDULED: req.scheduled ? "1" : "0",
       WB_POST_FILE: opts.postFile,
       ...(req.fantasyMe === undefined ? {} : { WB_FANTASY_ME: JSON.stringify(req.fantasyMe) }),
+      // QA hooks (WATERBOY_NOW, WATERBOY_FAIL_SOURCES) reach the tool servers only while they're on
+      ...(testHooksOn ? Object.fromEntries(Object.entries(process.env).filter(([k]) => k.startsWith("WATERBOY_"))) : {}),
     },
     startup_timeout_sec: 30,
     tool_timeout_sec: 120,
@@ -247,14 +251,16 @@ export class CodexAgentRunner implements AgentRunner {
     const thread = resume ? codex.resumeThread(resume, setup.thread) : codex.startThread(setup.thread);
 
     // Fantasy tools append {"text"} (post=true reports) and {"file"} (images for after the reply) to
-    // postFile; hand them over as each tool call completes.
+    // postFile; hand them over as each tool call completes. {"sourceCall"} is a data-source fetch
+    // outcome for health.json.
     let posted = 0;
     const flushPosts = async () => {
       if (!fs.existsSync(postFile)) return;
       const lines = fs.readFileSync(postFile, "utf8").split("\n").filter(Boolean);
       for (const line of lines.slice(posted)) {
         posted++;
-        const entry = JSON.parse(line) as { text?: string; file?: string };
+        const entry = JSON.parse(line) as { text?: string; file?: string; sourceCall?: SourceCall };
+        if (entry.sourceCall) sourceHealth.record(entry.sourceCall);
         if (entry.text !== undefined && req.post) await req.post(entry.text);
         if (entry.file && req.attach) await req.attach(entry.file);
       }

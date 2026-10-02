@@ -9,6 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { log } from "../../config.ts";
 import { nameKey, nameOnly } from "../names.ts";
+import { timed } from "../../health/sources.ts";
 
 const NFLVERSE = "https://github.com/nflverse/nflverse-data/releases/download";
 const FFVERSE = "https://github.com/ffverse/ffopportunity/releases/download/latest-data";
@@ -38,10 +39,13 @@ export async function syncNflverse(season: number, force = false): Promise<{ upd
     const age = fs.existsSync(file) ? Date.now() - fs.statSync(file).mtimeMs : Infinity;
     if (!force && age < MAX_AGE_MS) continue;
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const text = await res.text();
-      if (!text.includes(",")) throw new Error("not a CSV");
+      const text = await timed("nflverse", async () => {
+        const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status} for ${key}`);
+        const body = await res.text();
+        if (!body.includes(",")) throw new Error(`${key} is not a CSV`);
+        return body;
+      });
       fs.writeFileSync(`${file}.tmp`, text);
       fs.renameSync(`${file}.tmp`, file);
       updated.push(key);
@@ -308,6 +312,12 @@ export function formatUsage(p: PlayerUsage, weeks = 3, latestWeek = 0): string {
   if (p.injury && p.injury.week >= latestWeek && (p.injury.status || p.injury.practice))
     lines.push(`  Injury report wk ${p.injury.week}: ${[p.injury.status || "no game status", p.injury.injury, p.injury.practice].filter(Boolean).join(" · ")}`);
   return lines.join("\n");
+}
+
+/** When the weekly stats file was last downloaded (data-source health), or null if there's none */
+export function dataUpdatedAt(season: number): number | null {
+  const f = localFile("stats", season);
+  return fs.existsSync(f) ? Math.round(fs.statSync(f).mtimeMs) : null;
 }
 
 export function dataAge(season: number): string | null {
