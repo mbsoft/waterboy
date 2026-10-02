@@ -58,6 +58,9 @@ publishes it as the GitHub Release notes.
   to downgrade, restore `state.db` from before the upgrade.
 
 ### Fixed
+- The first turn of a chat session that started before v0.4 no longer counts the session's whole
+  running cost (days of turns, e.g. "$20.79") as its own. It has no saved baseline, so its cost is
+  recorded as unknown (tokens only), the baseline is saved, and later turns count normally.
 - `npm start`, `npm run doctor`, `repl` and `test` on a Node older than 22.13 now say so (and how to
   use an installed Node 22) instead of failing with a stack trace about `node:sqlite`.
 - Stopping the service mid-simulation no longer leaves the app showing the simulation as running.

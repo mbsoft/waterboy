@@ -346,8 +346,10 @@ export class Bot {
     const took = `in ${(durationMs / 1000).toFixed(1)}s${failed ? " (failed)" : ""}`;
     if (res.costUsd !== undefined) log(`[bot] ${q.label}: turn cost $${res.costUsd.toFixed(4)} (API-equivalent) ${took}`);
     if (res.tokens) log(`[bot] ${q.label}: turn used ${res.tokens.input + res.tokens.output} tokens (${res.tokens.cached} cached) ${took}`);
-    // The Dashboard's usage card: the same turns, with the same cost, as the two log lines above.
-    if (res.costUsd !== undefined || res.tokens) {
+    // A Claude turn whose cost can't be known (the first turn of a session from before v0.4) still counts, without a cost.
+    else if (res.costUsd === undefined && res.usage) log(`[bot] ${q.label}: turn used ${res.usage.input + res.usage.output} tokens (cost unknown) ${took}`);
+    // The Dashboard's usage card: the same turns, with the same cost, as the log lines above.
+    if (res.costUsd !== undefined || res.tokens || res.usage) {
       const tokens = res.tokens ?? res.usage;
       recordTurn(
         this.state,
