@@ -2,9 +2,12 @@
 /**
  * Writes the landing page's download buttons from the published releases, at deploy time:
  *   gh api repos/mbsoft/waterboy/releases | node scripts/site-links.mjs _site/index.html
- * Replaces everything between <!-- downloads:start --> and <!-- downloads:end --> in that file with
- * buttons for the newest stable release's Apple silicon and Intel DMGs (same choice as the README,
- * scripts/readme-links.mjs), or a link to Releases before there is one. Drafts and betas are ignored.
+ * Fills in the newest stable release (same choice as the README, scripts/readme-links.mjs; drafts and
+ * betas are ignored) in two ways, so the page can use either:
+ *   - everything between <!-- downloads:start --> and <!-- downloads:end --> becomes the Apple silicon
+ *     and Intel download buttons, or a link to Releases before there is a stable release;
+ *   - the placeholders {{VERSION}} {{ARM64_URL}} {{X64_URL}} {{SUMS_URL}} {{NOTES_URL}} {{DATE}}
+ *     anywhere in the page are replaced (with the Releases page and "" before there is one).
  * site/assets/js/downloads.js refreshes the same buttons from the GitHub API in case a deploy is behind.
  */
 import fs from "node:fs";
@@ -31,11 +34,34 @@ export function buttons(stable) {
   ].join("\n");
 }
 
-/** The page with every download block filled in; throws if it has none. */
+/** The values for the {{…}} placeholders. */
+export function placeholders(stable) {
+  if (!stable) {
+    const releases = `${REPO}/releases`;
+    return { VERSION: "", ARM64_URL: releases, X64_URL: releases, SUMS_URL: releases, NOTES_URL: releases, DATE: "" };
+  }
+  const d = dmgs(stable);
+  return {
+    VERSION: stable.tag_name.replace(/^v/, ""),
+    ARM64_URL: d.arm64,
+    X64_URL: d.x64,
+    SUMS_URL: `${REPO}/releases/download/${stable.tag_name}/SHA256SUMS.txt`,
+    NOTES_URL: stable.html_url,
+    DATE: stable.published_at.slice(0, 10),
+  };
+}
+
+/** The page with every download block and placeholder filled in; throws if it has neither. */
 export function updatePage(html, releases) {
   const { stable } = pick(releases);
+  const values = placeholders(stable);
+  const hasPlaceholders = /\{\{(VERSION|ARM64_URL|X64_URL|SUMS_URL|NOTES_URL|DATE)\}\}/.test(html);
+  html = html.replace(/\{\{(VERSION|ARM64_URL|X64_URL|SUMS_URL|NOTES_URL|DATE)\}\}/g, (_, key) => esc(values[key]));
   const parts = html.split(START);
-  if (parts.length < 2) throw new Error(`The page has no ${START} … ${END} block.`);
+  if (parts.length < 2) {
+    if (hasPlaceholders) return html;
+    throw new Error(`The page has no ${START} … ${END} block and no {{…}} download placeholders.`);
+  }
   return parts
     .map((part, i) => {
       if (i === 0) return part;

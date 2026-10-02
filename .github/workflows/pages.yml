@@ -4,8 +4,9 @@
 # scripts/site-links.mjs with the newest stable release's Apple silicon and Intel DMGs; the
 # repository itself never changes. site/assets/js/downloads.js refreshes them in the browser.
 #
-# Contract for site/index.html: put <!-- downloads:start --><!-- downloads:end --> wherever the
-# download buttons go (as many as you like) and include <script src="assets/js/downloads.js" defer>.
+# Contract for site/index.html: either put <!-- downloads:start --><!-- downloads:end --> wherever
+# the download buttons go, or use the copy's placeholders {{VERSION}} {{ARM64_URL}} {{X64_URL}}
+# {{SUMS_URL}} {{NOTES_URL}} {{DATE}} anywhere; include <script src="assets/js/downloads.js" defer>.
 # The buttons are <a class="download"> (Intel also .secondary) with data-download="arm64|x64", plus
 # a <p class="download-meta"> with the version, release notes and checksums links.
 name: Pages
@@ -52,7 +53,7 @@ jobs:
         run: |
           rm -rf _site && cp -R site _site
           gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
-          for page in $(grep -rl -- '<!-- downloads:start -->' _site --include='*.html'); do
+          for page in $(grep -rlE -- '<!-- downloads:start -->|\{\{(VERSION|ARM64_URL|X64_URL|SUMS_URL|NOTES_URL|DATE)\}\}' _site --include='*.html'); do
             node scripts/site-links.mjs "$page" < "$RUNNER_TEMP/releases.json"
           done
           # Every DMG link on the page must download.
