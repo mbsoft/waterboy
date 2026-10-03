@@ -9,7 +9,7 @@ import { fixtureLeague } from "./fixtureHook.ts";
 import { SOURCE, sourceLine } from "./sources.ts";
 import { ROUNDUP_PARTS, awardOn, weeklyAwards, type Award, type BoxPlayer, type RoundupAwards, type WeekBox, type WeekGame } from "./awards.ts";
 import { DEFAULT_RUNS, fmtPct, formatOdds, simulate, type OddsLeague, type PlayoffOdds } from "./playoffs.ts";
-import { recentRenames } from "./teamNames.ts";
+import type { TeamRename } from "./teamNames.ts";
 
 // ---------- raw API types (just what we use) ----------
 
@@ -129,8 +129,8 @@ export interface Roundup {
   highlights: string[];
   /** Playoff odds as of this week, when shown. */
   odds: PlayoffOdds | null;
-  /** "Old → New" for teams renamed this past week (fantasy.roundupRenames, off by default). */
-  renames: string[];
+  /** Teams renamed since the last posted roundup, each listed once (fantasy.roundupRenames). */
+  renames: TeamRename[];
   /** Whether any award or the odds is switched on (only then is the text fitted to the budget). */
   extras: boolean;
   text: string;
@@ -144,8 +144,8 @@ export interface RoundupExtras {
   awards?: RoundupAwards;
   box?: WeekBox | null;
   odds?: PlayoffOdds | null;
-  /** Teams renamed this past week ("Old → New"), when fantasy.roundupRenames is on. */
-  renames?: string[];
+  /** Teams renamed since the last posted roundup (fantasy.roundupRenames, on by default). */
+  renames?: TeamRename[];
 }
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
@@ -373,7 +373,7 @@ export function formatRoundup(r: Roundup, level = 0, drop: Set<string> = new Set
     ...(level >= 1 ? [] : r.highlights.slice(r.awards.length)),
   ];
   if (shown.length) lines.push("", "HIGHLIGHTS", ...shown.map((h) => `• ${h}`));
-  if (r.renames.length) lines.push("", "RENAMED", ...r.renames.map((x) => `• ${x}`));
+  if (r.renames.length) lines.push("", ...r.renames.map((x) => `📛 Name change: ${x.from} is now ${x.to}`));
   lines.push("", sourceLine([SOURCE.espn]));
   return lines.join("\n");
 }
@@ -545,7 +545,7 @@ export async function fetchBoxScores(cfg: FantasyConfig, league: RawLeague, week
  * The roundup with everything turned on in config: awards (box scores only when an award needs
  * them) and the playoff odds (left out for division leagues and after the regular season).
  */
-export async function fullRoundup(cfg: FantasyConfig, league: RawLeague, week: number, nflDone: boolean): Promise<Roundup> {
+export async function fullRoundup(cfg: FantasyConfig, league: RawLeague, week: number, nflDone: boolean, renames: TeamRename[] = []): Promise<Roundup> {
   const on = cfg.roundupAwards;
   const box = awardOn(on, "benchBlunder") || awardOn(on, "topPlayer") ? await fetchBoxScores(cfg, league, week) : null;
   let odds: PlayoffOdds | null = null;
@@ -556,7 +556,6 @@ export async function fullRoundup(cfg: FantasyConfig, league: RawLeague, week: n
     const o = leagueOdds(league, settled.has(week) ? week : week - 1, settled);
     if (o.kind === "odds") odds = o.odds;
   }
-  const renames = cfg.roundupRenames === true ? recentRenames(7 * 86_400_000).map((r) => `${r.from} → ${r.to}`) : [];
   return buildRoundup(league, week, nflDone, cfg.ownerNames, { awards: on, box, odds, renames });
 }
 

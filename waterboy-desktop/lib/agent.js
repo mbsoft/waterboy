@@ -951,7 +951,7 @@ async function settings() {
           tradeCards: cfg.fantasy.tradeCards !== false,
           compareCards: cfg.fantasy.compareCards !== false,
           roundupAwards: Object.fromEntries(ROUNDUP_PARTS.map((k) => [k, cfg.fantasy.roundupAwards?.[k] !== false])),
-          roundupRenames: cfg.fantasy.roundupRenames === true,
+          roundupRenames: cfg.fantasy.roundupRenames !== false,
           nflverseUpdatedAt: nflverseStatus(loc, cfg).updatedAt,
           liveAlerts: { ...liveAlerts(cfg, await teamNames()), status: groupAlertHealth(readJson(path.join(loc.dataDir, "health.json"))) },
         }

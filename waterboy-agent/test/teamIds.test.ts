@@ -4,7 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
-  matchTeamName, mergeTeams, migrateMappings, normName, recentRenames, setTeamNames, teamIdForName, teamLabel, unmappedPeople,
+  markRenamesAnnounced, matchTeamName, mergeTeams, migrateMappings, normName, pendingRenames, recentRenames, setTeamNames, teamIdForName, teamLabel,
+  unmappedPeople,
 } from "../src/fantasy/teamNames.ts";
 import type { TeamInfo, TeamRecord } from "../src/fantasy/teamNames.ts";
 import { TeamSync } from "../src/bot/teamSync.ts";
@@ -214,7 +215,7 @@ test("acceptance: live alerts for a mapped person keep resolving their team (by 
   assert.equal(freshened, 1, "names are refreshed at the start of a game window");
 });
 
-test("the roundup lists the week's renames only when asked to", () => {
+test("the roundup lists name changes when it's given them", () => {
   const league: any = {
     seasonId: 2026,
     settings: { name: "Test", scheduleSettings: { matchupPeriodCount: 14, playoffTeamCount: 4, matchupPeriods: { "1": [1] } } },
@@ -227,7 +228,38 @@ test("the roundup lists the week's renames only when asked to", () => {
     schedule: [{ matchupPeriodId: 1, home: { teamId: 1, totalPoints: 100 }, away: { teamId: 7, totalPoints: 90 }, winner: "HOME" }],
   };
   const off = formatRoundup(buildRoundup(league, 1, true, {}, {}));
-  assert.doesNotMatch(off, /RENAMED/);
-  const on = formatRoundup(buildRoundup(league, 1, true, {}, { renames: ["Tess's Tailgaters → Tailgate Party"] }));
-  assert.match(on, /RENAMED\n• Tess's Tailgaters → Tailgate Party/);
+  assert.doesNotMatch(off, /Name change/);
+  const on = formatRoundup(buildRoundup(league, 1, true, {}, { renames: [{ id: 7, from: "Tess's Tailgaters", to: "Tailgate Party", at: T0 }, { id: 1, from: "Old Wizards", to: "Waiver Wizards", at: T0 }] }));
+  assert.match(on, /📛 Name change: Tess's Tailgaters is now Tailgate Party\n📛 Name change: Old Wizards is now Waiver Wizards/);
+});
+
+test("acceptance: a rename between two roundups is in the next posted roundup exactly once, and not the week after", async () => {
+  const h = harness({ "+16145550142": 7 });
+  await h.sync.sync("startup");
+  assert.deepEqual(pendingRenames(), [], "nothing to announce on the first sync");
+  // Renamed twice during the week: the roundup says where it ended up.
+  h.rename(7, "Tailgate Party");
+  h.tick(6 * HOUR);
+  await h.sync.sync("every 6 hours");
+  h.rename(7, "Tailgate Party 2.0");
+  h.tick(6 * HOUR);
+  await h.sync.sync("every 6 hours");
+  const week1 = pendingRenames();
+  assert.deepEqual(week1.map((r) => [r.from, r.to]), [["Tess's Tailgaters", "Tailgate Party 2.0"]]);
+  markRenamesAnnounced(Math.max(...week1.map((r) => r.at))); // the roundup was posted
+  assert.deepEqual(pendingRenames(), [], "not again the week after");
+  // It survives a restart: the marker is saved with the names.
+  setTeamNames(null);
+  new TeamSync({ fantasy: h.fantasy, kv: { get: (k) => h.kv.get(k) ?? null, set: (k, v) => void h.kv.set(k, v) }, fetchTeams: async () => [], configFile: h.configFile });
+  assert.deepEqual(pendingRenames(), []);
+  // A later rename is announced in the following roundup, and only that one.
+  h.rename(9, "Nina's Ninjas");
+  h.tick(6 * HOUR);
+  await h.sync.sync("every 6 hours");
+  assert.deepEqual(pendingRenames().map((r) => [r.from, r.to]), [["Team Nina", "Nina's Ninjas"]]);
+  // Renamed and then renamed back: nothing to say.
+  markRenamesAnnounced(T0 + 18 * HOUR);
+  h.rename(1, "Wizards 2"); h.tick(HOUR); await h.sync.sync("x");
+  h.rename(1, "Waiver Wizards"); h.tick(HOUR); await h.sync.sync("x");
+  assert.deepEqual(pendingRenames(), []);
 });

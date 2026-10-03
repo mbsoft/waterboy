@@ -9,7 +9,7 @@ import path from "node:path";
 import { log } from "../config.ts";
 import type { FantasyConfig } from "../fantasy/config.ts";
 import {
-  RENAME_SHOW_MS, TEAM_NAMES_KEY, mergeTeams, migrateMappings, parseTeamNames, setTeamNames, unmappedPeople,
+  getTeamNames, RENAME_SHOW_MS, TEAM_NAMES_KEY, mergeTeams, migrateMappings, parseTeamNames, setTeamNames, unmappedPeople,
 } from "../fantasy/teamNames.ts";
 import type { TeamInfo, TeamNamesState, TeamRename } from "../fantasy/teamNames.ts";
 
@@ -40,15 +40,18 @@ export interface TeamSyncDeps {
 }
 
 export class TeamSync {
-  private state: TeamNamesState | null;
+  /** The names the resolvers use (also changed when a roundup announces renames). */
+  private get state(): TeamNamesState | null {
+    return getTeamNames();
+  }
   private running: Promise<void> | null = null;
   private timers: NodeJS.Timeout[] = [];
   status: TeamSyncStatus = { syncedAt: null, error: null, renames: [], unmapped: [], migration: null };
 
   constructor(private readonly deps: TeamSyncDeps) {
-    this.state = parseTeamNames(deps.kv.get(TEAM_NAMES_KEY));
-    setTeamNames(this.state);
-    this.status.syncedAt = this.state?.syncedAt ?? null;
+    const saved = parseTeamNames(deps.kv.get(TEAM_NAMES_KEY));
+    setTeamNames(saved, (s) => deps.kv.set(TEAM_NAMES_KEY, JSON.stringify(s)));
+    this.status.syncedAt = saved?.syncedAt ?? null;
   }
 
   private now() {
@@ -73,7 +76,6 @@ export class TeamSync {
       const teams = await this.deps.fetchTeams();
       if (!teams.length) throw new Error("ESPN returned no teams");
       const { state, renames } = mergeTeams(this.state, teams, at);
-      this.state = state;
       this.deps.kv.set(TEAM_NAMES_KEY, JSON.stringify(state));
       setTeamNames(state);
       for (const r of renames) log(`[teams] team ${r.id} renamed: "${r.from}" → "${r.to}"`);
