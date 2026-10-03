@@ -11,6 +11,7 @@ import type { ChatTarget, Sender } from "../messages/sender.ts";
 import type { CheckResult } from "./checks.ts";
 import { sourceHealth, type SourceHealth, type SourceId, type SourceSnapshot } from "./sources.ts";
 import type { GroupAlertStatus } from "../bot/groupTest.ts";
+import type { TeamSyncStatus } from "../bot/teamSync.ts";
 
 export interface SendFailure {
   at: number;
@@ -112,6 +113,8 @@ export interface HealthFile {
   sources: Record<SourceId, SourceSnapshot>;
   /** Group live alerts in test mode (v0.4): counters, replay progress, and why the group is blocked. Absent when unused. */
   groupAlerts?: GroupAlertStatus;
+  /** Fantasy team names (v0.4): renames of the last week, people whose team can't be found. Absent without fantasy. */
+  teams?: TeamSyncStatus;
 }
 
 /** Writes health.json in the data folder (atomically) whenever something changes */
@@ -119,6 +122,7 @@ export class HealthReporter {
   readonly send: SendHealth;
   private checks: CheckResult[] = [];
   private groupAlerts: GroupAlertStatus | undefined;
+  private teams: TeamSyncStatus | undefined;
   private readonly startedAt = Date.now();
   private timer: NodeJS.Timeout | null = null;
 
@@ -130,6 +134,11 @@ export class HealthReporter {
   /** A check skipped this round keeps its last real result */
   setChecks(checks: CheckResult[]) {
     this.checks = checks.map((c) => (c.skipped ? (this.checks.find((p) => p.id === c.id && !p.skipped) ?? c) : c));
+    this.scheduleWrite();
+  }
+
+  setTeams(status: TeamSyncStatus) {
+    this.teams = status;
     this.scheduleWrite();
   }
 
@@ -158,6 +167,7 @@ export class HealthReporter {
       send: this.send.snapshot(),
       sources: this.sources.snapshot(),
       ...(this.groupAlerts ? { groupAlerts: this.groupAlerts } : {}),
+      ...(this.teams ? { teams: this.teams } : {}),
     };
     try {
       fs.writeFileSync(`${file}.tmp`, JSON.stringify(data, null, 2));

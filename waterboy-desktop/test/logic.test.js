@@ -744,3 +744,56 @@ test("Preview alert card runs the service's own renderer and returns the image",
     else process.env.IMESSAGE_AGENT_DIR = prev;
   }
 });
+
+test("fantasy teams are saved by ESPN id; names from the service label them; Refresh asks the service", async () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const { DatabaseSync } = require("node:sqlite");
+  const agent = require("../lib/agent");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-teams-"));
+  const cfgFile = path.join(dir, "config.json");
+  fs.writeFileSync(cfgFile, JSON.stringify({
+    dataDir: dir, allowedChats: ["+16145550142"], contacts: { "+16145550142": "Tess" },
+    fantasy: { espnLeagueId: "1", teams: { "+16145550142": "Tess's Tailgaters" }, liveAlerts: { subscribers: ["*"] } },
+  }));
+  const db = new DatabaseSync(path.join(dir, "state.db"));
+  db.exec("CREATE TABLE kv (k TEXT PRIMARY KEY, v TEXT)");
+  db.prepare("INSERT INTO kv (k, v) VALUES (?, ?)").run("fantasy:teamNames", JSON.stringify({ syncedAt: 1, teams: [{ id: 7, name: "Tailgate Party", history: [] }], renames: [] }));
+  db.close();
+  const prev = process.env.IMESSAGE_AGENT_DIR;
+  process.env.IMESSAGE_AGENT_DIR = dir;
+  try {
+    await agent.setTeam("+16145550142", "7"); // the picker's value is the id
+    assert.equal(JSON.parse(fs.readFileSync(cfgFile, "utf8")).fantasy.teams["+16145550142"], 7);
+    await agent.addPerson({ name: "Nina", handle: "nina@example.com", team: "9" });
+    assert.equal(JSON.parse(fs.readFileSync(cfgFile, "utf8")).fantasy.teams["nina@example.com"], 9);
+    // Labels use the current name from the service's sync, and fall back to "Team N".
+    const s = await agent.settings();
+    assert.deepEqual(s.fantasy.liveAlerts.people.map((p) => p.team), ["Tailgate Party", "Team 9"]);
+    assert.equal(s.fantasy.roundupRenames, false);
+    await agent.saveSettings({ "fantasy.roundupRenames": true });
+    assert.equal(JSON.parse(fs.readFileSync(cfgFile, "utf8")).fantasy.roundupRenames, true);
+    await agent.refreshTeams();
+    assert.ok(fs.existsSync(path.join(dir, "team-sync-request.json")));
+  } finally {
+    if (prev === undefined) delete process.env.IMESSAGE_AGENT_DIR;
+    else process.env.IMESSAGE_AGENT_DIR = prev;
+  }
+});
+
+test("team health from the service: a week of renames, unmapped people with their contact names", () => {
+  const { teamsHealth } = require("../lib/agent");
+  const now = Date.parse("2026-10-03T12:00:00Z");
+  const day = 86_400_000;
+  const t = teamsHealth({
+    teams: {
+      syncedAt: now - 3600_000, error: null, migration: null,
+      renames: [{ id: 7, from: "Tess's Tailgaters", to: "Tailgate Party", at: now - day }, { id: 2, from: "A", to: "B", at: now - 8 * day }],
+      unmapped: [{ handle: "+16145550142", value: "Gone Team", reason: "name" }],
+    },
+  }, { contacts: { "+16145550142": "Tess" } }, now);
+  assert.deepEqual(t.renames.map((r) => r.to), ["Tailgate Party"]);
+  assert.deepEqual(t.unmapped, [{ handle: "+16145550142", value: "Gone Team", reason: "name", name: "Tess" }]);
+  assert.equal(teamsHealth({}, {}, now), null, "a service before this version reports nothing");
+});

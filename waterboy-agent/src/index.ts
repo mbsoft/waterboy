@@ -10,6 +10,8 @@ import { CodexAgentRunner, chatgptAccount, verifyLockdown } from "./assistants/c
 import { AppleScriptSender, ConsoleSender } from "./messages/sender.ts";
 import { startScheduler } from "./bot/scheduler.ts";
 import { groupNotices, makeConditions } from "./bot/conditions.ts";
+import { TEAM_SYNC_REQUEST_FILE, TeamSync } from "./bot/teamSync.ts";
+import { fetchLeague, ownerName, teamName } from "./fantasy/roundup.ts";
 import { alertsDir } from "./fantasy/cards/liveAlert.ts";
 import { dataUpdatedAt, startNflverseSync } from "./fantasy/data/nflverse.ts";
 import { setRankingsDataDir } from "./fantasy/data/rankings.ts";
@@ -88,7 +90,23 @@ health.sources.extras.nflverse = () => ({ dataUpdatedAt: dataUpdatedAt(cfg.fanta
 const sender = cfg.dryRun
   ? withSpy(new ConsoleSender())
   : new MonitoredSender(new AppleScriptSender(cfg.outboxStagingDir), health.send);
-const conditions = makeConditions(cfg, state);
+// Fantasy team names by ESPN id: synced at startup, every 6 hours, before the roundup and live
+// alert checks, and when the app asks; renames and unmapped people go to health.json.
+const fantasyForTeams = cfg.fantasy;
+const teamSync = fantasyForTeams
+  ? new TeamSync({
+      fantasy: fantasyForTeams,
+      kv: state,
+      fetchTeams: async () => {
+        const league = await fetchLeague(fantasyForTeams);
+        return league.teams.map((t) => ({ id: t.id, name: teamName(t), abbrev: t.abbrev, owner: ownerName(league, t) }));
+      },
+      configFile: CONFIG_FILE,
+      requestFile: path.join(cfg.dataDir, TEAM_SYNC_REQUEST_FILE),
+      publish: (s) => health.setTeams(s),
+    })
+  : null;
+const conditions = makeConditions(cfg, state, { freshenTeams: teamSync ? (ms) => teamSync.freshen(ms) : undefined });
 const runner = cfg.provider === "chatgpt" ? new CodexAgentRunner(cfg) : new ClaudeAgentRunner(cfg, state, conditions);
 // Typing indicators, tapbacks and threaded replies (all best-effort; plain sends work without it).
 const helper = !cfg.dryRun ? startIMessageHelper(cfg.dataDir) : null;
@@ -199,6 +217,7 @@ const groupRunner = fantasyCfg
     })
   : null;
 const groupTimer = groupRunner?.start() ?? null;
+teamSync?.start();
 
 const shutdown = async (sig: string) => {
   log(`[main] ${sig} received, finishing in-flight turns…`);
@@ -209,6 +228,7 @@ const shutdown = async (sig: string) => {
   if (probeTimer) clearInterval(probeTimer);
   if (nflverseTimer) clearInterval(nflverseTimer);
   if (groupTimer) clearInterval(groupTimer);
+  teamSync?.stop();
   groupRunner?.shutdown(); // no replay sends while in-flight turns finish
   await Promise.race([bot.idle(), new Promise((r) => setTimeout(r, 15_000))]);
   await helper?.bridge.stop(); // quits the hidden Messages instance

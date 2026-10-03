@@ -76,6 +76,8 @@ export interface ConditionDeps {
   statusBoard?: () => Promise<RawStatusBoard>;
   snapshot?: (team: string | number) => Promise<MatchupSnapshot>;
   clock?: () => number;
+  /** Refresh fantasy team names unless they're younger than `maxAgeMs` (bot/teamSync.ts). */
+  freshenTeams?: (maxAgeMs: number) => Promise<void>;
 }
 
 export function makeConditions(cfg: Config, state: State, deps: ConditionDeps = {}): Conditions {
@@ -95,6 +97,7 @@ export function makeConditions(cfg: Config, state: State, deps: ConditionDeps = 
         const w = await latestCompletedWeek(fantasy);
         if (w === null || w <= last) return null;
         state.set(key(task.id), String(w));
+        await deps.freshenTeams?.(0).catch(() => {}); // the roundup uses current names
         log(`[conditions] fantasy week ${w} complete → running task #${task.id}`);
         return `Fantasy week ${w} just finished (all NFL games are final). Report on week ${w}.`;
       },
@@ -152,6 +155,8 @@ export function makeConditions(cfg: Config, state: State, deps: ConditionDeps = 
         const prev = readBaseline(task.id);
         // Between games, look once more if we were watching tonight: that's the "final for tonight" card.
         if (!active && !(prev && at - prev.at < FINAL_WINDOW_MS)) return null;
+        // Once at the start of a game window (names older than 2 h), so a renamed team still resolves.
+        await deps.freshenTeams?.(2 * 3600_000).catch(() => {});
         const next = await (deps.snapshot ?? ((t: string | number) => fetchSnapshot(fantasy, t)))(team);
         const games = teamGames(sb, at);
         const mine = playersLeft(next.mine, games, at);
