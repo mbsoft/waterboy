@@ -138,6 +138,45 @@ export function matchTeamName(query: string, teams: TeamRecord[]): { id: number;
   return null;
 }
 
+// ---------- names we learn about after the fact ----------
+
+/**
+ * Old names found outside a sync: a person saved under a team name that, by the time it was matched
+ * to an id, had changed (the pre-id config, or a name picked again in the app). Each becomes a
+ * former name of that team and a rename noticed `at`, so the agent can tell and the next roundup
+ * announces it once. Skipped: the same name, a near-identical spelling (a typo, not a rename), a
+ * name the team already had, and the name of another current team (the person changed teams).
+ */
+export function seedFormerNames(state: TeamNamesState, pairs: { id: number; oldName: string }[], at: number): { state: TeamNamesState; seeded: TeamRename[] } {
+  const seeded: TeamRename[] = [];
+  const teams = state.teams.map((t) => ({ ...t, history: [...t.history] }));
+  for (const { id, oldName } of pairs) {
+    const team = teams.find((t) => t.id === id);
+    const old = oldName.trim();
+    if (!team || !old) continue;
+    if (normName(old) === normName(team.name) || similarity(old, team.name) >= FUZZY_MIN) continue;
+    if (team.history.some((h) => normName(h.name) === normName(old))) continue;
+    if (teams.some((t) => t.id !== id && normName(t.name) === normName(old))) continue;
+    team.history.unshift({ name: old, seenAt: 0 }); // 0: from before Waterboy watched the league
+    seeded.push({ id, from: old, to: team.name, at });
+  }
+  return { state: { ...state, teams, renames: [...state.renames, ...seeded] }, seeded };
+}
+
+/** What the team_names tool returns: every team with its former names, and the changes of the last `days` (0 = all kept). */
+export function teamNamesReport(s: TeamNamesState, days: number, now = Date.now()) {
+  const since = days ? now - days * 86_400_000 : 0;
+  const name = (id: number) => s.teams.find((t) => t.id === id)?.name ?? `Team ${id}`;
+  return {
+    teams: s.teams.map((t) => ({ id: t.id, name: t.name, owner: t.owner, formerNames: t.history.map((h) => h.name).filter((n) => n !== t.name) })),
+    changes: s.renames
+      .filter((r) => r.at >= since)
+      .map((r) => ({ team: r.id, from: r.from, to: r.to, nowCalled: name(r.id), noticed: new Date(r.at).toISOString().slice(0, 10) })),
+    window: days ? `last ${days} days` : "all kept (30 days)",
+    note: "'noticed' is when Waterboy saw the change (it checks every 6 hours); a change from before it watched the league is dated when it found out.",
+  };
+}
+
 // ---------- migrating name mappings to ids ----------
 
 export interface MappingMigration {

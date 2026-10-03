@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
-  markRenamesAnnounced, matchTeamName, mergeTeams, migrateMappings, normName, pendingRenames, recentRenames, setTeamNames, teamIdForName, teamLabel,
+  getTeamNames, seedFormerNames, teamNamesReport, markRenamesAnnounced, matchTeamName, mergeTeams, migrateMappings, normName, pendingRenames, recentRenames, setTeamNames, teamIdForName, teamLabel,
   unmappedPeople,
 } from "../src/fantasy/teamNames.ts";
 import type { TeamInfo, TeamRecord } from "../src/fantasy/teamNames.ts";
@@ -262,4 +262,50 @@ test("acceptance: a rename between two roundups is in the next posted roundup ex
   h.rename(1, "Wizards 2"); h.tick(HOUR); await h.sync.sync("x");
   h.rename(1, "Waiver Wizards"); h.tick(HOUR); await h.sync.sync("x");
   assert.deepEqual(pendingRenames(), []);
+});
+
+// ---------- task #56: the agent knows about renames ----------
+
+test("former names learned after the fact: renames, but not typos, team switches or names already known", () => {
+  const s = mergeTeams(null, LEAGUE, T0).state;
+  const { state, seeded } = seedFormerNames(s, [
+    { id: 7, oldName: "Old Tailgaters Club" }, // a real rename
+    { id: 1, oldName: "Waiver Wizzards" }, // a typo of the current name
+    { id: 9, oldName: "Gridiron Gang" }, // another team's name: the person switched teams
+    { id: 2, oldName: "gridiron gang" }, // the same name
+  ], T0 + HOUR);
+  assert.deepEqual(seeded, [{ id: 7, from: "Old Tailgaters Club", to: "Tess's Tailgaters", at: T0 + HOUR }]);
+  assert.deepEqual(state.teams.find((t) => t.id === 7)!.history.map((h) => h.name), ["Old Tailgaters Club", "Tess's Tailgaters"]);
+  assert.equal(seedFormerNames(state, [{ id: 7, oldName: "Old Tailgaters Club" }], T0 + 2 * HOUR).seeded.length, 0, "only once");
+});
+
+test("acceptance: an install migrated before this release gets its renames back from the migration backup, once", async () => {
+  // Already migrated by the earlier build: ids in config.json, the old names in the backup.
+  const h = harness({ "+16145550142": 7, "+16145550143": 9, "+16145550144": 1 });
+  fs.writeFileSync(`${h.configFile}.bak-teams-20261003-143557`, JSON.stringify({ fantasy: { teams: { "+16145550142": "Old Tailgaters Club", "+16145550143": "Nina's Navy", "+16145550144": "Waiver Wizards" } } }));
+  h.kv.set("fantasy:teamNames", JSON.stringify(mergeTeams(null, LEAGUE, T0).state)); // the baseline sync from that build
+  const sync = new TeamSync({ fantasy: h.fantasy, kv: { get: (k) => h.kv.get(k) ?? null, set: (k, v) => void h.kv.set(k, v) }, fetchTeams: async () => LEAGUE, configFile: h.configFile, now: () => T0 + HOUR });
+  await sync.sync("startup");
+  // "What team names changed this week?" — both, old → new, from the tool's data.
+  const report = teamNamesReport(getTeamNames()!, 7, T0 + 2 * HOUR);
+  assert.deepEqual(report.changes.map((c) => [c.from, c.to]), [["Old Tailgaters Club", "Tess's Tailgaters"], ["Nina's Navy", "Team Nina"]]);
+  assert.deepEqual(report.teams.find((t) => t.id === 9)!.formerNames, ["Nina's Navy"]);
+  assert.equal(findTeam(weekLeague("Tess's Tailgaters"), "Old Tailgaters Club")?.id, 7, "old names resolve");
+  // Once in the next roundup, and the backup isn't read again.
+  assert.equal(pendingRenames().length, 2);
+  await sync.sync("every 6 hours");
+  assert.equal(getTeamNames()!.renames.length, 2);
+});
+
+test("a name that matched no team, then picked again in the app, becomes that team's former name", async () => {
+  const h = harness({ "+16145550142": "Old Tailgaters Club" });
+  await h.sync.sync("startup");
+  assert.deepEqual(h.sync.status.unmapped.map((u) => u.value), ["Old Tailgaters Club"]);
+  // The app saves the picked team's id.
+  const raw = JSON.parse(fs.readFileSync(h.configFile, "utf8"));
+  raw.fantasy.teams["+16145550142"] = 7;
+  fs.writeFileSync(h.configFile, JSON.stringify(raw));
+  h.tick(HOUR);
+  await h.sync.sync("asked from the app");
+  assert.deepEqual(getTeamNames()!.renames.map((r) => [r.id, r.from, r.to]), [[7, "Old Tailgaters Club", "Tess's Tailgaters"]]);
 });

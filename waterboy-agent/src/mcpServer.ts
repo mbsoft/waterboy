@@ -17,6 +17,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { loadConfig } from "./config.ts";
 import { State } from "./bot/state.ts";
 import { fantasyMcpServer } from "./fantasy/tools.ts";
+import { TEAM_NAMES_KEY, parseTeamNames, setTeamNames } from "./fantasy/teamNames.ts";
 import { schedulerMcpServer } from "./bot/scheduler.ts";
 import { makeConditions } from "./bot/conditions.ts";
 import { setNflverseDataDir } from "./fantasy/data/nflverse.ts";
@@ -40,6 +41,9 @@ if (which === "fantasy") {
   const post = postFile ? async (text: string) => relay({ text }) : undefined;
   const attach = postFile ? async (file: string) => relay({ file }) : undefined;
   if (postFile) setSourceSink((sourceCall) => relay({ sourceCall }));
+  // Team names (current, former, renames) from the service's state db: this process doesn't sync them itself.
+  const state = new State(cfg.dataDir);
+  setTeamNames(parseTeamNames(state.get(TEAM_NAMES_KEY)), (s) => state.set(TEAM_NAMES_KEY, JSON.stringify(s)));
   const me = env.WB_FANTASY_ME === undefined ? {} : { me: JSON.parse(env.WB_FANTASY_ME) as string | number | null };
   server = fantasyMcpServer({ ...cfg.fantasy, ...me }, post, { scheduled: env.WB_SCHEDULED === "1", attach, cardDir: path.join(cfg.dataDir, "cards") });
 } else if (which === "scheduler") {

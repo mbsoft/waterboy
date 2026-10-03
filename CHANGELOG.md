@@ -8,6 +8,11 @@ publishes it as the GitHub Release notes.
 ## [Unreleased]
 
 ### Added
+- The agent knows about team renames: a `team_names` tool lists each team's current and former
+  names and the name changes with when they were noticed ("what team names changed this week?").
+  Renames that happened before ids were saved are recovered: from the first migration backup
+  (once), and from a name that matched no team once its team is picked again in the app. They are
+  announced once in the next roundup. ChatGPT's tool process now reads the team names too.
 - Fantasy teams survive renames: people are mapped to the ESPN team **id**, and names are looked up
   when used. The service syncs team names at startup, every 6 hours, before the roundup and live
   alert checks, and on "Refresh team names" (Conversations, Dashboard), keeping old names so they
