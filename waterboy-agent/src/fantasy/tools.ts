@@ -22,8 +22,8 @@ import { analyzeTrade, leagueTradeFormat, type TeamImpact } from "./trade/analys
 import { renderTradeCard } from "./cards/trade.ts";
 import { comparePlayers } from "./compare/compare.ts";
 import { renderCompareCard } from "./cards/compare.ts";
-import { fetchLeague, finalizedPeriods, fullRoundup, periodNflComplete, playoffOddsReply, resolveLatestWeek, teamIdFor } from "./roundup.ts";
-import { markRenamesAnnounced, pendingRenames } from "./teamNames.ts";
+import { fetchLeague, finalizedPeriods, fullRoundup, periodNflComplete, playoffOddsReply, resolveLatestWeek, teamIdFor, ownerName, teamName } from "./roundup.ts";
+import { getTeamNames, markRenamesAnnounced, pendingRenames, teamNamesReport } from "./teamNames.ts";
 
 const ME_UNKNOWN = `I don't know which team is yours. Ask again with your team name, or have the admin add your number under fantasy.teams in config.json.`;
 const isMe = (q: string) => ["me", "my", "mine", "my team"].includes(q.trim().toLowerCase());
@@ -479,6 +479,27 @@ export function fantasyMcpServer(
           } catch (e) {
             log("[fantasy] trade values failed:", (e as Error).message);
             return { content: [{ type: "text", text: `Couldn't get trade values: ${(e as Error).message}` }], isError: true };
+          }
+        },
+      ),
+      tool(
+        "team_names",
+        "The league's teams with their current names, owners, former names, and team name changes with when each was " +
+          "noticed. Owners rename their teams; call this for 'what team names changed (this week)?', 'who renamed their team?', " +
+          "'what's X called now?', or a team name you don't recognise. `days` limits the changes listed (default 7; 0 = all kept).",
+        { days: z.number().int().min(0).max(30).optional() },
+        async ({ days }) => {
+          try {
+            const window = days ?? 7;
+            const s = getTeamNames();
+            if (!s) {
+              // The service hasn't synced names yet: current names only.
+              const league = await fetchLeague(cfg);
+              return { content: [{ type: "text", text: JSON.stringify({ teams: league.teams.map((t) => ({ id: t.id, name: teamName(t), owner: ownerName(league, t) })), changes: [], note: "No name history yet: Waterboy hasn't synced team names." }) }] };
+            }
+            return { content: [{ type: "text", text: JSON.stringify({ ...teamNamesReport(s, window), source: SOURCE.espn }) }] };
+          } catch (e) {
+            return { content: [{ type: "text", text: `Couldn't get team names: ${(e as Error).message}` }], isError: true };
           }
         },
       ),

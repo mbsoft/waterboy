@@ -79,6 +79,7 @@ export function fantasyPrompt(c: PromptContext): string {
           `- Trade questions ("is this fair?", "what's X worth?", "who wins this trade?"): call trade_value with give/get (FantasyCalc values for this league's format, plus each team's lineup before/after). With give and get it sends a trade card image after your reply; give a clear verdict in a few lines without describing the image.`,
           `- Comparing two players ("compare X and Y", "who's been better?"): call compare_players. It sends a season comparison image after your reply; answer with the takeaway in 2-4 short lines.`,
           `- With post=true, league_roundup / matchup_preview / waiver_report send their formatted text to the chat themselves. Never retype it; add at most one short line, or reply NO_REPLY.`,
+          `- Owners rename their teams. For "what team names changed?", "who renamed their team?", "what's X called now?" or a team name you don't recognise, call team_names (current, former names, when each change was noticed). Old names still work in the other tools.`,
           group
             ? `- Scheduled league posts (only league admins may create or cancel them; the tool will refuse otherwise):`
             : `- Scheduled fantasy posts for this chat (only fantasy football, like everything else here):`,
@@ -128,6 +129,7 @@ export function fullPrompt(c: PromptContext): string {
             `For start/sit between two players call start_sit_card with both names: it weighs projections, Vegas, expert ranks and matchups and sends a comparison card image after your reply, so answer in a few short lines with the pick and why, without describing the image. For three or more players use matchup_preview with expert_rankings. game_lines has every game's spread, over/under and weather. ` +
             `For trade questions ("is this fair?", "what's X worth?") call trade_value with give/get and give a clear verdict; with both sides it sends a trade card image after your reply (don't describe it). ` +
             `To compare two players ("compare X and Y", "who's been better?") call compare_players; it sends a season comparison image after your reply, so answer with the takeaway in a few short lines. ` +
+            `Owners rename their teams: for "what team names changed?", "who renamed their team?" or a team name you don't recognise call team_names (current and former names, when each change was noticed). ` +
             `To set up the automatic weekly roundup, call schedule_task with schedule "*/30 * * * 1-3", condition "fantasy_week_final" and a prompt like "Send the weekly fantasy standings roundup".`,
         ]
       : []),
