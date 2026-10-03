@@ -10,7 +10,7 @@ while IFS= read -r sha; do
   [ -n "$sha" ] || continue
   who=$(git log -1 --format='%an <%ae>|%cn <%ce>' "$sha")
   msg=$(git log -1 --format='%B' "$sha")
-  if grep -qiE "^co-authored-by:.*(claude|anthropic\.com)|generated with \[?claude code" <<< "$msg"; then
+  if grep -qiE "^[[:space:]]*co-authored-by:.*(claude|anthropic\.com)|^[^a-z]*generated with \[?claude code" <<< "$msg"; then
     echo "::error::$(git log -1 --format='%h %s' "$sha"): message credits Claude (Co-authored-by / Generated with Claude Code)"
     bad=1
   fi

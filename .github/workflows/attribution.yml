@@ -23,7 +23,7 @@ jobs:
         env:
           BODY: ${{ github.event.pull_request.body }}
         run: |
-          if printf '%s' "$BODY" | grep -qiE 'co-authored-by:.*(claude|anthropic\.com)|generated with \[?claude code'; then
+          if printf '%s' "$BODY" | grep -qiE '^[[:space:]]*co-authored-by:.*(claude|anthropic\.com)|^[^a-z]*generated with \[?claude code'; then
             echo "::error::The PR description credits Claude; remove the Co-authored-by / Generated with Claude Code line."
             exit 1
           fi
