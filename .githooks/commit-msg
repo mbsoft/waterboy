@@ -1,0 +1,11 @@
+#!/bin/sh
+# Drops AI co-author attribution from commit messages: "Co-authored-by: Claude …" / "…@anthropic.com"
+# trailers and the "Generated with Claude Code" line. Enable once per clone (all worktrees share it):
+#   git config core.hooksPath .githooks
+# CI (.github/workflows/attribution.yml) rejects anything that slips through.
+msg="$1"
+tmp="$msg.tmp.$$"
+grep -viE '^co-authored-by:.*(claude|anthropic\.com)|generated with \[?claude code' "$msg" > "$tmp" || true
+# Drop trailing blank lines left behind
+awk 'NF { for (; blank > 0; blank--) print ""; print; next } { blank++ }' "$tmp" > "$msg"
+rm -f "$tmp"

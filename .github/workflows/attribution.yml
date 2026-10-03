@@ -1,0 +1,29 @@
+# Pull requests must not credit an AI assistant: no "Co-authored-by: Claude …" trailers, no
+# "Generated with Claude Code" lines, and no agent names as commit author (scripts/check-attribution.sh).
+# The PR description is checked too. Locally, .githooks/commit-msg strips the trailers for you:
+#   git config core.hooksPath .githooks
+name: Attribution
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Commits
+        run: scripts/check-attribution.sh "origin/${{ github.base_ref }}..${{ github.event.pull_request.head.sha }}"
+      - name: Description
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if printf '%s' "$BODY" | grep -qiE 'co-authored-by:.*(claude|anthropic\.com)|generated with \[?claude code'; then
+            echo "::error::The PR description credits Claude; remove the Co-authored-by / Generated with Claude Code line."
+            exit 1
+          fi
