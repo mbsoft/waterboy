@@ -8,6 +8,7 @@
   <img alt="Electron 44" src="https://img.shields.io/badge/Electron-44-222?logo=electron&logoColor=white">
   <img alt="Node 22" src="https://img.shields.io/badge/Node-22-222?logo=nodedotjs&logoColor=white">
   <img alt="Swift 5" src="https://img.shields.io/badge/Swift-5-222?logo=swift&logoColor=white">
+  <a href="https://buymeacoffee.com/jgauntlettk"><img alt="Support: buy the dev a beer" src="https://img.shields.io/badge/Support-Buy%20the%20dev%20a%20beer-e05d9b?logo=buymeacoffee&logoColor=white"></a>
 </p>
 
 A Fantasy Football assistant you text over iMessage, running on your Mac, with Claude or ChatGPT writing the replies.
