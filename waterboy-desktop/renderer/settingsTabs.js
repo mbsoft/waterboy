@@ -17,7 +17,7 @@
         "fantasy.startSitCards", "fantasy.tradeCards", "fantasy.compareCards",
         "fantasy.roundupAwards.playoffOdds", "fantasy.roundupAwards.highLow", "fantasy.roundupAwards.blowout",
         "fantasy.roundupAwards.closest", "fantasy.roundupAwards.benchBlunder", "fantasy.roundupAwards.luckyWin",
-        "fantasy.roundupAwards.toughLoss", "fantasy.roundupAwards.topPlayer",
+        "fantasy.roundupAwards.toughLoss", "fantasy.roundupAwards.topPlayer", "fantasy.roundupRenames",
       ],
     },
     {

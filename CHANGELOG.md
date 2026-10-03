@@ -8,6 +8,13 @@ publishes it as the GitHub Release notes.
 ## [Unreleased]
 
 ### Added
+- Fantasy teams survive renames: people are mapped to the ESPN team **id**, and names are looked up
+  when used. The service syncs team names at startup, every 6 hours, before the roundup and live
+  alert checks, and on "Refresh team names" (Conversations, Dashboard), keeping old names so they
+  still find their team. Renames show on the Dashboard for a week; Settings → Fantasy → "Team
+  renames" (`fantasy.roundupRenames`, off) lists them in the roundup. Name mappings from before are
+  migrated to ids on the first sync (config.json backed up first); anything unmatched is flagged in
+  Conversations and on the Dashboard with a link to pick the team again.
 - Live alerts are one image card: the score, projected finals, win probability before → after, the
   players who moved it and how many starters are left to play tonight, plus a "final for tonight"
   card once nothing is left. Drawn in code, still no model call. Optional one-line caption

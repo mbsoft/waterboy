@@ -13,6 +13,7 @@ import { runCommand } from "./commands.ts";
 import { parseReaction, type MessageActions, type TypingIndicators } from "../messages/helper.ts";
 import { recordTurn } from "./usage.ts";
 import { now } from "../testHooks.ts";
+import { teamLabel } from "../fantasy/teamNames.ts";
 import type { Notice } from "./conditions.ts";
 
 type Job =
@@ -96,10 +97,10 @@ export class Bot {
     return askers.length === 1 ? (this.fantasyTeamFor(askers[0]) ?? null) : null;
   }
 
-  /** "Tess" or, when their fantasy team is known, "Tess (Tess's Tailgaters)". */
+  /** "Tess" or, when their fantasy team is known, "Tess (Tess's Tailgaters)", with the team's current name. */
   private senderWithTeam(handle: string | null): string {
-    const team = this.fantasyTeamFor(handle);
-    return typeof team === "string" ? `${this.senderLabel(handle)} (${team})` : this.senderLabel(handle);
+    const team = teamLabel(this.fantasyTeamFor(handle));
+    return team ? `${this.senderLabel(handle)} (${team})` : this.senderLabel(handle);
   }
 
   /** A person's 1:1 access from chatAccess: "full" unless set to "fantasy". */

@@ -431,6 +431,7 @@
           : null,
       ),
       sourcesCard(r.sources),
+      teamsCard(r.teams),
       card(
         h("h3", {}, "Today"),
         h(
@@ -531,6 +532,32 @@
   }
 
   // Fantasy data sources (health.json from the service): one row each, problems first in the text.
+  /** Fantasy teams (health.json `teams`): people whose team can't be found, and renames of the last week. Hidden when there's neither. */
+  function teamsCard(t) {
+    if (!t || (!t.unmapped.length && !t.renames.length)) return null;
+    const refresh = button("Refresh", async () => {
+      await api.refreshTeams();
+      toast("Asked the service to refresh team names");
+      setTimeout(render, 5000);
+    });
+    const rows = [
+      ...t.unmapped.map((u) =>
+        h("div", { class: "attention-row" },
+          h("span", { class: "bad-icon" }, icon("alert", 17)),
+          h("div", { class: "grow" },
+            h("div", { class: "label" }, `${u.name ?? u.handle}'s team can't be found`),
+            h("div", { class: "detail" }, u.reason === "name" ? `Saved as "${u.value}", which isn't a team in the league. Pick it again.` : `Team ${u.value} isn't in the league any more. Pick it again.`)),
+          h("button", { class: "link", onclick: () => (location.hash = "#conversations") }, "Pick team"))),
+      ...t.renames.map((r) =>
+        h("div", { class: "attention-row" },
+          h("span", { class: "muted-icon" }, icon("pencil", 17)),
+          h("div", { class: "grow" },
+            h("div", { class: "label" }, `Team renamed: ${r.from} \u2192 ${r.to}`),
+            h("div", { class: "detail" }, `Seen ${relTime(new Date(r.at).toISOString())}. People mapped to it keep their team.`)))),
+    ];
+    return card(h("div", { class: "card-head" }, h("h3", {}, "Fantasy teams"), h("div", { class: "actions" }, refresh)), ...rows);
+  }
+
   function sourcesCard(src) {
     if (!src) return null;
     const head = h("div", { class: "card-head" }, h("h3", {}, "Data sources"), h("div", { class: "actions" }, h("button", { class: "link", onclick: () => (location.hash = "#settings/fantasy") }, icon("settings", 16), "Fantasy settings")));
@@ -636,6 +663,12 @@
     );
   };
 
+  /** Team names match ignoring case, spacing and punctuation (like the service's normName). */
+  const sameTeamName = (a, b) => {
+    const n = (s) => String(s).normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[\u2019'`]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+    return n(a) === n(b);
+  };
+
   RENDER.conversations = async () => {
     const [conv, cfgTeams] = await Promise.all([api.conversations(), api.fantasyTeams().catch(() => null)]);
     const hasFantasy = !!(await api.settings()).fantasy;
@@ -689,17 +722,29 @@
         }, `${label} is admin`)),
       ];
       if (hasFantasy) {
+        // Saved by ESPN team id (names change); the option shows the team's current name.
         const sel = h("select", { "aria-label": `${label}'s fantasy team` }, h("option", { value: "" }, "None"));
-        const names = cfgTeams ? cfgTeams.map((t) => t.name) : [];
-        if (d.team && !names.includes(String(d.team))) names.unshift(String(d.team));
-        for (const n of names) sel.append(h("option", { value: n }, n));
-        sel.value = d.team ?? "";
+        const teams = cfgTeams ?? [];
+        for (const t of teams) sel.append(h("option", { value: String(t.id) }, t.name));
+        // Someone saved by name (before ids) shows as that team if the name still matches.
+        const cur = d.team === null || d.team === undefined ? ""
+          : typeof d.team === "number" ? String(d.team)
+            : String(teams.find((t) => sameTeamName(t.name, d.team))?.id ?? `name:${d.team}`);
+        let warn = null;
+        if (cur && !teams.some((t) => String(t.id) === cur)) {
+          const missing = cur.startsWith("name:") ? `${d.team} (not found)` : `Team ${d.team}${cfgTeams ? " (not in the league)" : ""}`;
+          sel.append(h("option", { value: cur }, missing));
+          // Only a problem when the league loaded and the team isn't in it.
+          if (cfgTeams) warn = h("span", { class: "pill warn", title: "The team was renamed or removed in ESPN. Pick it again." }, "Pick the team again");
+        }
+        sel.value = cur;
         sel.addEventListener("change", async () => {
-          await api.setTeam(d.handle, sel.value || null).catch((e) => toast(e.message, true));
+          const v = sel.value.startsWith("name:") ? sel.value.slice(5) : sel.value || null;
+          await api.setTeam(d.handle, v).catch((e) => toast(e.message, true));
           saved();
           render();
         });
-        extras.push(h("span", { class: "field-inline" }, "Fantasy team", sel));
+        extras.push(h("span", { class: "field-inline" }, "Fantasy team", sel, warn));
       }
       return [row, h("div", { class: "row-extra" }, extras)];
     });
@@ -711,7 +756,7 @@
       const handle = h("input", { type: "text", placeholder: "Phone number or email", "aria-label": "Phone number or email", class: "mono" });
       const access = h("select", { "aria-label": "Access" }, h("option", { value: "full" }, "Everything"), h("option", { value: "fantasy" }, "Fantasy football only"));
       const team = hasFantasy
-        ? h("select", { "aria-label": "Fantasy team" }, h("option", { value: "" }, "No team"), (cfgTeams ?? []).map((t) => h("option", { value: t.name }, t.name)))
+        ? h("select", { "aria-label": "Fantasy team" }, h("option", { value: "" }, "No team"), (cfgTeams ?? []).map((t) => h("option", { value: String(t.id) }, t.name)))
         : null;
       const close = () => {
         addForm.hidden = true;
@@ -791,7 +836,11 @@
     return h(
       "div",
       { class: "page" },
-      pageHead("Conversations", "Choose who can talk to the agent."),
+      pageHead("Conversations", "Choose who can talk to the agent.", hasFantasy ? button("Refresh team names", async () => {
+        await api.refreshTeams();
+        toast("Asked the service to refresh team names");
+        setTimeout(render, 5000);
+      }, { iconName: "refresh" }) : null),
       restartBanner(),
       card(
         h("div", { class: "card-head" }, h("h3", {}, "Direct messages"), button("Add person", openAdd, { iconName: "plus" })),
@@ -1287,7 +1336,7 @@
               h("label", {}, "Comparison cards"), toggleSetting("fantasy.compareCards", f.compareCards, "Comparison cards", "Send a season comparison image when comparing two players"),
             ),
           ),
-          roundupAwardsCard(f.roundupAwards, toggleSetting),
+          roundupAwardsCard(f.roundupAwards, toggleSetting, f.roundupRenames),
         ];
       },
       alerts: () =>
@@ -1448,7 +1497,7 @@
   }
 
   /** Settings → Fantasy: what the weekly roundup adds to results and standings. */
-  function roundupAwardsCard(on, toggleSetting) {
+  function roundupAwardsCard(on, toggleSetting, renames = false) {
     const rows = [
       ["playoffOdds", "Playoff odds", "Each team's playoff chances next to the standings"],
       ["highLow", "High and low score", "The week's highest and lowest scores"],
@@ -1462,7 +1511,9 @@
     return card(
       h("h3", {}, "Roundup awards"),
       h("p", { class: "desc" }, "What the weekly roundup adds to the results and standings. It's built from ESPN data without the AI, and long roundups drop detail to stay under 1,200 characters."),
-      h("div", { class: "form" }, ...rows.flatMap(([key, label, text]) => [h("label", {}, label), toggleSetting(`fantasy.roundupAwards.${key}`, on[key], label, text)])),
+      h("div", { class: "form" },
+        ...rows.flatMap(([key, label, text]) => [h("label", {}, label), toggleSetting(`fantasy.roundupAwards.${key}`, on[key], label, text)]),
+        h("label", {}, "Team renames"), toggleSetting("fantasy.roundupRenames", renames, "Team renames", "List teams renamed in the past week (off by default)")),
     );
   }
 

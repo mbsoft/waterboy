@@ -8,6 +8,7 @@ import type { TeamLine } from "./data/vegas.ts";
 import { nameOnly } from "./names.ts";
 import { SOURCE, sourceLine } from "./sources.ts";
 import { FANTASY_BASE, espnGet } from "./espn.ts";
+import { teamIdForName } from "./teamNames.ts";
 
 
 // ESPN ids → labels
@@ -272,13 +273,18 @@ export function findTeam(league: RawWeekLeague, query: string, myTeam?: number |
   }
   if (/^\d+$/.test(q)) return league.teams.find((t) => t.id === Number(q));
   const owner = (t: RawTeam) => league.members?.find((m) => m.id === t.primaryOwner);
+  const oldName = () => {
+    const id = teamIdForName(query); // a name the team had before a rename
+    return id === null ? undefined : league.teams.find((t) => t.id === id);
+  };
   return (
     league.teams.find((t) => (t.name ?? "").toLowerCase() === q || t.abbrev.toLowerCase() === q) ??
     league.teams.find((t) => (t.name ?? "").toLowerCase().includes(q)) ??
     league.teams.find((t) => {
       const m = owner(t);
       return [m?.firstName, m?.lastName, m?.displayName].some((x) => x?.toLowerCase() === q);
-    })
+    }) ??
+    oldName()
   );
 }
 

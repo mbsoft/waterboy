@@ -9,8 +9,10 @@ export interface FantasyConfig {
   /** Your team id, used to highlight "you" in on-demand answers. */
   myTeamId?: number;
   /**
-   * Who owns which team: phone number / email → team name (or ESPN team id), e.g.
-   * { "+16145551234": "Waiver Wizards" }. "me"/"my team" then means the asker's team.
+   * Who owns which team: phone number / email → ESPN team id, e.g. { "+16145551234": 7 }.
+   * "me"/"my team" then means the asker's team. Ids, because owners rename their teams; the
+   * name is looked up when needed. A team name still works and is migrated to its id by the
+   * service's team sync (bot/teamSync.ts).
    */
   teams?: Record<string, string | number>;
   /**
@@ -46,6 +48,8 @@ export interface FantasyConfig {
    * blowout, closest, benchBlunder, luckyWin, toughLoss, topPlayer, playoffOdds. All default on.
    */
   roundupAwards?: RoundupAwards;
+  /** List teams renamed in the past week at the end of the weekly roundup (default false). */
+  roundupRenames?: boolean;
   /** Live scoring alerts while games are being played (see fantasy/live.ts). */
   liveAlerts?: LiveAlertConfig;
 }

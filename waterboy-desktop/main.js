@@ -58,6 +58,7 @@ const API = {
   setTeam: (handle, team) => agent.setTeam(handle, team),
   setAccess: (handle, level) => agent.setAccess(handle, level),
   fantasyTeams: () => agent.fantasyTeams(),
+  refreshTeams: () => agent.refreshTeams(),
   setAlertSubscriber: (handle, on) => agent.setAlertSubscriber(handle, on),
   alertPlan: () => agent.alertPlan(),
   setTestGroup: (guid, on) => agent.setTestGroup(guid, on),

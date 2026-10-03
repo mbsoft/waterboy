@@ -216,6 +216,25 @@ async function readiness() {
     // Without a league there are no fantasy sources to wait for
     sources: ((s) => (s?.waiting && !cfg.fantasy ? null : s))(sourcesReadiness(health)),
     groupAlerts: groupAlertHealth(health),
+    teams: cfg.fantasy ? teamsHealth(health, cfg) : null,
+  };
+}
+
+/**
+ * Fantasy team names from health.json (`teams`, written by the service's team sync): renames of
+ * the last week and people whose team can't be found, labelled with their contact names. null
+ * before the service reports it.
+ */
+function teamsHealth(health, cfg, now = Date.now()) {
+  const t = health?.teams;
+  if (!t) return null;
+  const contacts = cfg.contacts ?? {};
+  return {
+    syncedAt: t.syncedAt ?? null,
+    error: t.error ?? null,
+    renames: (t.renames ?? []).filter((r) => now - r.at < 7 * 86_400_000),
+    unmapped: (t.unmapped ?? []).map((u) => ({ ...u, name: contacts[findKey(contacts, u.handle)] ?? null })),
+    migration: t.migration ?? null,
   };
 }
 
@@ -510,9 +529,30 @@ async function setTeam(handle, team) {
     if (!cfg.fantasy) throw new Error("Fantasy football isn't configured.");
     cfg.fantasy.teams = cfg.fantasy.teams ?? {};
     const k = findKey(cfg.fantasy.teams, handle) ?? handle;
-    if (team) cfg.fantasy.teams[k] = team;
+    if (team !== null && team !== undefined && team !== "") cfg.fantasy.teams[k] = teamValue(team);
     else delete cfg.fantasy.teams[k];
   });
+}
+
+/** Teams are saved by ESPN id (names change; see waterboy-agent fantasy/teamNames.ts). A name is kept as-is. */
+const teamValue = (team) => (/^\d+$/.test(String(team).trim()) ? Number(team) : String(team));
+
+/** The service keeps the league's team names in state.db; id → current name, or an empty map. */
+async function teamNames() {
+  try {
+    const row = await withDb((db) => db.prepare("SELECT v FROM kv WHERE k = 'fantasy:teamNames'").get());
+    const s = JSON.parse(row?.v ?? "null");
+    return new Map((s?.teams ?? []).map((t) => [t.id, t.name]));
+  } catch {
+    return new Map();
+  }
+}
+
+/** Ask the running service to refresh team names now (it polls for this file every few seconds). */
+async function refreshTeams() {
+  const loc = await locate();
+  fs.writeFileSync(path.join(loc.dataDir, "team-sync-request.json"), JSON.stringify({ at: Date.now() }));
+  return true;
 }
 
 /** Team names from the ESPN league, for the team picker. */
@@ -560,7 +600,7 @@ async function addPerson({ name, handle, access = "full", team = null } = {}) {
     if (cfg.fantasy) {
       const teams = (cfg.fantasy.teams = cfg.fantasy.teams ?? {});
       const teamKey = findKey(teams, key);
-      if (team) teams[teamKey ?? key] = String(team);
+      if (team) teams[teamKey ?? key] = teamValue(team);
       else if (teamKey) delete teams[teamKey];
     }
   });
@@ -568,6 +608,17 @@ async function addPerson({ name, handle, access = "full", team = null } = {}) {
 }
 
 async function fantasyTeams() {
+  try {
+    return await espnTeams();
+  } catch (e) {
+    // ESPN unreachable: the names the service saved at its last sync, if any.
+    const saved = await teamNames();
+    if (saved.size) return [...saved].map(([id, name]) => ({ id, name }));
+    throw e;
+  }
+}
+
+async function espnTeams() {
   const cfg = await getConfig();
   const f = cfg.fantasy;
   if (!f?.espnLeagueId) return [];
@@ -819,6 +870,7 @@ const SETTINGS = {
   "fantasy.tradeCards": Boolean,
   "fantasy.compareCards": Boolean,
   ...Object.fromEntries(ROUNDUP_PARTS.map((k) => [`fantasy.roundupAwards.${k}`, Boolean])),
+  "fantasy.roundupRenames": Boolean,
   "fantasy.liveAlerts.enabled": Boolean,
   "fantasy.liveAlerts.thresholdPct": (v) => clampNum(v, 1, 100, 5),
   "fantasy.liveAlerts.checkMinutes": (v) => clampNum(v, 1, 60, 5),
@@ -899,8 +951,9 @@ async function settings() {
           tradeCards: cfg.fantasy.tradeCards !== false,
           compareCards: cfg.fantasy.compareCards !== false,
           roundupAwards: Object.fromEntries(ROUNDUP_PARTS.map((k) => [k, cfg.fantasy.roundupAwards?.[k] !== false])),
+          roundupRenames: cfg.fantasy.roundupRenames === true,
           nflverseUpdatedAt: nflverseStatus(loc, cfg).updatedAt,
-          liveAlerts: { ...liveAlerts(cfg), status: groupAlertHealth(readJson(path.join(loc.dataDir, "health.json"))) },
+          liveAlerts: { ...liveAlerts(cfg, await teamNames()), status: groupAlertHealth(readJson(path.join(loc.dataDir, "health.json"))) },
         }
       : null,
   };
@@ -911,7 +964,7 @@ async function settings() {
  * can be alerted (their matchup is what gets watched), so the candidates are the `fantasy.teams`
  * entries; "everyone" is the "*" subscriber the service understands.
  */
-function liveAlerts(cfg) {
+function liveAlerts(cfg, names = new Map()) {
   const a = cfg.fantasy?.liveAlerts ?? {};
   const subs = Array.isArray(a.subscribers) ? a.subscribers : [];
   const contacts = cfg.contacts ?? {};
@@ -934,7 +987,7 @@ function liveAlerts(cfg) {
     people: Object.entries(teams).map(([handle, team]) => ({
       handle,
       name: contacts[findKey(contacts, handle)] ?? null,
-      team: String(team),
+      team: typeof team === "number" ? (names.get(team) ?? `Team ${team}`) : String(team),
       subscribed: subs.some((x) => x !== "*" && sameHandle(x, handle)),
     })),
   };
@@ -1062,6 +1115,7 @@ async function legacyAlerts() {
   const legacy = rows.filter((r) => isLegacyAlertTask({ ...r, enabled: !!r.enabled }));
   if (!legacy.length) return [];
   const label = chatLabeler(await conversations());
+  const names = await teamNames();
   const builtIn = new Set(rows.filter((r) => r.condition === ALERT_CONDITION && r.enabled).map((r) => r.chat_guid));
   const teams = cfg.fantasy.teams ?? {};
   const minutes = liveAlerts(cfg).checkMinutes;
@@ -1078,7 +1132,7 @@ async function legacyAlerts() {
       schedule: r.schedule,
       scheduleText: describeSchedule(r.schedule),
       handle,
-      team: key === undefined ? null : String(teams[key]),
+      team: key === undefined ? null : typeof teams[key] === "number" ? (names.get(teams[key]) ?? `Team ${teams[key]}`) : String(teams[key]),
       newSchedule: schedule,
       newScheduleText: describeSchedule(schedule),
       hasBuiltIn: builtIn.has(r.chat_guid),
@@ -1595,6 +1649,9 @@ module.exports = {
   GROUP_REQUEST_FILE,
   alertPlan,
   createAlertAutomations,
+  refreshTeams,
+  teamNames,
+  teamsHealth,
   legacyAlerts,
   previewAlertCard,
   replaceLegacyAlerts,

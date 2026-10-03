@@ -40,8 +40,8 @@
     "espnLeagueId": "1008081104",
     "myTeamId": 1,
     "teams": {
-      "+16145551234": "Your Team Name",
-      "+16145559876": "Friend's Team Name"
+      "+16145551234": 1,
+      "+16145559876": 7
     }
   },
 
