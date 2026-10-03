@@ -23,6 +23,7 @@ import { renderTradeCard } from "./cards/trade.ts";
 import { comparePlayers } from "./compare/compare.ts";
 import { renderCompareCard } from "./cards/compare.ts";
 import { fetchLeague, finalizedPeriods, fullRoundup, periodNflComplete, playoffOddsReply, resolveLatestWeek, teamIdFor } from "./roundup.ts";
+import { markRenamesAnnounced, pendingRenames } from "./teamNames.ts";
 
 const ME_UNKNOWN = `I don't know which team is yours. Ask again with your team name, or have the admin add your number under fantasy.teams in config.json.`;
 const isMe = (q: string) => ["me", "my", "mine", "my team"].includes(q.trim().toLowerCase());
@@ -64,10 +65,14 @@ export function fantasyMcpServer(
             const league = await fetchLeague(cfg);
             const w = week ?? (await resolveLatestWeek(league)).week ?? league.status.currentMatchupPeriod;
             const meId = teamIdFor(league, myTeam(cfg));
-            const r = await fullRoundup(cfg, league, w, await periodNflComplete(league, w));
+            const sending = shouldSend(shouldPost) && !!post;
+            // Name changes go in the next posted roundup, once (not in answers the model reads).
+            const renames = sending && cfg.roundupRenames !== false ? pendingRenames() : [];
+            const r = await fullRoundup(cfg, league, w, await periodNflComplete(league, w), renames);
             const mine = r.standings.find((t) => t.id === meId);
-            if (shouldSend(shouldPost) && post) {
+            if (sending && post) {
               await post(r.text);
+              if (renames.length) markRenamesAnnounced(Math.max(...renames.map((x) => x.at)));
               return {
                 content: [
                   { type: "text", text: `Posted the week ${r.week} roundup to the chat. Do not repeat it. Data for any commentary:` },

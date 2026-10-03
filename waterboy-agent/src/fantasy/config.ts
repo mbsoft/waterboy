@@ -48,7 +48,7 @@ export interface FantasyConfig {
    * blowout, closest, benchBlunder, luckyWin, toughLoss, topPlayer, playoffOdds. All default on.
    */
   roundupAwards?: RoundupAwards;
-  /** List teams renamed in the past week at the end of the weekly roundup (default false). */
+  /** Name changes since the last posted roundup, each listed once at the end of it (default true). */
   roundupRenames?: boolean;
   /** Live scoring alerts while games are being played (see fantasy/live.ts). */
   liveAlerts?: LiveAlertConfig;

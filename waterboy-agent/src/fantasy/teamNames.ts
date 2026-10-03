@@ -33,6 +33,8 @@ export interface TeamNamesState {
   teams: TeamRecord[];
   /** Renames seen in the last RENAME_KEEP_MS, newest last. */
   renames: TeamRename[];
+  /** Renames up to this time have been in a posted roundup (each is announced once). */
+  announcedAt?: number;
 }
 
 /** kv key in the state db. */
@@ -68,14 +70,18 @@ export function mergeTeams(prev: TeamNamesState | null, current: TeamInfo[], at:
     return { ...t, history };
   });
   const kept = (prev?.renames ?? []).filter((r) => at - r.at < RENAME_KEEP_MS);
-  return { state: { syncedAt: at, teams, renames: [...kept, ...renames] }, renames };
+  // The first sync announces nothing older than itself.
+  const announcedAt = prev ? (prev.announcedAt ?? 0) : at;
+  return { state: { syncedAt: at, teams, renames: [...kept, ...renames], announcedAt }, renames };
 }
 
 export function parseTeamNames(raw: string | null): TeamNamesState | null {
   if (!raw) return null;
   try {
     const s = JSON.parse(raw) as TeamNamesState;
-    return Array.isArray(s?.teams) ? { syncedAt: Number(s.syncedAt) || 0, teams: s.teams, renames: Array.isArray(s.renames) ? s.renames : [] } : null;
+    return Array.isArray(s?.teams)
+      ? { syncedAt: Number(s.syncedAt) || 0, teams: s.teams, renames: Array.isArray(s.renames) ? s.renames : [], announcedAt: Number(s.announcedAt) || 0 }
+      : null;
   } catch {
     return null;
   }
@@ -185,10 +191,38 @@ export function unmappedPeople(teams: Record<string, string | number>, league: T
 // ---------- what the resolvers read ----------
 
 let known: TeamNamesState | null = null;
+let persist: ((s: TeamNamesState) => void) | undefined;
 
-/** The service sets this at startup and after every sync. */
-export function setTeamNames(s: TeamNamesState | null) {
+/** The service sets this at startup and after every sync, with how to save a change (markRenamesAnnounced). */
+export function setTeamNames(s: TeamNamesState | null, save?: (s: TeamNamesState) => void) {
   known = s;
+  if (save) persist = save;
+}
+
+export function getTeamNames(): TeamNamesState | null {
+  return known;
+}
+
+/**
+ * Renames not yet in a posted roundup, one per team (A → B → C reads A → C; a team renamed back
+ * to its old name drops out), oldest first.
+ */
+export function pendingRenames(): TeamRename[] {
+  const since = known?.announcedAt ?? 0;
+  const byTeam = new Map<number, TeamRename>();
+  for (const r of known?.renames ?? []) {
+    if (r.at <= since) continue;
+    const was = byTeam.get(r.id);
+    byTeam.set(r.id, was ? { ...r, from: was.from } : r);
+  }
+  return [...byTeam.values()].filter((r) => r.from !== r.to);
+}
+
+/** A roundup listing renames up to `at` was posted: they won't be listed again. */
+export function markRenamesAnnounced(at: number) {
+  if (!known || at <= (known.announcedAt ?? 0)) return;
+  known = { ...known, announcedAt: at };
+  persist?.(known);
 }
 
 /** A team's current name by id (or a saved name, as-is), for labels. Undefined when unknown. */

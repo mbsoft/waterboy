@@ -1497,7 +1497,7 @@
   }
 
   /** Settings → Fantasy: what the weekly roundup adds to results and standings. */
-  function roundupAwardsCard(on, toggleSetting, renames = false) {
+  function roundupAwardsCard(on, toggleSetting, renames = true) {
     const rows = [
       ["playoffOdds", "Playoff odds", "Each team's playoff chances next to the standings"],
       ["highLow", "High and low score", "The week's highest and lowest scores"],
@@ -1513,7 +1513,7 @@
       h("p", { class: "desc" }, "What the weekly roundup adds to the results and standings. It's built from ESPN data without the AI, and long roundups drop detail to stay under 1,200 characters."),
       h("div", { class: "form" },
         ...rows.flatMap(([key, label, text]) => [h("label", {}, label), toggleSetting(`fantasy.roundupAwards.${key}`, on[key], label, text)]),
-        h("label", {}, "Team renames"), toggleSetting("fantasy.roundupRenames", renames, "Team renames", "List teams renamed in the past week (off by default)")),
+        h("label", {}, "Team renames"), toggleSetting("fantasy.roundupRenames", renames, "Team renames", "\u201cName change: Old is now New\u201d, once, in the next roundup")),
     );
   }
 

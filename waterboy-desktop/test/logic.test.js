@@ -771,9 +771,9 @@ test("fantasy teams are saved by ESPN id; names from the service label them; Ref
     // Labels use the current name from the service's sync, and fall back to "Team N".
     const s = await agent.settings();
     assert.deepEqual(s.fantasy.liveAlerts.people.map((p) => p.team), ["Tailgate Party", "Team 9"]);
-    assert.equal(s.fantasy.roundupRenames, false);
-    await agent.saveSettings({ "fantasy.roundupRenames": true });
-    assert.equal(JSON.parse(fs.readFileSync(cfgFile, "utf8")).fantasy.roundupRenames, true);
+    assert.equal(s.fantasy.roundupRenames, true, "on by default");
+    await agent.saveSettings({ "fantasy.roundupRenames": false });
+    assert.equal(JSON.parse(fs.readFileSync(cfgFile, "utf8")).fantasy.roundupRenames, false);
     await agent.refreshTeams();
     assert.ok(fs.existsSync(path.join(dir, "team-sync-request.json")));
   } finally {
