@@ -71,6 +71,12 @@ publishes it as the GitHub Release notes.
   to downgrade, restore `state.db` from before the upgrade.
 
 ### Fixed
+- Live alerts no longer fire at kickoff. A player's value was his projection before his game and
+  his points (0) once it started, so every kickoff read as a collapse ("J. Taylor down 20.3").
+  Alerts now track each starter's projected final by game clock (points + the unplayed share of
+  his projection; his points once he's ruled out or the game is over), team projections are their
+  sums, and a game starting or ending only resets that player's baseline. Cards say "projection
+  down" and show the player's points next to his projection.
 - The first turn of a chat session that started before v0.4 no longer counts the session's whole
   running cost (days of turns, e.g. "$20.79") as its own. It has no saved baseline, so its cost is
   recorded as unknown (tokens only), the baseline is saved, and later turns count normally.

@@ -103,8 +103,8 @@ test("the alert reads as a scoring change, not a box score", () => {
   const text = formatLiveAlert(diffSnapshots(before, after, 5)!);
   assert.match(text, /Week 4 live update/);
   assert.match(text, /Waiver Wizards {2}118\.4 → 133\.5 {2}\(\+12\.8%\) · live 40\.2/);
-  assert.match(text, /J\. Chase {2}8\.2 → 20\.1 {2}\(\+11\.9\)/);
-  assert.match(text, /B\. Robinson {2}11 → 7\.4 {2}\(−3\.6\)/);
+  assert.match(text, /J\. Chase {2}proj 8\.2 → 20\.1 {2}\(\+11\.9\)/);
+  assert.match(text, /B\. Robinson {2}proj 11 → 7\.4 {2}\(−3\.6\)/);
   assert.match(text, /vs Team Nina {2}121\.8 → 122 {2}\(\+0\.2%\)/);
   assert.match(text, /Win probability 44% → 61%/);
 });
@@ -119,7 +119,7 @@ test("snapshots keep only what the diff needs", () => {
   assert.equal(s.mine.players["1"].proj, 8.2, "a played starter uses actual points");
   assert.equal(s.theirs?.players["9"].proj, 21.0, "an unplayed starter uses the projection");
   assert.equal(s.mine.teamId, 1);
-  assert.deepEqual(s.mine.players["1"], { name: "J. Chase", proj: 8.2, pos: "WR", nfl: "CIN" }, "position and NFL team, for the card");
+  assert.deepEqual(s.mine.players["1"], { name: "J. Chase", proj: 8.2, pre: 14, pts: 8.2, pos: "WR", nfl: "CIN" }, "pregame projection, points so far, position and NFL team");
   // It round-trips through the kv store as JSON.
   assert.deepEqual(JSON.parse(JSON.stringify(s)), s);
 });

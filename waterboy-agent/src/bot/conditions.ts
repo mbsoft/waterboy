@@ -4,7 +4,7 @@ import type { State, ScheduledTask } from "./state.ts";
 import { latestCompletedWeek } from "../fantasy/roundup.ts";
 import {
   DEFAULT_THRESHOLD_PCT, diffSnapshots, fetchSnapshot, fetchStatusBoard, formatFinalAlert, formatLiveAlert, gamesActive,
-  playersLeft, teamGames,
+  playersLeft, teamGames, withLiveProjections,
 } from "../fantasy/live.ts";
 import type { MatchupSnapshot, RawStatusBoard } from "../fantasy/live.ts";
 import { alertsDir, finalCard, liveCaption, renderLiveCard, swingCard } from "../fantasy/cards/liveAlert.ts";
@@ -157,8 +157,9 @@ export function makeConditions(cfg: Config, state: State, deps: ConditionDeps = 
         if (!active && !(prev && at - prev.at < FINAL_WINDOW_MS)) return null;
         // Once at the start of a game window (names older than 2 h), so a renamed team still resolves.
         await deps.freshenTeams?.(2 * 3600_000).catch(() => {});
-        const next = await (deps.snapshot ?? ((t: string | number) => fetchSnapshot(fantasy, t)))(team);
         const games = teamGames(sb, at);
+        // Projected finals by game clock: at kickoff a player's points (0) don't replace his projection.
+        const next = withLiveProjections(await (deps.snapshot ?? ((t: string | number) => fetchSnapshot(fantasy, t)))(team), games);
         const mine = playersLeft(next.mine, games, at);
         const theirs = next.theirs ? playersLeft(next.theirs, games, at) : { left: 0, played: 0 };
         const dir = alertsDir(cfg.dataDir);

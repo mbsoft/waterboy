@@ -22,7 +22,8 @@ const GAME_RUNTIME_MS = 4 * 3600_000;
 
 interface RawStatusEvent {
   date: string;
-  status?: { type?: { state?: string } };
+  /** `clock`: seconds left in the quarter; `period`: 1-4, 5+ overtime. */
+  status?: { clock?: number; period?: number; type?: { state?: string } };
   competitions?: { competitors?: { team?: { abbreviation?: string } }[] }[];
 }
 export interface RawStatusBoard { events?: RawStatusEvent[] }
@@ -49,7 +50,17 @@ export async function anyGameActive(now = Date.now()): Promise<boolean> {
 }
 
 export type GameState = "pre" | "in" | "post";
-export type TeamGames = Record<string, { state: GameState; kickoff: number }>;
+/** `left`: the share of the game still to play, 1 before kickoff, 0 once it's over. */
+export type TeamGames = Record<string, { state: GameState; kickoff: number; left: number }>;
+
+/** Share of regulation still to play, from the quarter and its clock (overtime counts as over). */
+export function gameLeft(state: GameState, period?: number, clock?: number): number {
+  if (state === "pre") return 1;
+  if (state === "post") return 0;
+  if (!period || period > 4) return 0;
+  const inQuarter = typeof clock === "number" && clock >= 0 ? Math.min(900, clock) : 450;
+  return Math.max(0, Math.min(1, ((4 - period) * 900 + inQuarter) / 3600));
+}
 
 /** Each NFL team on the scoreboard, by abbreviation: its game's state and kickoff. Same fallback as gamesActive. */
 export function teamGames(sb: RawStatusBoard, now = Date.now()): TeamGames {
@@ -61,9 +72,10 @@ export function teamGames(sb: RawStatusBoard, now = Date.now()): TeamGames {
       raw === "in" || raw === "post" ? raw
         : !Number.isNaN(kickoff) && now >= kickoff && now < kickoff + GAME_RUNTIME_MS ? "in"
           : "pre";
+    const left = gameLeft(state, e.status?.period, e.status?.clock);
     for (const c of e.competitions?.[0]?.competitors ?? []) {
       const abbr = c.team?.abbreviation;
-      if (abbr) out[abbr.toUpperCase()] = { state, kickoff };
+      if (abbr) out[abbr.toUpperCase()] = { state, kickoff, left };
     }
   }
   return out;
@@ -99,8 +111,25 @@ export interface SideSnapshot {
   proj: number;
   live: number | null;
   winProb: number | null;
-  /** Starter projected finals (actual once played), keyed by ESPN player id. pos/nfl are missing in older baselines. */
-  players: Record<string, { name: string; proj: number; pos?: string; nfl?: string }>;
+  /**
+   * Starters by ESPN player id. `proj` is the projected final: the projection before kickoff, points
+   * so far plus the unplayed share of the projection during the game (withLiveProjections), points
+   * once it's over. `pre` is ESPN's pregame projection, `pts` the points so far, `state` the game's
+   * state at this check. Older baselines have only name and proj.
+   */
+  players: Record<string, SnapshotPlayer>;
+}
+
+export interface SnapshotPlayer {
+  name: string;
+  proj: number;
+  pre?: number;
+  pts?: number | null;
+  /** Ruled out (ESPN's injury status OUT): during his game, nothing more is expected from him. */
+  out?: boolean;
+  pos?: string;
+  nfl?: string;
+  state?: GameState;
 }
 
 export interface MatchupSnapshot {
@@ -113,7 +142,10 @@ export interface MatchupSnapshot {
 function side(t: TeamSheet): SideSnapshot {
   const players: SideSnapshot["players"] = {};
   for (const s of t.starters) {
-    players[String(s.espnId)] = { name: s.name, proj: s.actual ?? s.proj, ...(s.pos && { pos: s.pos }), ...(s.nfl && { nfl: s.nfl }) };
+    players[String(s.espnId)] = {
+      name: s.name, proj: s.actual ?? s.proj, pre: s.proj, pts: s.actual, ...(s.injury === "O" && { out: true }),
+      ...(s.pos && { pos: s.pos }), ...(s.nfl && { nfl: s.nfl }),
+    };
   }
   return { teamId: t.id, name: t.name, proj: t.proj, live: t.live, winProb: t.winProb, players };
 }
@@ -130,9 +162,44 @@ export async function fetchSnapshot(cfg: FantasyConfig, team: string | number, f
   return snapshotOf(buildPreview(league, pro, week, nflWeek, t.id, cfg.ownerNames ?? {}));
 }
 
+/**
+ * A player's projected final at this point of his game. Without the game's state (no scoreboard
+ * entry) a player with points counts at the larger of points and projection, so a kickoff never
+ * reads as a collapse.
+ */
+export function projectedFinal(p: SnapshotPlayer, game?: TeamGames[string]): number {
+  const pre = p.pre ?? p.proj;
+  if (p.pts === undefined || p.pts === null) return pre;
+  if (!game) return r1(Math.max(p.pts, pre));
+  if (game.state === "post") return p.pts;
+  if (game.state === "pre") return pre;
+  if (p.out) return p.pts; // hurt and ruled out mid-game: what he has is what he'll get
+  return r1(p.pts + pre * game.left);
+}
+
+/**
+ * The snapshot with each starter's live projected final (projectedFinal) and game state, and the
+ * team projections as their sums. The points (`live`) are left as ESPN reports them.
+ */
+export function withLiveProjections(s: MatchupSnapshot, games: TeamGames): MatchupSnapshot {
+  const fix = (side: SideSnapshot): SideSnapshot => {
+    const players: SideSnapshot["players"] = {};
+    let total = 0;
+    for (const [id, p] of Object.entries(side.players)) {
+      const g = p.nfl ? games[p.nfl.toUpperCase()] : undefined;
+      const proj = projectedFinal(p, g);
+      total += proj;
+      players[id] = { ...p, proj, ...(g && { state: g.state }) };
+    }
+    return { ...side, proj: r1(total), players };
+  };
+  return { ...s, mine: fix(s.mine), theirs: s.theirs ? fix(s.theirs) : null };
+}
+
 // ---------- change detection ----------
 
-export interface PlayerDelta { name: string; from: number; to: number; pos?: string; nfl?: string }
+/** A starter whose projected final moved; `pts` is his points so far (null before kickoff). */
+export interface PlayerDelta { name: string; from: number; to: number; pos?: string; nfl?: string; pts?: number | null }
 
 export interface SideDelta {
   name: string;
@@ -167,17 +234,27 @@ function playerDeltas(from: SideSnapshot, to: SideSnapshot, minPoints: number): 
   for (const [id, now] of Object.entries(to.players)) {
     const was = from.players[id];
     if (!was) continue; // lineup change: covered by the team total, not worth its own line
-    if (Math.abs(now.proj - was.proj) >= minPoints) out.push({ name: now.name, from: r1(was.proj), to: r1(now.proj), pos: now.pos, nfl: now.nfl });
+    if (gameTurned(was, now)) continue; // kickoff or final whistle: a new baseline, not news
+    if (Math.abs(now.proj - was.proj) >= minPoints) out.push({ name: now.name, from: r1(was.proj), to: r1(now.proj), pos: now.pos, nfl: now.nfl, pts: now.pts ?? null });
   }
   return out.sort((a, b) => Math.abs(b.to - b.from) - Math.abs(a.to - a.from));
 }
 
+/** His game started or ended between the two checks (both checks know its state). */
+const gameTurned = (was: SnapshotPlayer, now: SnapshotPlayer) => !!was.state && !!now.state && was.state !== now.state;
+
 function sideDelta(from: SideSnapshot, to: SideSnapshot, minPoints: number): SideDelta {
+  // A player whose game started or ended this check moves the baseline with him: his change alone never alerts.
+  let base = from.proj;
+  for (const [id, now] of Object.entries(to.players)) {
+    const was = from.players[id];
+    if (was && gameTurned(was, now)) base += now.proj - was.proj;
+  }
   return {
     name: to.name,
-    from: r1(from.proj),
+    from: r1(base),
     to: r1(to.proj),
-    pct: r1(pctChange(from.proj, to.proj)),
+    pct: r1(pctChange(base, to.proj)),
     live: to.live,
     winProbFrom: from.winProb,
     winProbTo: to.winProb,
@@ -215,13 +292,17 @@ function sideLine(d: SideDelta): string {
   return `${d.name}  ${d.from} → ${d.to}  (${signed(d.pct)}%)${live}`;
 }
 
+/** "   J. Taylor  proj 20.3 → 14.1  (−6.2) · 3.2 pts": projected final, and points so far once he's played. */
+const playerLine = (p: PlayerDelta) =>
+  `   ${p.name}  proj ${p.from} → ${p.to}  (${signed(r1(p.to - p.from))})${p.pts !== undefined && p.pts !== null ? ` · ${p.pts} pts` : ""}`;
+
 /** The alert text, sent verbatim (no model call). Keep it short: this lands mid-game. */
 export function formatLiveAlert(d: MatchupDelta, maxPlayers = 4): string {
   const out: string[] = [`🏈 Week ${d.week} live update`, "", sideLine(d.mine)];
-  for (const p of d.mine.players.slice(0, maxPlayers)) out.push(`   ${p.name}  ${p.from} → ${p.to}  (${signed(r1(p.to - p.from))})`);
+  for (const p of d.mine.players.slice(0, maxPlayers)) out.push(playerLine(p));
   if (d.theirs) {
     out.push("", `vs ${sideLine(d.theirs)}`);
-    for (const p of d.theirs.players.slice(0, maxPlayers)) out.push(`   ${p.name}  ${p.from} → ${p.to}  (${signed(r1(p.to - p.from))})`);
+    for (const p of d.theirs.players.slice(0, maxPlayers)) out.push(playerLine(p));
   }
   const { winProbFrom: wf, winProbTo: wt } = d.mine;
   if (wf !== null && wt !== null && wf !== wt) out.push("", `Win probability ${wf}% → ${wt}%`);
