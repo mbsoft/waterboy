@@ -125,7 +125,7 @@ test("replaying Thursday night: one image per alert (the swing, then final for t
 test("the caption setting adds one line after the image", async () => {
   const { sent } = await replay({ caption: true });
   assert.deepEqual(sent.map((s) => s.kind), ["file", "text", "file", "text"]);
-  assert.equal(sent[1].body, "Week 4 live: Steelers D/ST down 7.0 · 24.5–0.0 (57%)");
+  assert.equal(sent[1].body, "Week 4 live: Steelers D/ST projection down 7.0 · 24.5–0.0 (57%)");
   assert.equal(sent[3].body, "Week 4 final for tonight · 31.6–0.0 (57%)");
 });
 
@@ -162,8 +162,8 @@ test("the card shows the score, projected finals, win probability and the movers
   const at = KICKOFF + 70 * MIN;
   const card = swingCard(d, at, { mine: 2, theirs: 0 });
   assert.equal(card.window, "Thu night");
-  assert.equal(card.headline, "Steelers D/ST down 7.0");
-  assert.equal(card.reason, "Steelers D/ST dropped 7.0 since the last check");
+  assert.equal(card.headline, "Steelers D/ST projection down 7.0");
+  assert.equal(card.reason, "Steelers D/ST's projected final fell 7.0, to 2.0");
   assert.deepEqual(card.movers.map((m) => [m.name, m.pos, m.nfl, m.from, m.to]), [["Steelers D/ST", "D/ST", "PIT", 9, 2], ["D. Rivers", "WR", "PIT", 14.7, 16.4]]);
   const svg = liveAlertSvg(card);
   for (const s of ["LIVE · WEEK 4 · THU NIGHT", "Waiver Wizards", "Gridiron Gang", "24.5", "proj 117.2", "−7.4", "was 58%", "57%", "D/ST · PIT", "SD", "2 left to play", "Done tonight"])
@@ -280,7 +280,7 @@ test("alert-card with no arguments writes the Thursday fixture card, fast, and s
   assert.ok(typeof r !== "string");
   assert.equal(r.file, out);
   assert.equal(r.sentTo, null);
-  assert.equal(r.card.headline, "Steelers D/ST down 7.0");
+  assert.equal(r.card.headline, "Steelers D/ST projection down 7.0");
   assert.equal(fs.readFileSync(out).subarray(1, 4).toString(), "PNG");
 });
 
@@ -329,7 +329,7 @@ test("alert-card --send goes to the test group with the TEST ribbon, and counts 
   assert.ok(typeof r !== "string");
   assert.equal(r.sentTo, TEST_GROUP);
   assert.equal(r.card.test, true, "ribbon forced");
-  assert.deepEqual(s.sent, [{ kind: "file", body: out }, { kind: "text", body: "[TEST] Week 4 live: Steelers D/ST down 7.0 · 24.5–0.0 (57%)" }]);
+  assert.deepEqual(s.sent, [{ kind: "file", body: out }, { kind: "text", body: "[TEST] Week 4 live: Steelers D/ST projection down 7.0 · 24.5–0.0 (57%)" }]);
   assert.equal(s.times().length, 1);
   const full = sendDeps({ sentTimes: Array.from({ length: 20 }, () => Date.now() - 60_000) });
   await assert.rejects(alertCard(["--send", "--out", out], { send: () => full.deps }), /already had 20 alerts in the last hour/);

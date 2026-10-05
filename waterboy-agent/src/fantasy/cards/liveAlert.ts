@@ -76,9 +76,12 @@ export function swingCard(d: MatchupDelta, at: number, left?: { mine: number | n
   let headline: string;
   let reason: string;
   if (top) {
+    // Projections move, not points: "projection down 6.2" (points so far are on the mover's row).
     const pts = f1(Math.abs(top.to - top.from));
-    headline = `${top.name} ${top.to > top.from ? "up" : "down"} ${pts}`;
-    reason = `${top.name} ${top.to > top.from ? "gained" : "dropped"} ${pts} since the last check`;
+    const dir = top.to > top.from ? "up" : "down";
+    headline = `${top.name} projection ${dir} ${pts}`;
+    if (headline.length > 38) headline = `${top.name} proj. ${dir} ${pts}`;
+    reason = `${top.name}'s projected final ${top.to > top.from ? "rose" : "fell"} ${pts}, to ${f1(top.to)}`;
   } else {
     const side = d.triggered[0] === "theirs" && theirs ? theirs : mine;
     headline = `${side.name} ${side.pct > 0 ? "up" : "down"} ${f1(Math.abs(side.pct))}%`;
@@ -226,7 +229,8 @@ function winBar(y: number, from: number | null, to: number | null): string {
 
 function moverRow(p: LiveCardMover, y: number, them: string | null): string {
   const ring = (p.pos && POS_COLOR[p.pos]) || T.line;
-  const meta = [p.pos, p.nfl].filter(Boolean).join(" · ") + (p.theirs && them ? `${p.pos || p.nfl ? " · " : ""}${them}` : "");
+  const pts = p.pts === null || p.pts === undefined ? null : `${f1(p.pts)} pts`;
+  const meta = [p.pos, p.nfl, pts, p.theirs ? them : null].filter(Boolean).join(" · ");
   const diff = Math.abs(p.to - p.from);
   const col = arrowColor(p.from, p.to);
   return [
@@ -234,9 +238,10 @@ function moverRow(p: LiveCardMover, y: number, them: string | null): string {
     txt(60 + 32, y + 41, initials(p.name), { size: 22, weight: 700, fill: T.muted, anchor: "middle" }),
     txt(140, y + 28, p.name.length > 26 ? `${p.name.slice(0, 25)}…` : p.name, { size: 30, weight: 700, fill: T.ink }),
     meta ? txt(140, y + 60, meta, { size: 22, weight: 600, fill: T.muted }) : "",
-    txt(W - 310, y + 42, f1(p.from), { size: 28, weight: 600, fill: T.muted, anchor: "end" }),
+    txt(W - 310, y + 22, "PROJ", { size: 16, weight: 700, fill: T.faint, anchor: "end" }),
+    txt(W - 310, y + 46, f1(p.from), { size: 28, weight: 600, fill: T.muted, anchor: "end" }),
     arrow(W - 298, W - 272, y + 33, T.faint),
-    txt(W - 262, y + 42, f1(p.to), { size: 28, weight: 700, fill: T.ink }),
+    txt(W - 262, y + 46, f1(p.to), { size: 28, weight: 700, fill: T.ink }),
     `<rect x="${W - 190}" y="${y + 10}" width="130" height="46" rx="23" fill="${col}" opacity="0.12"/>`,
     tri(W - 158, y + 33, 16, p.to > p.from, col),
     txt(W - 140, y + 43, f1(diff), { size: 28, weight: 800, fill: col }),
@@ -263,7 +268,7 @@ export function liveAlertSvg(c: LiveCardData, o: { dark?: boolean } = {}): strin
     c.kind === "swing" ? `<circle cx="70" cy="51" r="9" fill="#ff5a5f"/>` : "",
     txt(c.kind === "swing" ? 90 : 60, 60, `${{ swing: "LIVE", final: "FINAL", status: "MATCHUP" }[c.kind]} · WEEK ${c.week} · ${c.window.toUpperCase()}`, { size: 24, weight: 700, fill: "#cfe1ff" }),
     c.test ? "" : txt(W - 60, 60, "WATERBOY", { size: 22, weight: 800, fill: "#cfe1ff", anchor: "end" }), // the ribbon goes there
-    txt(60, 132, c.headline.length > 30 ? `${c.headline.slice(0, 29)}…` : c.headline, { size: 56, weight: 800, fill: "#ffffff" }),
+    txt(60, 132, c.headline.length > 38 ? `${c.headline.slice(0, 37)}…` : c.headline, { size: c.headline.length > 30 ? 46 : 56, weight: 800, fill: "#ffffff" }),
   );
 
   // Score.

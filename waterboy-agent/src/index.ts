@@ -24,7 +24,7 @@ import { clearStartupError, writeStartupError } from "./health/startupError.ts";
 import { withSpy } from "./messages/senderSpy.ts";
 import { GroupTestRunner, REQUEST_FILE, type ReplayFixture } from "./bot/groupTest.ts";
 import { fetchLeagueSnapshot, TEST_PREFIX } from "./fantasy/groupAlerts.ts";
-import { anyGameActive } from "./fantasy/live.ts";
+import { fetchStatusBoard, gamesActive, teamGames, withLiveProjections } from "./fantasy/live.ts";
 import { now } from "./testHooks.ts";
 import week3Sunday from "./fantasy/replay/week3-sunday.json" with { type: "json" };
 
@@ -207,7 +207,13 @@ const groupRunner = fantasyCfg
       send: (guid, text, swings) => {
         for (const n of groupNotices(text, swings, alertsDir(cfg.dataDir), !!fantasyCfg.liveAlerts?.caption)) bot.notify(guid, n, TEST_PREFIX);
       },
-      fetchLive: async () => ((await anyGameActive(now())) ? fetchLeagueSnapshot(fantasyCfg) : null),
+      fetchLive: async () => {
+        const sb = await fetchStatusBoard();
+        if (!gamesActive(sb, now())) return null;
+        const games = teamGames(sb, now());
+        const snap = await fetchLeagueSnapshot(fantasyCfg);
+        return { ...snap, matchups: snap.matchups.map((m) => withLiveProjections(m, games)) };
+      },
       fixture: week3Sunday as unknown as ReplayFixture,
       publish: (status) => health.setGroupAlerts(status),
       sentTimes: {
