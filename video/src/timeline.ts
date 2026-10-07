@@ -14,6 +14,12 @@ export const MUSIC_START = 0;
 /** Seconds → frames, snapped to the nearest beat. */
 const at = (seconds: number) => MUSIC_START + Math.round((seconds * FPS - MUSIC_START) / BEAT) * BEAT;
 
+/**
+ * Scenes 6–8 show v0.4 features (live alert cards, roundup awards and odds, the usage and data-source cards).
+ * True puts a "Coming in 0.4" pill on them for their whole length. Set false and re-render once 0.4.0 is GA.
+ */
+export const COMING_IN_04 = true;
+
 export const scenes = {
   hook: { from: 0, to: at(5) },
   howItRuns: { from: at(5), to: at(11) },

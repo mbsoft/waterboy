@@ -4,6 +4,7 @@ import { Background } from "../ui/Background";
 import { Bubble, Typing } from "../ui/Bubble";
 import { Caption, Kicker } from "../ui/Caption";
 import { Phone } from "../ui/Phone";
+import { Callout } from "../ui/Callout";
 import { copy } from "../copy";
 import { typed } from "../motion";
 import { cue, scenes } from "../timeline";
@@ -28,8 +29,9 @@ export const AskAnything: React.FC = () => {
         <Bubble side="in" at={ANSWER} text={`${copy.ask.answer}\n\n${copy.ask.sources}`} />
         {draft && <div style={{ position: "absolute", left: 36, right: 36, bottom: 32, fontSize: 18, color: "#1c1c1e" }}>{draft}▏</div>}
       </Phone>
-      <Kicker text="Ask anything" start={4} />
-      <Caption text={copy.ask.caption} start={14} />
+      <Kicker text="Ask anything" start={4} y={120} />
+      <Caption text={copy.ask.caption} start={14} y={200} />
+      <Callout x={1010} y={500} width={840} items={[{ at: ANSWER, side: "in", text: `${copy.ask.answer.split("\n")[0]}\n${copy.ask.sources}` }]} />
     </AbsoluteFill>
   );
 };

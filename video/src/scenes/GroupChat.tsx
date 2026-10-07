@@ -4,6 +4,7 @@ import { Background } from "../ui/Background";
 import { Bubble, Typing } from "../ui/Bubble";
 import { Caption, Kicker } from "../ui/Caption";
 import { Phone } from "../ui/Phone";
+import { Callout } from "../ui/Callout";
 import { copy, LEAGUE } from "../copy";
 import { cue, scenes } from "../timeline";
 
@@ -27,7 +28,11 @@ export const GroupChat: React.FC = () => (
       <Bubble side="in" at={REPLY} from="Waterboy" waterboy text={copy.group.reply} tapback={{ emoji: "👍", at: TAPBACK }} />
       <Bubble side="in" at={THREAD} from="Priya · Gnome Alone" replyTo={copy.group.reply} text={copy.group.threaded} />
     </Phone>
-    <Kicker text="Group chat" start={4} />
-    <Caption text={copy.group.caption} start={14} />
+    <Kicker text="Group chat" start={4} y={120} />
+    <Caption text={copy.group.caption} start={14} y={200} />
+    <Callout x={1010} y={470} width={840} size={58} items={[
+      { at: WAKE, side: "in", from: "Dave · Couch Coaches", text: copy.group.wake },
+      { at: REPLY, side: "in", from: "Waterboy", waterboy: true, text: copy.group.reply },
+    ]} />
   </AbsoluteFill>
 );

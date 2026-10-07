@@ -10,6 +10,7 @@ import { LiveAlerts } from "./scenes/LiveAlerts";
 import { Roundup } from "./scenes/Roundup";
 import { ControlPanel } from "./scenes/ControlPanel";
 import { Closer } from "./scenes/Closer";
+import { ComingIn04 } from "./ui/Pill";
 
 const Scene: React.FC<{ range: { from: number; to: number }; children: React.ReactNode; name: string }> = ({ range, children, name }) => (
   <Sequence from={range.from} durationInFrames={range.to - range.from} name={name}>
@@ -35,6 +36,10 @@ export const Demo: React.FC = () => {
       <Scene range={scenes.roundup} name="7 Roundup"><Roundup /></Scene>
       <Scene range={scenes.panel} name="8 Control panel"><ControlPanel /></Scene>
       <Scene range={scenes.closer} name="9 Closer"><Closer /></Scene>
+      {/* One pill across scenes 6–8, mounted once so it doesn't blink at their cuts. */}
+      <Sequence from={scenes.live.from} durationInFrames={scenes.panel.to - scenes.live.from} name="Coming in 0.4">
+        <ComingIn04 />
+      </Sequence>
 
       <Sequence from={MUSIC_START} name="Music">
         <Audio src={staticFile("audio/music.mp3")} volume={musicVolume} />
