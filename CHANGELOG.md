@@ -7,6 +7,17 @@ publishes it as the GitHub Release notes.
 
 ## [Unreleased]
 
+### Highlights
+
+**Waterboy 0.4.1 is a safety release.** Update promptly if you use Waterboy in group chats.
+
+### Fixed
+
+- **Errors never go to group chats.** If Waterboy can't answer in a group, nothing is posted; the failure is logged and shown on the Dashboard. In a 1:1 chat you get a short generic line instead of the raw error text.
+- **"Not signed in" is visible.** When Claude sign-in has lapsed, the Dashboard says so and points to Settings → General; it clears after the next good answer.
+- **No burst of old messages after a restart.** Missed automations catch up only if they're less than 30 minutes late, and none run on the first start of a copied or new data folder.
+- **Copies and test runs can't send.** Sending is on only for the real install (real home folder, default data folder, not a copied store); otherwise Waterboy runs in dry-run mode and says so in its startup log.
+
 ## [0.4.0] - 2026-10-07
 
 ### Highlights
