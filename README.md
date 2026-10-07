@@ -13,6 +13,10 @@
 
 A Fantasy Football assistant you text over iMessage, running on your Mac, with Claude or ChatGPT writing the replies.
 
+**New in 0.4:** live alerts as one image card (and no more false alarms at kickoff), playoff odds and weekly
+awards in the roundup, and usage and data-source health on the Dashboard. See the [changelog](CHANGELOG.md)
+or watch the [one-minute demo](https://mbsoft.github.io/waterboy/#demo).
+
 Everything runs locally. Waterboy watches the Messages database, runs each conversation through the
 Claude Agent SDK (or the Codex SDK), and replies through Messages. No server, no hosted account,
 no copy of your messages leaving the Mac except the turn the assistant is answering.
@@ -43,7 +47,7 @@ iPhone ──iMessage──▶ Messages.app ──▶ ~/Library/Messages/chat.db
 ### Fantasy football (ESPN)
 
 The reason the thing exists. Point it at an ESPN league (`fantasy.espnLeagueId`; private leagues
-also need your `espnS2` and `swid` cookies) and the assistant gets **11 tools**:
+also need your `espnS2` and `swid` cookies) and the assistant gets **13 tools**:
 
 | Tool | Answers |
 |---|---|
@@ -59,6 +63,7 @@ also need your `espnS2` and `swid` cookies) and the assistant gets **11 tools**:
 | `game_lines` | "what's the line on the Bengals game?", "which games will shoot out?" |
 | `expert_rankings` | FantasyPros consensus rank this week and rest-of-season, with the range of opinion |
 | `league_status` | League settings, scoring, current week |
+| `team_names` | "who renamed their team?", "what's X called now?" — current and former team names, and recent name changes |
 
 **Data sources**, all free and account-free, each independently switchable and each degrading to
 "unavailable" rather than breaking the rest: ESPN Fantasy · Sleeper (second-opinion projections,
@@ -73,7 +78,9 @@ individually switchable.
 **Proactive reports**, as scheduled tasks you create by text:
 
 - **Weekly roundup** — fires once, as soon as every NFL game of the week is final (the
-  `fantasy_week_final` condition polls every 30 min Mon–Wed).
+  `fantasy_week_final` condition polls every 30 min Mon–Wed). Results, standings with playoff odds,
+  the week's awards (biggest blowout, closest game, bench blunder, lucky win, tough luck, top player)
+  and any team name changes, each switchable in Settings → Fantasy.
 - **Live scoring alerts** — off by default. While games are in progress, checks each subscriber's
   matchup every few minutes and sends them one image when either side's projected final swings past a
   configurable percentage: the score, win probability and the players who moved it, plus a "final for
