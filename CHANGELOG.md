@@ -9,6 +9,19 @@ publishes it as the GitHub Release notes.
 
 ## [0.4.0] - 2026-10-07
 
+### Highlights
+
+**Waterboy 0.4 is the in-season release.**
+
+- **Live alerts as one card.** When your matchup swings, you get a single image: the score, projected finals, win probability before and after, and the players who moved it. No more false alarms at kickoff: alerts now follow each player's projected final by game clock.
+- **Playoff odds and awards.** Ask "what are my playoff chances?" for odds from 10,000 simulations of the rest of the season. The weekly roundup adds odds to the standings, plus awards: biggest blowout, closest game, bench blunder, lucky win, tough luck and top player.
+- **Teams survive renames.** People are mapped to their ESPN team, not its name. The roundup announces each name change once, and you can ask "who renamed their team?"
+- **See what it costs.** The Dashboard shows usage for today, 7 days and 30 days, by model and chat, with an optional daily cost alert. A new card shows the health of each fantasy data source.
+
+**Upgrading:** the app updates itself. 0.4 moves its data to a new format, so 0.3.x won't start on it afterwards; to go back, restore `state.db` from before the upgrade.
+
+[Watch the one-minute demo →](https://mbsoft.github.io/waterboy/#demo)
+
 ### Added
 - The agent knows about team renames: a `team_names` tool lists each team's current and former
   names and the name changes with when they were noticed ("what team names changed this week?").
