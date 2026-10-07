@@ -146,3 +146,19 @@ test("4b. only the real install records its data folder; a sandbox can't claim a
   assert.equal(kind.noSend, true);
   assert.equal(kv.has("installPath"), false);
 });
+
+test("5. one live agent per data folder: a second refuses; a crashed one's lock is taken over", async () => {
+  const { acquireLock, LOCK_FILE } = await import("../src/instanceLock.ts");
+  const dataDir = tmp();
+  const first = acquireLock(dataDir, 1111, () => true);
+  assert.equal(first.ok, true);
+  const second = acquireLock(dataDir, 2222, (pid) => pid === 1111);
+  assert.equal(second.ok, false, "the first is still running");
+  if (!second.ok) assert.equal(second.holder.pid, 1111);
+  const afterCrash = acquireLock(dataDir, 3333, () => false);
+  assert.equal(afterCrash.ok, true, "the holder is gone: take it over");
+  if (afterCrash.ok) afterCrash.release();
+  assert.equal(fs.existsSync(path.join(dataDir, LOCK_FILE)), false, "released on exit");
+  if (first.ok) first.release();
+  assert.equal(fs.existsSync(path.join(dataDir, LOCK_FILE)), false, "a stale holder's release doesn't remove someone else's lock");
+});

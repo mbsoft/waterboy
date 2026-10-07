@@ -10,6 +10,7 @@ import { CodexAgentRunner, chatgptAccount, verifyLockdown } from "./assistants/c
 import { AppleScriptSender, ConsoleSender } from "./messages/sender.ts";
 import { skipMissedTasks, startScheduler } from "./bot/scheduler.ts";
 import { checkRun } from "./runGuard.ts";
+import { acquireLock } from "./instanceLock.ts";
 import { groupNotices, makeConditions } from "./bot/conditions.ts";
 import { TEAM_SYNC_REQUEST_FILE, TeamSync } from "./bot/teamSync.ts";
 import { fetchLeague, ownerName, teamName } from "./fantasy/roundup.ts";
@@ -85,6 +86,18 @@ clearStartupError(cfg.dataDir);
 const runKind = checkRun(state, cfg.dataDir);
 if (runKind.noSend) cfg.dryRun = true;
 log(`[main] ${runKind.mode}`);
+// One live agent per data folder: a second one would double every reply and post.
+if (!cfg.dryRun) {
+  const lock = acquireLock(cfg.dataDir);
+  if (!lock.ok) {
+    console.error(
+      `Another Waterboy agent (pid ${lock.holder.pid}, started ${new Date(lock.holder.startedAt).toLocaleString()}) is already running for ${cfg.dataDir}. ` +
+        "Not starting a second one, which would send every reply twice. Stop the other one first, or run this one with --dry-run.",
+    );
+    process.exit(1);
+  }
+  process.on("exit", lock.release);
+}
 // Usage records older than 400 days (also checked at the first turn of each day)
 pruneTurns(state);
 // Setup checks and send health, published to health.json for the Dashboard
