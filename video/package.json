@@ -1,0 +1,24 @@
+{
+  "name": "waterboy-demo-video",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Remotion motion-graphics demo video for Waterboy, the fantasy football assistant in iMessage.",
+  "scripts": {
+    "preview": "remotion studio",
+    "render": "remotion render WaterboyDemo out/waterboy-demo.mp4",
+    "poster": "remotion still Poster out/poster.png",
+    "cards": "cd ../waterboy-agent && npx tsx ../video/tools/render-cards.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.532",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.532"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "typescript": "^5.8.3"
+  }
+}

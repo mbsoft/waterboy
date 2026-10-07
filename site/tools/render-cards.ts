@@ -9,6 +9,8 @@
  *   cd waterboy-agent && npx tsx ../site/tools/render-cards.ts
  *
  * Writes site/assets/img/cards/{start-sit,trade,compare}.png at the cards' native 1080px width.
+ * The builders are exported for the demo video (video/tools/render-cards.ts), which draws the same
+ * cards under its own league name.
  */
 process.env.TZ = "America/New_York"; // kickoff times on the start/sit card
 
@@ -33,14 +35,14 @@ import type { Ranked } from "../../waterboy-agent/src/fantasy/data/rankings.ts";
 const { Resvg } = createRequire(new URL("../../waterboy-agent/package.json", import.meta.url))("@resvg/resvg-js") as { Resvg: new (svg: string, opts: object) => { render(): { asPng(): Buffer } } };
 
 const OUT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../assets/img/cards");
-const LEAGUE = "Lakeview Dads League";
-const MY_TEAM = "Gnome Alone";
+export const LEAGUE = "Lakeview Dads League";
+export const MY_TEAM = "Gnome Alone";
 
 /** Same resvg settings as draw.ts renderPng, but to a fixed file name (renderPng timestamps names and prunes the dir). */
-function write(name: string, svg: string): void {
+export function write(name: string, svg: string, out = OUT): void {
   const png = new Resvg(svg, { font: { loadSystemFonts: true, defaultFontFamily: FONT } }).render().asPng();
-  fs.mkdirSync(OUT, { recursive: true });
-  const file = path.join(OUT, `${name}.png`);
+  fs.mkdirSync(out, { recursive: true });
+  const file = path.join(out, `${name}.png`);
   fs.writeFileSync(file, png);
   console.log(`${file}  ${(png.length / 1024).toFixed(0)} KB`);
 }
@@ -50,7 +52,7 @@ const ecr = (name: string, pos: "QB" | "RB" | "WR" | "TE", team: string, rank: n
 
 // ---------- start/sit ----------
 
-function startSit(): StartSit {
+export function startSit(): StartSit {
   const kickoff = Date.parse("2026-10-11T13:00:00-04:00"); // Sun 1:00 PM ET
   const line = (fullName: string, nfl: string, opp: string, oppTeam: string, proj: number, k = kickoff): PlayerLine => ({
     espnId: 0, fullName, name: fullName.replace(/^(\w)\w*/, "$1."), pos: "RB", nfl, opp, oppTeam, kickoff: k, slot: "RB", slotId: 2,
@@ -76,7 +78,7 @@ function startSit(): StartSit {
 
 // ---------- trade ----------
 
-function trade(): TradeAnalysis {
+export function trade(league = LEAGUE): TradeAnalysis {
   const v = (name: string, pos: string, team: string, value: number, overallRank: number, positionRank: number): Valued =>
     ({ name, pos, team, espnId: null, value, overallRank, positionRank, trend30: 0 });
   const values = [
@@ -87,7 +89,7 @@ function trade(): TradeAnalysis {
   const t = evaluateTrade(values, ["Nico Harrow", "Cal Ostrander"], ["Theo Brannigan"]);
   const lineup = (total: number, byPos: Record<string, number>) => ({ starters: [], total, byPos });
   return {
-    league: LEAGUE, week: 6, format: { teams: 12, ppr: 1, qbs: 1, dynasty: false }, trade: t,
+    league, week: 6, format: { teams: 12, ppr: 1, qbs: 1, dynasty: false }, trade: t,
     ownerOf: (p) => (p.name === "Theo Brannigan" ? "Taco Titans" : MY_TEAM),
     mine: { teamId: 1, team: MY_TEAM, before: lineup(121.8, { QB: 19.2, RB: 38.4, WR: 52.1, TE: 12.1 }), after: lineup(127.5, { QB: 19.2, RB: 33.9, WR: 62.3, TE: 12.1 }) },
     partner: { teamId: 7, team: "Taco Titans", before: lineup(116.3, { QB: 21.4, RB: 29.7, WR: 55.4, TE: 10.2 }), after: lineup(114.1, { QB: 21.4, RB: 36.8, WR: 46.1, TE: 10.2 }) },
@@ -97,7 +99,7 @@ function trade(): TradeAnalysis {
 
 // ---------- player comparison ----------
 
-function compare(): Comparison {
+export function compare(): Comparison {
   type G = [week: number, opp: string, snap: number, targets: number, rec: number, yards: number, tds: number, carries?: number];
   const usage = (id: string, name: string, team: string, games: G[]): PlayerUsage => ({
     id, name, pos: "WR", team, espnId: null, injury: null,
@@ -126,6 +128,8 @@ function compare(): Comparison {
   };
 }
 
-write("start-sit", startSitSvg(startSit(), { headshots: [null, null], logos: {} }, LEAGUE).svg);
-write("trade", tradeSvg(trade(), { headshots: {} }).svg);
-write("compare", compareSvg(compare(), [null, null]).svg);
+if (import.meta.url === `file://${process.argv[1]}`) {
+  write("start-sit", startSitSvg(startSit(), { headshots: [null, null], logos: {} }, LEAGUE).svg);
+  write("trade", tradeSvg(trade(), { headshots: {} }).svg);
+  write("compare", compareSvg(compare(), [null, null]).svg);
+}
