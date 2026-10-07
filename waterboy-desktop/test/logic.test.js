@@ -797,3 +797,20 @@ test("team health from the service: a week of renames, unmapped people with thei
   assert.deepEqual(t.unmapped, [{ handle: "+16145550142", value: "Gone Team", reason: "name", name: "Tess" }]);
   assert.equal(teamsHealth({}, {}, now), null, "a service before this version reports nothing");
 });
+
+test("turnErrorHealth: failed turns show in the app (a sign-in problem as a warning), never in chats", () => {
+  const { turnErrorHealth } = require("../lib/agent");
+  const now = Date.now();
+  assert.equal(turnErrorHealth({ updatedAt: now }, "claude", now), null, "older service or none: no banner");
+  const auth = turnErrorHealth(
+    { updatedAt: now, turnErrors: { count: 3, inGroups: 1, recent: [{ at: now, isGroup: true, kind: "auth", message: "Not logged in · Please run /login" }], auth: { at: now, message: "Not logged in · Please run /login" } } },
+    "claude",
+    now,
+  );
+  assert.match(auth.auth, /isn't signed in to Claude/);
+  assert.match(auth.auth, /Nothing was posted to your chats/);
+  const other = turnErrorHealth({ updatedAt: now, turnErrors: { count: 2, inGroups: 1, recent: [{ at: now, isGroup: false, kind: "other", message: "max turns" }], auth: null } }, "chatgpt", now);
+  assert.equal(other.auth, null);
+  assert.equal(other.summary, "2 replies failed since the service started (1 in group chats). Nothing was posted to group chats. Latest: max turns");
+  assert.equal(turnErrorHealth({ updatedAt: now - 3_600_000, turnErrors: { count: 1, inGroups: 0, recent: [], auth: null } }, "claude", now), null, "stale health.json: nothing");
+});

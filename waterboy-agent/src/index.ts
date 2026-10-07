@@ -8,7 +8,8 @@ import { Bot } from "./bot/bot.ts";
 import { ClaudeAgentRunner } from "./assistants/claude.ts";
 import { CodexAgentRunner, chatgptAccount, verifyLockdown } from "./assistants/codex.ts";
 import { AppleScriptSender, ConsoleSender } from "./messages/sender.ts";
-import { startScheduler } from "./bot/scheduler.ts";
+import { skipMissedTasks, startScheduler } from "./bot/scheduler.ts";
+import { checkRun } from "./runGuard.ts";
 import { groupNotices, makeConditions } from "./bot/conditions.ts";
 import { TEAM_SYNC_REQUEST_FILE, TeamSync } from "./bot/teamSync.ts";
 import { fetchLeague, ownerName, teamName } from "./fantasy/roundup.ts";
@@ -80,6 +81,10 @@ try {
   await refuseIfTooNew(e, cfg.dataDir);
 }
 clearStartupError(cfg.dataDir);
+// A test, sandbox or copied data folder never sends (unless explicitly allowed), and says so.
+const runKind = checkRun(state, cfg.dataDir);
+if (runKind.noSend) cfg.dryRun = true;
+log(`[main] ${runKind.mode}`);
 // Usage records older than 400 days (also checked at the first turn of each day)
 pruneTurns(state);
 // Setup checks and send health, published to health.json for the Dashboard
@@ -114,6 +119,10 @@ const bot = new Bot(cfg, state, runner, sender, helper && {
   typing: cfg.typingIndicators ? helper.typing : null,
   actions: helper.actions,
 });
+
+// Failed turns go to the app's health, never into chats (a group sees nothing; a 1:1 a generic line).
+bot.onTurnError = (e) => health.recordTurnError(e);
+bot.onTurnOk = () => health.clearAuthError();
 
 // Start from "now" on first launch so we never answer old history.
 let cursor = Number(state.get("lastRowId") ?? NaN);
@@ -189,6 +198,8 @@ const checksTimer = setInterval(refreshChecks, 30 * 60_000);
 const probeTimer = cfg.dryRun ? null : setInterval(probeSending, 10 * 60_000);
 
 const pollTimer = setInterval(poll, cfg.pollIntervalMs);
+// Missed tasks run at startup only if they're under 30 min late, and never on a first run here.
+skipMissedTasks(state, Date.now(), { skipAll: !runKind.priorRun || runKind.noSend });
 const schedTimer = startScheduler(
   state,
   (t, ctx, verbatim, notice) => (verbatim && ctx ? bot.notify(t.chatGuid, notice ?? ctx) : bot.runTask(t, ctx)),

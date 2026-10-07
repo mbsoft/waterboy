@@ -217,6 +217,30 @@ async function readiness() {
     sources: ((s) => (s?.waiting && !cfg.fantasy ? null : s))(sourcesReadiness(health)),
     groupAlerts: groupAlertHealth(health),
     teams: cfg.fantasy ? teamsHealth(health, cfg) : null,
+    turnErrors: turnErrorHealth(health, providerOf(cfg)),
+  };
+}
+
+/**
+ * Failed assistant turns from health.json (0.4.1, `turnErrors`). They're kept out of the chats (a group
+ * sees nothing, a 1:1 a generic line), so the details show here: a sign-in problem as a warning, other
+ * failures as a count and the latest error. null when there are none, or for an older service.
+ */
+function turnErrorHealth(health, provider = "claude", now = Date.now()) {
+  const t = health?.turnErrors;
+  if (!t || !t.count || now - (health.updatedAt ?? 0) > HEALTH_STALE_MS) return null;
+  const who = provider === "chatgpt" ? "ChatGPT" : "Claude";
+  const latest = t.recent?.[0] ?? null;
+  return {
+    count: t.count,
+    inGroups: t.inGroups ?? 0,
+    latest,
+    auth: t.auth
+      ? `Waterboy isn't signed in to ${who}, so it can't answer (${t.auth.message}). Sign in again under Settings → General. Nothing was posted to your chats.`
+      : null,
+    summary: latest
+      ? `${t.count} ${t.count === 1 ? "reply" : "replies"} failed since the service started${t.inGroups ? ` (${t.inGroups} in group chats)` : ""}. Nothing was posted to group chats. Latest: ${latest.message}`
+      : null,
   };
 }
 
@@ -1646,6 +1670,7 @@ module.exports = {
   stopGroupSimulationOnQuit,
   simulationBlocker,
   groupAlertHealth,
+  turnErrorHealth,
   GROUP_REQUEST_FILE,
   alertPlan,
   createAlertAutomations,

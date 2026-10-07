@@ -381,6 +381,11 @@
       r.groupAlerts?.warning
         ? h("div", { class: "banner warn" }, icon("alert", 18), h("div", { class: "grow" }, r.groupAlerts.warning), linkTo("settings/alerts", "Live alerts", "settings"))
         : null,
+      r.turnErrors?.auth
+        ? h("div", { class: "banner warn", "data-turn-errors": "auth" }, icon("alert", 18), h("div", { class: "grow" }, r.turnErrors.auth), linkTo("settings/general", "General", "settings"))
+        : r.turnErrors?.summary
+          ? h("div", { class: "banner", "data-turn-errors": "other" }, icon("alert", 18), h("div", { class: "grow" }, r.turnErrors.summary))
+          : null,
       card(
         h(
           "div",
