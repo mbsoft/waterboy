@@ -8,7 +8,8 @@ import { Bot } from "./bot/bot.ts";
 import { ClaudeAgentRunner } from "./assistants/claude.ts";
 import { CodexAgentRunner, chatgptAccount, verifyLockdown } from "./assistants/codex.ts";
 import { AppleScriptSender, ConsoleSender } from "./messages/sender.ts";
-import { startScheduler } from "./bot/scheduler.ts";
+import { skipMissedTasks, startScheduler } from "./bot/scheduler.ts";
+import { checkRun } from "./runGuard.ts";
 import { groupNotices, makeConditions } from "./bot/conditions.ts";
 import { TEAM_SYNC_REQUEST_FILE, TeamSync } from "./bot/teamSync.ts";
 import { fetchLeague, ownerName, teamName } from "./fantasy/roundup.ts";
@@ -80,6 +81,12 @@ try {
   await refuseIfTooNew(e, cfg.dataDir);
 }
 clearStartupError(cfg.dataDir);
+// A copy of the data folder or a sandbox (QA) never sends and never catches up on missed tasks.
+const runKind = checkRun(state, cfg.dataDir);
+if (runKind.noSend) {
+  cfg.dryRun = true;
+  log(`[main] NOT THE REAL INSTALL: ${runKind.reason}. Sending is off (dry run) and missed scheduled tasks are skipped. Set IMESSAGE_AGENT_ALLOW_SEND=1 to override.`);
+}
 // Usage records older than 400 days (also checked at the first turn of each day)
 pruneTurns(state);
 // Setup checks and send health, published to health.json for the Dashboard
@@ -189,6 +196,7 @@ const checksTimer = setInterval(refreshChecks, 30 * 60_000);
 const probeTimer = cfg.dryRun ? null : setInterval(probeSending, 10 * 60_000);
 
 const pollTimer = setInterval(poll, cfg.pollIntervalMs);
+if (runKind.sandbox || runKind.copy) skipMissedTasks(state);
 const schedTimer = startScheduler(
   state,
   (t, ctx, verbatim, notice) => (verbatim && ctx ? bot.notify(t.chatGuid, notice ?? ctx) : bot.runTask(t, ctx)),

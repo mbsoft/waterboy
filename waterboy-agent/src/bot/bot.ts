@@ -38,6 +38,9 @@ interface ChatQueue {
 
 const BACKLOG = 15;
 
+/** What a person sees in a 1:1 chat when their turn fails. No internals: those are in the log. */
+export const ERROR_REPLY = "Sorry, something went wrong on my end. Please try again in a minute.";
+
 export class Bot {
   private queues = new Map<string, ChatQueue>();
   private allowed: Set<string>;
@@ -205,10 +208,12 @@ export class Bot {
           await this.process(q, job);
         } catch (err) {
           log(`[bot] error in ${q.target.chatGuid}:`, err);
-          // A notice (live alert) has no one waiting on an answer, and a test group must only ever
-          // see "[TEST]" messages, so a failed notice is logged, never apologised for.
-          if (job.kind !== "notice")
-            await this.reply(q, `Sorry, something went wrong on my end: ${(err as Error).message.slice(0, 200)}`).catch(() => {});
+          // Errors are logged, never shown in a group: the league must not see internals ("Not
+          // logged in", stack text) or apologies for jobs nobody asked for. A notice (live alert) has
+          // no one waiting on an answer, so it's never apologised for either. In a 1:1 chat the person
+          // hears that it failed, without the details (those are in the log and the app).
+          if (job.kind !== "notice" && !q.target.isGroup)
+            await this.reply(q, ERROR_REPLY).catch(() => {});
         }
       }
     } finally {

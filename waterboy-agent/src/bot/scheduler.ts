@@ -102,6 +102,26 @@ export const SCHEDULER_TOOLS = [
 ];
 
 /**
+ * Advance every task that's already due to its next run without running it: used at startup when the
+ * run isn't the real install (a copy or a sandbox), so a test never "catches up" on missed roundups or
+ * briefs and sends them. Returns the tasks it skipped.
+ */
+export function skipMissedTasks(state: State, now = Date.now()): ScheduledTask[] {
+  const due = state.dueTasks(now);
+  for (const t of due) {
+    let next: number | null = null;
+    try {
+      next = computeNextRun(t.schedule, new Date(now));
+    } catch {
+      next = null;
+    }
+    state.updateTaskRun(t.id, next);
+    log(`[scheduler] skipped missed task #${t.id} (${t.description}): not the real install`);
+  }
+  return due;
+}
+
+/**
  * Poll for due tasks, evaluate any condition, and hand runnable ones to `run`. A condition marked
  * `verbatim` skips the agent: its text is the message, and `run` is called with verbatim = true
  * (plus the Notice, when the condition returned an image).
