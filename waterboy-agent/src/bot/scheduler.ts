@@ -101,14 +101,18 @@ export const SCHEDULER_TOOLS = [
   "mcp__scheduler__cancel_task",
 ];
 
+/** How late a missed scheduled task may still run at startup; older ones wait for their next time. */
+export const CATCH_UP_GRACE_MS = 30 * 60_000;
+
 /**
- * Advance every task that's already due to its next run without running it: used at startup when the
- * run isn't the real install (a copy or a sandbox), so a test never "catches up" on missed roundups or
- * briefs and sends them. Returns the tasks it skipped.
+ * At startup, skip (advance to their next time without running) the missed tasks that shouldn't run now:
+ * those missed by more than `graceMs`, or all of them when `skipAll` (a first start without a prior run
+ * marker, e.g. a copied state.db, or a run that isn't the real install). Returns the skipped tasks.
  */
-export function skipMissedTasks(state: State, now = Date.now()): ScheduledTask[] {
-  const due = state.dueTasks(now);
-  for (const t of due) {
+export function skipMissedTasks(state: State, now = Date.now(), o: { graceMs?: number; skipAll?: boolean } = {}): ScheduledTask[] {
+  const grace = o.skipAll ? 0 : (o.graceMs ?? CATCH_UP_GRACE_MS);
+  const late = state.dueTasks(now).filter((t) => o.skipAll || (t.nextRun ?? now) < now - grace);
+  for (const t of late) {
     let next: number | null = null;
     try {
       next = computeNextRun(t.schedule, new Date(now));
@@ -116,9 +120,9 @@ export function skipMissedTasks(state: State, now = Date.now()): ScheduledTask[]
       next = null;
     }
     state.updateTaskRun(t.id, next);
-    log(`[scheduler] skipped missed task #${t.id} (${t.description}): not the real install`);
+    log(`[scheduler] skipped missed task #${t.id} (${t.description}): ${o.skipAll ? "first run here or not the real install" : `missed by more than ${Math.round(grace / 60_000)} min`}`);
   }
-  return due;
+  return late;
 }
 
 /**

@@ -38,10 +38,27 @@ interface ChatQueue {
 
 const BACKLOG = 15;
 
-/** What a person sees in a 1:1 chat when their turn fails. No internals: those are in the log. */
-export const ERROR_REPLY = "Sorry, something went wrong on my end. Please try again in a minute.";
+/** What a person sees in a 1:1 chat when their turn fails. No internals: those are in the log and the app. */
+export const ERROR_REPLY = "Sorry, I hit a problem and couldn't answer that. It's been flagged in the Waterboy app.";
+
+/** A failed turn, for the app's health (where the details belong, instead of the chat). */
+export interface TurnError {
+  at: number;
+  chatGuid: string;
+  isGroup: boolean;
+  /** "auth": the assistant isn't signed in; "other": anything else. */
+  kind: "auth" | "other";
+  message: string;
+}
+
+const AUTH_ERROR = /not logged in|please run \/login|unauthori[sz]ed|invalid (api )?key|authentication|401\b/i;
+export const turnErrorKind = (err: unknown): TurnError["kind"] => (AUTH_ERROR.test(String((err as Error)?.message ?? err)) ? "auth" : "other");
 
 export class Bot {
+  /** Told about every failed turn (the service publishes them to health.json for the app). */
+  onTurnError: ((e: TurnError) => void) | null = null;
+  /** Told when a job finishes without error (clears an earlier sign-in alert). */
+  onTurnOk: (() => void) | null = null;
   private queues = new Map<string, ChatQueue>();
   private allowed: Set<string>;
   private busy = 0;
@@ -206,8 +223,10 @@ export class Bot {
         const job = q.jobs.shift()!;
         try {
           await this.process(q, job);
+          if (job.kind !== "notice") this.onTurnOk?.();
         } catch (err) {
           log(`[bot] error in ${q.target.chatGuid}:`, err);
+          this.onTurnError?.({ at: Date.now(), chatGuid: q.target.chatGuid, isGroup: !!q.target.isGroup, kind: turnErrorKind(err), message: String((err as Error)?.message ?? err).slice(0, 300) });
           // Errors are logged, never shown in a group: the league must not see internals ("Not
           // logged in", stack text) or apologies for jobs nobody asked for. A notice (live alert) has
           // no one waiting on an answer, so it's never apologised for either. In a 1:1 chat the person

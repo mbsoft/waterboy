@@ -115,6 +115,18 @@ export interface HealthFile {
   groupAlerts?: GroupAlertStatus;
   /** Fantasy team names (v0.4): renames of the last week, people whose team can't be found. Absent without fantasy. */
   teams?: TeamSyncStatus;
+  /** Failed assistant turns (0.4.1): kept out of chats, shown in the app. Absent until one fails. */
+  turnErrors?: TurnErrorStatus;
+}
+
+export interface TurnErrorStatus {
+  /** Failed turns since the service started, by where they happened. */
+  count: number;
+  inGroups: number;
+  /** The latest few, newest first: when, group or 1:1, the kind and the error text. */
+  recent: { at: number; isGroup: boolean; kind: "auth" | "other"; message: string }[];
+  /** Set when the latest failure was the assistant not being signed in; cleared by the next successful turn. */
+  auth: { at: number; message: string } | null;
 }
 
 /** Writes health.json in the data folder (atomically) whenever something changes */
@@ -123,6 +135,7 @@ export class HealthReporter {
   private checks: CheckResult[] = [];
   private groupAlerts: GroupAlertStatus | undefined;
   private teams: TeamSyncStatus | undefined;
+  private turnErrors: TurnErrorStatus | undefined;
   private readonly startedAt = Date.now();
   private timer: NodeJS.Timeout | null = null;
 
@@ -139,6 +152,25 @@ export class HealthReporter {
 
   setTeams(status: TeamSyncStatus) {
     this.teams = status;
+    this.scheduleWrite();
+  }
+
+  /** A failed assistant turn: counted and listed here instead of being posted to the chat. */
+  recordTurnError(e: { at: number; isGroup: boolean; kind: "auth" | "other"; message: string }) {
+    const t = this.turnErrors ?? { count: 0, inGroups: 0, recent: [], auth: null };
+    this.turnErrors = {
+      count: t.count + 1,
+      inGroups: t.inGroups + (e.isGroup ? 1 : 0),
+      recent: [{ at: e.at, isGroup: e.isGroup, kind: e.kind, message: e.message }, ...t.recent].slice(0, 5),
+      auth: e.kind === "auth" ? { at: e.at, message: e.message } : t.auth,
+    };
+    this.scheduleWrite();
+  }
+
+  /** A turn succeeded: an earlier sign-in problem is evidently fixed. */
+  clearAuthError() {
+    if (!this.turnErrors?.auth) return;
+    this.turnErrors = { ...this.turnErrors, auth: null };
     this.scheduleWrite();
   }
 
@@ -168,6 +200,7 @@ export class HealthReporter {
       sources: this.sources.snapshot(),
       ...(this.groupAlerts ? { groupAlerts: this.groupAlerts } : {}),
       ...(this.teams ? { teams: this.teams } : {}),
+      ...(this.turnErrors ? { turnErrors: this.turnErrors } : {}),
     };
     try {
       fs.writeFileSync(`${file}.tmp`, JSON.stringify(data, null, 2));

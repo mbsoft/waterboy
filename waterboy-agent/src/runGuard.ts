@@ -1,23 +1,28 @@
 /**
- * Is this the real install, or a copy / sandbox (a QA run, a copied data folder)? A test must never
- * send to a chat, so anything that isn't the real install runs dry and doesn't catch up on missed
- * scheduled tasks, unless sending is explicitly allowed (IMESSAGE_AGENT_ALLOW_SEND=1).
+ * Is this the real install, or a test / sandbox / copy? A test must never send to a chat (incident
+ * 2026-10-07: a QA sandbox with a copy of the real data posted "Not logged in" into the league group).
+ * Anything that isn't the real install runs dry unless sending is explicitly allowed
+ * (IMESSAGE_AGENT_ALLOW_SEND=1), and the startup log says which mode it's in.
  *
- * - sandbox: HOME is under a temp directory, or IMESSAGE_AGENT_TEST=1
- * - copy: the data folder isn't where this store was first used. The real install records its own
- *   path (kv "installPath") on the first run of a version with this guard; a copied state.db carries
- *   that path along, so the copy sees a different folder.
+ * Not the real install when any of:
+ * - HOME isn't the user's real home (from the system's user record, which a fake HOME can't change)
+ * - the data folder isn't the installed default, ~/.imessage-agent under the real home
+ * - NODE_ENV=test or IMESSAGE_AGENT_TEST=1
+ * - the store is a copy: the real install records its data folder (kv "installPath"); a copied
+ *   state.db carries that path to a different folder
  */
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 export interface RunKind {
-  sandbox: boolean;
-  copy: boolean;
-  /** Sending is off for this run (sandbox or copy, and not explicitly allowed). */
+  /** Sending is off for this run. */
   noSend: boolean;
-  reason: string | null;
+  /** This data folder has run here before (so missed tasks may be caught up). */
+  priorRun: boolean;
+  reasons: string[];
+  /** One line for the startup log. */
+  mode: string;
 }
 
 const real = (p: string) => {
@@ -28,27 +33,32 @@ const real = (p: string) => {
   }
 };
 
-const TMP_ROOTS = () => [...new Set([os.tmpdir(), "/tmp", "/private/tmp", "/var/folders", "/private/var/folders"].map(real))];
-
 /** Pure: classify a run. Exported for tests. */
-export function classifyRun(i: { dataDir: string; home: string; recordedInstallPath: string | null; env: NodeJS.ProcessEnv; tmpRoots?: string[] }): RunKind {
-  const roots = i.tmpRoots ?? TMP_ROOTS();
-  const home = real(i.home);
-  const inTmp = roots.some((r) => home === r || home.startsWith(r + path.sep));
-  const sandbox = inTmp || i.env.IMESSAGE_AGENT_TEST === "1";
-  const copy = !!i.recordedInstallPath && i.recordedInstallPath !== real(i.dataDir);
+export function classifyRun(i: { dataDir: string; realHome: string; env: NodeJS.ProcessEnv; recordedInstallPath: string | null }): RunKind {
+  const reasons: string[] = [];
+  if (i.env.HOME && real(i.env.HOME) !== real(i.realHome)) reasons.push(`HOME is ${i.env.HOME}, not ${i.realHome}`);
+  const defaultDir = path.join(i.realHome, ".imessage-agent");
+  if (real(i.dataDir) !== real(defaultDir)) reasons.push(`the data folder is ${i.dataDir}, not ${defaultDir}`);
+  if (i.env.NODE_ENV === "test") reasons.push("NODE_ENV=test");
+  if (i.env.IMESSAGE_AGENT_TEST === "1") reasons.push("IMESSAGE_AGENT_TEST=1");
+  if (i.recordedInstallPath && i.recordedInstallPath !== real(i.dataDir)) reasons.push(`this store is a copy of ${i.recordedInstallPath}`);
   const allowed = i.env.IMESSAGE_AGENT_ALLOW_SEND === "1";
-  const why = [sandbox && (inTmp ? `HOME is a temp folder (${home})` : "IMESSAGE_AGENT_TEST=1"), copy && `the data folder is a copy (this store belongs to ${i.recordedInstallPath})`].filter(Boolean).join("; ");
-  return { sandbox, copy, noSend: (sandbox || copy) && !allowed, reason: why || null };
+  const noSend = reasons.length > 0 && !allowed;
+  const mode = !reasons.length
+    ? "sending: live (the real install)"
+    : noSend
+      ? `sending: OFF, dry run (${reasons.join("; ")}). Set IMESSAGE_AGENT_ALLOW_SEND=1 to send anyway.`
+      : `sending: live, by IMESSAGE_AGENT_ALLOW_SEND=1, although ${reasons.join("; ")}`;
+  return { noSend, priorRun: !!i.recordedInstallPath && i.recordedInstallPath === real(i.dataDir), reasons, mode };
 }
 
 /**
- * Classify this run against the store's recorded install path, recording it on the real install's first
- * run. Never records from a sandbox, so a QA run can't claim a copied store as its own.
+ * Classify this run, and record the data folder as the install's on the real install's first run (never
+ * from a test or sandbox, so a copied store can't be claimed).
  */
 export function checkRun(kv: { get(k: string): string | null | undefined; set(k: string, v: string): void }, dataDir: string, env = process.env): RunKind {
   const recorded = kv.get("installPath") ?? null;
-  const kind = classifyRun({ dataDir, home: os.homedir(), recordedInstallPath: recorded, env });
-  if (!recorded && !kind.sandbox) kv.set("installPath", real(dataDir));
+  const kind = classifyRun({ dataDir, realHome: os.userInfo().homedir, env, recordedInstallPath: recorded });
+  if (!recorded && !kind.reasons.length) kv.set("installPath", real(dataDir));
   return kind;
 }

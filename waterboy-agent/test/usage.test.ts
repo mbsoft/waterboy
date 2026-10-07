@@ -248,7 +248,7 @@ test("a failed turn still records and logs what it cost", async () => {
   assert.equal(row.kind, "reply");
   assert.ok(lines.some((l) => /turn cost \$3\.2100 \(API-equivalent\) in [\d.]+s \(failed\)/.test(l)));
   assert.equal(state.chat(ME).sessionId, "s-fail", "the session is kept, so the next turn's share is right");
-  assert.match(sender.texts.at(-1)?.text ?? "", /Sorry, something went wrong/, "the person still hears about it");
+  assert.match(sender.texts.at(-1)?.text ?? "", /Sorry, I hit a problem/, "the person still hears about it");
 });
 
 test("group test alerts: every part starts with [TEST], and a failed send is never apologised for", async () => {
