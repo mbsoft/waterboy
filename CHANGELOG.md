@@ -7,6 +7,8 @@ publishes it as the GitHub Release notes.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-07
+
 ### Highlights
 
 **Waterboy 0.4.1 is a safety release.** Update promptly if you use Waterboy in group chats.

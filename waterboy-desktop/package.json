@@ -1,7 +1,7 @@
 {
   "name": "waterboy-desktop",
   "productName": "Waterboy",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "Waterboy: desktop control panel for the Waterboy iMessage assistant, with the service (../waterboy-agent) bundled in",
   "main": "main.js",
