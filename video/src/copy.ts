@@ -1,6 +1,7 @@
 /**
- * Every word on screen, in one place. Draft from the storyboard in waterboy-demo-video-spec.md;
- * @cleopatra-MKTG owns the final copy (task #72). Fictional league, people and players only.
+ * Every word on screen, in one place. Final copy from @cleopatra-MKTG (task #72): captions match the
+ * landing page's wording ("Answers you can screenshot.", "Built for the group chat."). Fictional league,
+ * people and players only.
  */
 export const LEAGUE = "Tuesday Night Losers";
 export const SITE = "mbsoft.github.io/waterboy";
@@ -20,23 +21,23 @@ export const copy = {
     answer:
       "1. Dante Okafor (NYG): 61% of snaps, 18.9 points last week.\n2. Nico Harrow (TB): 14 carries a game since the bye.\nBid 18% of your FAAB on Okafor.",
     sources: "Sources: ESPN · Sleeper · nflverse",
-    caption: "Ask anything. Answers come with the numbers.",
+    caption: "Ask anything. Real numbers, with sources.",
   },
   cards: {
     question: "Start Vale or Okafor?",
     trade: "Should I take this trade?",
-    caption: "Real cards, not walls of text.",
+    caption: "Answers you can screenshot.",
   },
   group: {
     wake: "@waterboy who wins Gnome Alone vs Taco Titans?",
     reply: "Gnome Alone, 63%. Vale's floor is the difference.",
     threaded: "Vale better show up 😤",
-    caption: "Works in the group chat. Knows who's who.",
+    caption: "Built for the group chat. Knows who's who.",
   },
   live: {
     time: "1:35",
     date: "Sunday, October 11",
-    caption: "Live alerts when your matchup swings.",
+    caption: "Know when your matchup swings.",
   },
   roundup: {
     title: "Week 6 roundup",
@@ -52,7 +53,7 @@ export const copy = {
     caption: "A Tuesday roundup the league actually reads.",
   },
   panel: {
-    caption: "Set up and watched from one Mac app.",
+    caption: "A Mac app for all of it.",
   },
   closer: {
     line: "Free and open source · macOS 12+",
