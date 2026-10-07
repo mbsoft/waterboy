@@ -167,10 +167,10 @@ ChatGPT account (the Free plan works) for the assistant.
 
 1. **Download** the latest version:
    <!-- downloads:start -->
-   - **[Waterboy 0.3.0, Apple silicon (M1 and later)](https://github.com/mbsoft/waterboy/releases/download/v0.3.0/Waterboy-0.3.0-arm64.dmg)**
-   - **[Waterboy 0.3.0, Intel](https://github.com/mbsoft/waterboy/releases/download/v0.3.0/Waterboy-0.3.0-x64.dmg)**
+   - **[Waterboy 0.4.0, Apple silicon (M1 and later)](https://github.com/mbsoft/waterboy/releases/download/v0.4.0/Waterboy-0.4.0-arm64.dmg)**
+   - **[Waterboy 0.4.0, Intel](https://github.com/mbsoft/waterboy/releases/download/v0.4.0/Waterboy-0.4.0-x64.dmg)**
 
-   Released 2026-10-01 · [release notes](https://github.com/mbsoft/waterboy/releases/tag/v0.3.0) · [SHA256SUMS.txt](https://github.com/mbsoft/waterboy/releases/download/v0.3.0/SHA256SUMS.txt)
+   Released 2026-10-07 · [release notes](https://github.com/mbsoft/waterboy/releases/tag/v0.4.0) · [SHA256SUMS.txt](https://github.com/mbsoft/waterboy/releases/download/v0.4.0/SHA256SUMS.txt)
    <!-- downloads:end -->
 
    These links are updated automatically each time a release is published. Not sure which? Apple menu → About This Mac → Chip. Older versions, betas and release notes are on
