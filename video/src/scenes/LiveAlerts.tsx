@@ -2,6 +2,7 @@ import React from "react";
 import { AbsoluteFill, Img, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { Background } from "../ui/Background";
 import { Caption, Kicker } from "../ui/Caption";
+import { ComingIn04 } from "../ui/Pill";
 import { copy } from "../copy";
 import { settle } from "../motion";
 import { C, DISPLAY, SANS } from "../theme";
@@ -34,6 +35,7 @@ export const LiveAlerts: React.FC = () => {
       </div>
       <Kicker text="Sunday" start={4} />
       <Caption text={copy.live.caption} start={BANNER + 10} />
+      <ComingIn04 />
     </AbsoluteFill>
   );
 };

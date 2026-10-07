@@ -4,6 +4,8 @@ import { Background } from "../ui/Background";
 import { Bubble } from "../ui/Bubble";
 import { Caption, Kicker } from "../ui/Caption";
 import { Phone } from "../ui/Phone";
+import { Callout } from "../ui/Callout";
+import { ComingIn04 } from "../ui/Pill";
 import { copy, LEAGUE } from "../copy";
 import { ease } from "../motion";
 import { C } from "../theme";
@@ -35,8 +37,13 @@ export const Roundup: React.FC = () => {
           ))}
         </div>
       </Phone>
-      <Kicker text="Tuesday" start={4} />
-      <Caption text={copy.roundup.caption} start={14} />
+      <Kicker text="Tuesday" start={4} y={120} />
+      <Caption text={copy.roundup.caption} start={14} y={200} />
+      <Callout x={1010} y={500} width={840} size={56} items={[
+        { at: START + 10 + 5 * 9, side: "in", text: copy.roundup.awards[0]! },
+        { at: START + 10 + 8 * 9, side: "in", text: copy.roundup.rename },
+      ]} />
+      <ComingIn04 />
     </AbsoluteFill>
   );
 };

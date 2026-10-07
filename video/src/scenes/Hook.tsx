@@ -4,6 +4,7 @@ import { Background } from "../ui/Background";
 import { Bubble, Typing } from "../ui/Bubble";
 import { Logo } from "../ui/Logo";
 import { Phone } from "../ui/Phone";
+import { Callout } from "../ui/Callout";
 import { copy, LEAGUE } from "../copy";
 import { ease, settle } from "../motion";
 import { C, DISPLAY } from "../theme";
@@ -30,6 +31,13 @@ export const Hook: React.FC = () => {
         <Typing from={ASK + 12} to={REPLY} />
         <Bubble side="in" at={REPLY} from="Waterboy" waterboy text={copy.hook.reply} />
       </Phone>
+      {/* The point of the hook, readable on a phone: the question and Waterboy's answer. */}
+      <div style={{ opacity: 1 - t }}>
+        <Callout x={1270} y={150} width={600} items={[
+          { at: ASK, side: "out", text: copy.hook.ask },
+          { at: REPLY, side: "in", from: "Waterboy", waterboy: true, text: copy.hook.reply },
+        ]} />
+      </div>
       <div style={{ position: "absolute", left: 760, top: 300, width: 1060, opacity: ease(frame, TITLE, TITLE + 14), transform: `translateX(${(1 - t) * 60}px)` }}>
         <Logo size={120} />
         <div style={{ marginTop: 40, fontFamily: DISPLAY, fontWeight: 800, fontSize: 84, lineHeight: 1.05, letterSpacing: -2, color: C.white }}>{copy.hook.title}</div>
