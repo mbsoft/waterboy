@@ -190,3 +190,8 @@ details p { color: var(--dim); margin-top: 10px; }
 .coming p { padding: 16px 20px; border-radius: var(--radius); border: 1px dashed var(--line); color: var(--dim); font-size: 15.5px; }
 .coming b { color: var(--text); }
 .fine { color: var(--mute); font-size: 13px; margin-top: 12px; }
+
+/* Demo video */
+.demo-video { margin: 0; }
+.demo-video video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: var(--radius); background: #0b1120; box-shadow: var(--shadow); }
+.demo-video figcaption { margin-top: 12px; font-size: 14px; color: var(--mute); }
