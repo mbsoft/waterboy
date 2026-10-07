@@ -2,32 +2,37 @@ import React from "react";
 import { AbsoluteFill } from "remotion";
 import { Background } from "../ui/Background";
 import { Bubble, Typing } from "../ui/Bubble";
-import { Caption, Kicker } from "../ui/Caption";
+import { Caption } from "../ui/Caption";
 import { Phone } from "../ui/Phone";
-import { copy, LEAGUE } from "../copy";
-import { cue, scenes } from "../timeline";
+import { copy, LEAGUE, P } from "../copy";
+import { BAR, cue, scenes } from "../timeline";
 
-const WAKE = 8;
-const REPLY = 60;
-const TAPBACK = 120;
-const THREAD = 165;
-cue(scenes.group.from, WAKE, "pop", 0.7);
-cue(scenes.group.from, REPLY, "pop");
-cue(scenes.group.from, TAPBACK, "click");
-cue(scenes.group.from, THREAD, "pop", 0.7);
+const KATHY = 6;
+const REPLY = 40;
+const MARCUS = 70;
+const TAPBACK = 96;
+const DAVE = BAR * 2 + 16;
+const THREAD = DAVE + 36;
+cue(scenes.group.from, KATHY, "pop", 0.6);
+cue(scenes.group.from, REPLY, "ding");
+cue(scenes.group.from, MARCUS, "pop", 0.6);
+cue(scenes.group.from, TAPBACK, "pop1");
+cue(scenes.group.from, DAVE, "pop", 0.6);
+cue(scenes.group.from, THREAD, "click");
 
-/** The league chat: the wake word, senders labelled with their fantasy team, a tapback, a threaded reply. */
+/** The league chat: names with team labels, a matchup answer, a 😂 tapback instead of a reply, a threaded answer. */
 export const GroupChat: React.FC = () => (
   <AbsoluteFill>
     <Background />
-    <Phone title={LEAGUE} sub="8 people">
-      <Bubble side="in" at={0} from="Priya · Gnome Alone" text="first place feels nice ngl" />
-      <Bubble side="in" at={WAKE} from="Dave · Couch Coaches" text={copy.group.wake} />
-      <Typing from={WAKE + 12} to={REPLY} />
-      <Bubble side="in" at={REPLY} from="Waterboy" waterboy text={copy.group.reply} tapback={{ emoji: "👍", at: TAPBACK }} />
-      <Bubble side="in" at={THREAD} from="Priya · Gnome Alone" replyTo={copy.group.reply} text={copy.group.threaded} />
+    <Phone title={LEAGUE} sub="4 people">
+      <Bubble side="in" at={KATHY} from={P.kathy} text={copy.group.kathy} />
+      <Typing from={KATHY + 8} to={REPLY} />
+      <Bubble side="in" at={REPLY} from="Waterboy" waterboy text={copy.group.reply} />
+      <Bubble side="in" at={MARCUS} from={P.marcus} text={copy.group.marcus} tapbacks={[{ emoji: "😂", at: TAPBACK }]} />
+      <Bubble side="out" at={DAVE} text={copy.group.dave} />
+      <Bubble side="in" at={THREAD} from="Waterboy" waterboy thread text={copy.group.daveReply} />
     </Phone>
-    <Kicker text="Group chat" start={4} />
-    <Caption text={copy.group.caption} start={14} />
+    <Caption main={copy.group.main1} sub={copy.group.sub1} start={4} end={BAR * 2} />
+    <Caption main={copy.group.main2} start={BAR * 2 + 2} />
   </AbsoluteFill>
 );

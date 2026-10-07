@@ -4,52 +4,55 @@ import { pop } from "../motion";
 import { C, SANS } from "../theme";
 
 /**
- * One message. "out" is blue on the right (you); "in" is grey on the left. In a group chat, `from`
- * labels the sender (with their fantasy team, as Waterboy shows it). `image` is a card PNG in
- * public/cards. `tapback` puts a reaction badge on the corner. `at` is the frame it pops in.
+ * One message, iOS dark mode. "out" is blue on the right (you); "in" is grey on the left. In a group
+ * chat, `from` labels the sender with their fantasy team, as Waterboy shows it. `image` is a card PNG in
+ * public/cards. `tapbacks` put reaction badges on the corner. `thread` indents it under a threaded reply
+ * line. `at` is the frame it pops in. `footer` is a small grey line under the text (sources).
  */
 export const Bubble: React.FC<{
   side: "in" | "out";
   at: number;
   text?: string;
+  /** Rich content instead of text (the roundup). */
+  content?: React.ReactNode;
+  footer?: string;
   image?: string;
   imageWidth?: number;
   from?: string;
-  tapback?: { emoji: string; at: number };
-  replyTo?: string;
+  tapbacks?: { emoji: string; at: number }[];
+  thread?: boolean;
   waterboy?: boolean;
-}> = ({ side, at, text, image, imageWidth = 360, from, tapback, replyTo, waterboy }) => {
+}> = ({ side, at, text, content, footer, image, imageWidth = 360, from, tapbacks = [], thread, waterboy }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   if (frame < at) return null;
   const s = pop(frame, fps, at);
   const out = side === "out";
-  const t = tapback && frame >= tapback.at ? pop(frame, fps, tapback.at) : 0;
+  const shown = tapbacks.filter((t) => frame >= t.at);
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: out ? "flex-end" : "flex-start", transform: `scale(${0.7 + 0.3 * s})`, transformOrigin: out ? "bottom right" : "bottom left", opacity: Math.min(1, s * 1.4) }}>
-      {from && <div style={{ fontSize: 13, color: C.mute, margin: "0 0 2px 14px" }}>{from}</div>}
-      {replyTo && (
-        <div style={{ fontSize: 13, color: C.mute, margin: out ? "0 14px 3px 0" : "0 0 3px 14px", maxWidth: 300, borderLeft: out ? "none" : `2px solid ${C.line}`, borderRight: out ? `2px solid ${C.line}` : "none", padding: "0 8px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          ↩ {replyTo}
-        </div>
-      )}
-      <div style={{ position: "relative", maxWidth: image ? imageWidth : 340 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: out ? "flex-end" : "flex-start", marginLeft: thread ? 34 : 0, borderLeft: thread ? `2px solid ${C.phoneLine}` : "none", paddingLeft: thread ? 10 : 0, transform: `scale(${0.7 + 0.3 * s})`, transformOrigin: out ? "bottom right" : "bottom left", opacity: Math.min(1, s * 1.4) }}>
+      {from && <div style={{ fontSize: 13, color: C.label, margin: "0 0 2px 14px" }}>{from}</div>}
+      <div style={{ position: "relative", maxWidth: image ? imageWidth : content ? 400 : 360 }}>
         {image ? (
-          <Img src={staticFile(`cards/${image}`)} style={{ width: imageWidth, borderRadius: 20, display: "block", boxShadow: "0 8px 24px -10px rgba(15,23,42,0.35)" }} />
+          <Img src={staticFile(`cards/${image}`)} style={{ width: imageWidth, borderRadius: 20, display: "block" }} />
         ) : (
           <div
             style={{
               padding: "10px 15px", borderRadius: 22, fontFamily: SANS, fontSize: 19, lineHeight: 1.32, whiteSpace: "pre-wrap",
-              background: out ? C.bubbleOut : C.bubbleIn, color: out ? C.white : C.ink,
-              border: waterboy ? `2px solid ${C.water}` : "none",
+              background: out ? C.bubbleOut : C.bubbleIn, color: out ? C.white : C.bubbleInText, border: waterboy ? `2px solid ${C.water}` : "none",
             }}
           >
-            {text}
+            {content ?? text}
+            {footer && <div style={{ marginTop: 6, fontSize: 14, color: C.label }}>{footer}</div>}
           </div>
         )}
-        {tapback && t > 0 && (
-          <div style={{ position: "absolute", top: -18, [out ? "left" : "right"]: -14, width: 40, height: 40, borderRadius: 20, background: out ? C.bubbleIn : C.bubbleOut, border: "3px solid white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, transform: `scale(${t})` }}>
-            {tapback.emoji}
+        {shown.length > 0 && (
+          <div style={{ position: "absolute", top: -20, [out ? "left" : "right"]: -16, display: "flex", gap: 0 }}>
+            {shown.map((t, i) => (
+              <div key={i} style={{ width: 40, height: 40, marginLeft: i ? -12 : 0, borderRadius: 20, background: "#3a3a3c", border: `3px solid ${C.phoneBg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, transform: `scale(${pop(frame, fps, t.at)})` }}>
+                {t.emoji}
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -69,3 +72,7 @@ export const Typing: React.FC<{ from: number; to: number }> = ({ from, to }) => 
     </div>
   );
 };
+
+/** The text being typed into the compose field, with a caret. */
+export const Draft: React.FC<{ text: string }> = ({ text }) =>
+  text ? <div style={{ position: "absolute", left: 34, right: 34, bottom: 38, fontSize: 18, color: C.white, fontFamily: SANS, zIndex: 2 }}>{text}▏</div> : null;

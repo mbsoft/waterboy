@@ -2,41 +2,42 @@ import React from "react";
 import { AbsoluteFill, useCurrentFrame } from "remotion";
 import { Background } from "../ui/Background";
 import { Bubble } from "../ui/Bubble";
-import { Caption, Kicker } from "../ui/Caption";
+import { Caption } from "../ui/Caption";
+import { ComingIn04 } from "../ui/Pill";
 import { Phone } from "../ui/Phone";
 import { copy, LEAGUE } from "../copy";
 import { ease } from "../motion";
 import { C } from "../theme";
-import { BEAT, cue, scenes } from "../timeline";
+import { cue, scenes } from "../timeline";
 
-const START = 6;
-const ROWS = [
-  ...copy.roundup.standings.map(([n, team, rec]) => `${n}. ${team}  ${rec}`),
-  "",
-  ...copy.roundup.awards,
-  copy.roundup.odds,
-  copy.roundup.rename,
-];
-cue(scenes.roundup.from, START, "pop");
-cue(scenes.roundup.from, START + BEAT * 4, "tick", 0.5);
-cue(scenes.roundup.from, START + BEAT * 8, "ding", 0.5);
+const START = 8;
+const LINE = 12;
+const lineAt = (i: number) => START + 8 + i * LINE;
+const REACT = lineAt(copy.roundup.lines.length) + 10;
+const TAPBACKS = ["😂", "😂", "😂", "💀"].map((emoji, i) => ({ emoji, at: REACT + i * 8 }));
+cue(scenes.roundup.from, START, "ding", 0.8);
+copy.roundup.lines.forEach((_, i) => cue(scenes.roundup.from, lineAt(i), "tick", 0.35));
+TAPBACKS.forEach((t, i) => cue(scenes.roundup.from, t.at, ["pop1", "pop2", "pop3", "pop"][i]!, 0.7));
 
-/** Tuesday's roundup in the league chat: standings, awards, playoff odds and a team name change. */
+/** Tuesday 9:02 AM in the league chat: the roundup builds line by line, then the reactions. */
 export const Roundup: React.FC = () => {
   const frame = useCurrentFrame();
+  const content = (
+    <div style={{ fontSize: 17, lineHeight: 1.42 }}>
+      {copy.roundup.lines.map((l, i) => (
+        <div key={i} style={{ opacity: ease(frame, lineAt(i), lineAt(i) + 6), fontWeight: l.bold ? 700 : 400, marginTop: l.bold && i ? 6 : 0 }}>{l.text}</div>
+      ))}
+    </div>
+  );
   return (
     <AbsoluteFill>
       <Background />
-      <Phone title={LEAGUE} sub="8 people">
-        <Bubble side="in" at={START} from="Waterboy" waterboy text={`🏆 ${copy.roundup.title}`} />
-        <div style={{ alignSelf: "flex-start", maxWidth: 400, background: C.bubbleIn, borderRadius: 22, padding: "12px 16px", fontSize: 17, lineHeight: 1.4, color: C.ink, border: `2px solid ${C.water}`, opacity: ease(frame, START + 6, START + 14) }}>
-          {ROWS.map((r, i) => (
-            <div key={i} style={{ opacity: ease(frame, START + 10 + i * 9, START + 18 + i * 9), minHeight: r ? undefined : 8, fontWeight: i < 4 ? 600 : 400 }}>{r}</div>
-          ))}
-        </div>
+      <Phone title={LEAGUE} sub="4 people">
+        <div style={{ textAlign: "center", fontSize: 13, color: C.label, marginBottom: 4 }}>{copy.roundup.time}</div>
+        <Bubble side="in" at={START} from="Waterboy" waterboy content={content} tapbacks={TAPBACKS} />
       </Phone>
-      <Kicker text="Tuesday" start={4} />
-      <Caption text={copy.roundup.caption} start={14} />
+      <Caption main={copy.roundup.main} sub={copy.roundup.sub} start={4} />
+      <ComingIn04 />
     </AbsoluteFill>
   );
 };

@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Audio, Sequence, interpolate, staticFile } from "remotion";
-import { cues, MUSIC_START, scenes, TOTAL } from "./timeline";
+import { ensureFonts } from "./fonts";
+import { cues, MUSIC_START, MUSIC_TRIM, scenes, TOTAL } from "./timeline";
 import { Hook } from "./scenes/Hook";
 import { HowItRuns } from "./scenes/HowItRuns";
 import { AskAnything } from "./scenes/AskAnything";
@@ -11,18 +12,23 @@ import { Roundup } from "./scenes/Roundup";
 import { ControlPanel } from "./scenes/ControlPanel";
 import { Closer } from "./scenes/Closer";
 
+ensureFonts();
+
 const Scene: React.FC<{ range: { from: number; to: number }; children: React.ReactNode; name: string }> = ({ range, children, name }) => (
   <Sequence from={range.from} durationInFrames={range.to - range.from} name={name}>
     {children}
   </Sequence>
 );
 
+/** The music bed sits about 16 dB under the sound effects (0.16 ≈ −16 dB). */
+const MUSIC_VOLUME = 0.16;
+
 export const Demo: React.FC = () => {
   const musicVolume = (f: number) => {
     const abs = f + MUSIC_START;
     const fadeIn = interpolate(abs, [MUSIC_START, MUSIC_START + 20], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
     const fadeOut = interpolate(abs, [TOTAL - 70, TOTAL - 6], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-    return 0.42 * Math.min(fadeIn, fadeOut);
+    return MUSIC_VOLUME * Math.min(fadeIn, fadeOut);
   };
   return (
     <AbsoluteFill style={{ background: "#1d4ed8" }}>
@@ -37,7 +43,7 @@ export const Demo: React.FC = () => {
       <Scene range={scenes.closer} name="9 Closer"><Closer /></Scene>
 
       <Sequence from={MUSIC_START} name="Music">
-        <Audio src={staticFile("audio/music.mp3")} volume={musicVolume} />
+        <Audio src={staticFile("audio/music.mp3")} startFrom={MUSIC_TRIM} volume={musicVolume} />
       </Sequence>
       {cues.map((c, i) => (
         <Sequence key={i} from={c.frame} durationInFrames={45} name={`sfx:${c.sfx}`}>

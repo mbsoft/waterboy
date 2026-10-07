@@ -1,29 +1,35 @@
 /**
  * Single source of truth for scene timing and sound cues (frames at 30 fps).
- * Music: "Happy Times" by Alejandro Magaña (Mixkit), 120 BPM → one beat = 15 frames, one bar = 60 frames.
- * Scene boundaries follow the storyboard's seconds and land on beats.
+ * 60 s = 30 bars at 120 BPM: one beat = 15 frames, one bar = 60 frames. Every scene cut is on a bar line.
+ *
+ * Music: "Life is a Dream" by Michael Ramir C. (Mixkit 837, 120 BPM). Its quiet intro runs to the drop at
+ * 7.6 s, on a beat; the file starts MUSIC_TRIM frames in, so the drop lands on a bar line at 2.0 s, the
+ * moment Waterboy's reply arrives in the hook, and the music's bars line up with the scene cuts.
  */
 export const FPS = 30;
 export const BPM = 120;
 export const BEAT = (60 / BPM) * FPS; // 15 frames at 120 BPM
-export const BAR = BEAT * 4;
+export const BAR = BEAT * 4; // 60 frames
 
-/** Music starts on frame 0; the file has its first beat at 0.0 s. */
+/** Music starts on frame 0, trimmed by this many frames of its intro. */
 export const MUSIC_START = 0;
+export const MUSIC_TRIM = Math.round(5.6 * FPS);
 
-/** Seconds → frames, snapped to the nearest beat. */
-const at = (seconds: number) => MUSIC_START + Math.round((seconds * FPS - MUSIC_START) / BEAT) * BEAT;
+/** Scenes 6–8 show v0.4 features. True puts a "Coming in 0.4" pill on them; set false and re-render once 0.4.0 is GA. */
+export const COMING_IN_04 = true;
+
+const bars = (from: number, to: number) => ({ from: from * BAR, to: to * BAR });
 
 export const scenes = {
-  hook: { from: 0, to: at(5) },
-  howItRuns: { from: at(5), to: at(11) },
-  ask: { from: at(11), to: at(19) },
-  cards: { from: at(19), to: at(27) },
-  group: { from: at(27), to: at(35) },
-  live: { from: at(35), to: at(43) },
-  roundup: { from: at(43), to: at(50) },
-  panel: { from: at(50), to: at(55) },
-  closer: { from: at(55), to: at(60) },
+  hook: bars(0, 3),
+  howItRuns: bars(3, 6),
+  ask: bars(6, 10),
+  cards: bars(10, 14),
+  group: bars(14, 18),
+  live: bars(18, 22),
+  roundup: bars(22, 26),
+  panel: bars(26, 28),
+  closer: bars(28, 30),
 } as const;
 
 export type SceneName = keyof typeof scenes;

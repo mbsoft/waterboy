@@ -52,7 +52,7 @@ const ecr = (name: string, pos: "QB" | "RB" | "WR" | "TE", team: string, rank: n
 
 // ---------- start/sit ----------
 
-export function startSit(): StartSit {
+export function startSit(myTeam = MY_TEAM): StartSit {
   const kickoff = Date.parse("2026-10-11T13:00:00-04:00"); // Sun 1:00 PM ET
   const line = (fullName: string, nfl: string, opp: string, oppTeam: string, proj: number, k = kickoff): PlayerLine => ({
     espnId: 0, fullName, name: fullName.replace(/^(\w)\w*/, "$1."), pos: "RB", nfl, opp, oppTeam, kickoff: k, slot: "RB", slotId: 2,
@@ -60,7 +60,7 @@ export function startSit(): StartSit {
   });
   const contender = (l: PlayerLine, espn: number, sleeper: number, implied: number, rank: Ranked, snap: number, history: number[], def: Contender["defense"]): Contender => {
     const proj = Math.round(((espn + sleeper) / 2) * 10) / 10;
-    return { line: l, rosteredBy: MY_TEAM, espn, sleeper, proj, implied, lineInfo: null, ecr: rank, snapPct: snap, history, dist: distribution(proj, "RB", history), defense: def };
+    return { line: l, rosteredBy: myTeam, espn, sleeper, proj, implied, lineInfo: null, ecr: rank, snapPct: snap, history, dist: distribution(proj, "RB", history), defense: def };
   };
   const a = contender(
     line("Marcus Vale", "CHI", "vs CAR", "CAR", 17.6), 17.6, 18.2, 25.5, ecr("Marcus Vale", "RB", "CHI", 9, 9.4), 74,

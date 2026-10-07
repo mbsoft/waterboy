@@ -1,39 +1,52 @@
 import React from "react";
-import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { Background } from "../ui/Background";
-import { Bubble, Typing } from "../ui/Bubble";
+import { Bubble, Draft, Typing } from "../ui/Bubble";
+import { Caption } from "../ui/Caption";
 import { Logo } from "../ui/Logo";
 import { Phone } from "../ui/Phone";
-import { copy, LEAGUE } from "../copy";
-import { ease, settle } from "../motion";
-import { C, DISPLAY } from "../theme";
-import { cue, scenes } from "../timeline";
+import { copy, LEAGUE, P } from "../copy";
+import { settle, typed, typedEnd } from "../motion";
+import { BAR, BEAT, cue, scenes } from "../timeline";
 
-const ASK = 12;
-const REPLY = 54;
-const TITLE = 90;
-cue(scenes.hook.from, ASK, "pop", 0.7);
-cue(scenes.hook.from, REPLY, "pop");
-cue(scenes.hook.from, TITLE, "whoosh", 0.6);
+const TYPE = 2;
+const SEND = typedEnd(copy.hook.dave, TYPE, 30, 30) + 2;
+const KATHY = SEND + 10;
+const PRIYA = KATHY + 10;
+const REPLY = BAR; // 2.0 s: the music's drop
+const PULL = BAR + BEAT * 3;
+const TITLE = BAR * 2;
+for (let i = 0; i < copy.hook.dave.length; i += 2) cue(scenes.hook.from, TYPE + Math.round((i / 30) * 30), "key", 0.25);
+cue(scenes.hook.from, SEND, "pop", 0.6);
+cue(scenes.hook.from, KATHY, "pop", 0.6);
+cue(scenes.hook.from, PRIYA, "pop", 0.6);
+cue(scenes.hook.from, REPLY, "ding");
+cue(scenes.hook.from, TITLE - 6, "whoosh", 0.7);
 
-/** A league chat asks who to pick up; Waterboy answers; the title lands. */
+/** The league chat asks who to pick up; Waterboy answers on the drop; pull out; the title card. */
 export const Hook: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const t = settle(frame, fps, TITLE, 20);
+  const pull = settle(frame, fps, PULL, 24);
+  const wipe = interpolate(frame, [TITLE - 8, TITLE + 6], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const draft = frame < SEND ? typed(copy.hook.dave, frame, TYPE, 30, 30) : "";
   return (
     <AbsoluteFill>
       <Background />
-      <Phone title={LEAGUE} sub="8 people" x={700 - 640 * t} y={20} style={{ opacity: 1 - 0.25 * t }}>
-        <Bubble side="in" at={0} from="Dave · Couch Coaches" text="Okafor or Harrow off waivers??" />
-        <Bubble side="out" at={ASK} text={copy.hook.ask} />
-        <Typing from={ASK + 12} to={REPLY} />
+      <Phone title={LEAGUE} sub="4 people" x={700} scale={1 - 0.25 * pull} origin="center" style={{ opacity: 1 - wipe }}>
+        <Bubble side="out" at={SEND} text={copy.hook.dave} />
+        <Bubble side="in" at={KATHY} from={P.kathy} text={copy.hook.kathy} />
+        <Bubble side="in" at={PRIYA} from={P.priya} text={copy.hook.priya} />
+        <Typing from={PRIYA + 6} to={REPLY} />
         <Bubble side="in" at={REPLY} from="Waterboy" waterboy text={copy.hook.reply} />
+        <Draft text={draft} />
       </Phone>
-      <div style={{ position: "absolute", left: 760, top: 300, width: 1060, opacity: ease(frame, TITLE, TITLE + 14), transform: `translateX(${(1 - t) * 60}px)` }}>
-        <Logo size={120} />
-        <div style={{ marginTop: 40, fontFamily: DISPLAY, fontWeight: 800, fontSize: 84, lineHeight: 1.05, letterSpacing: -2, color: C.white }}>{copy.hook.title}</div>
-      </div>
+      {frame >= TITLE - 8 && (
+        <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", opacity: wipe }}>
+          <div style={{ marginTop: -260, transform: `scale(${0.9 + 0.1 * settle(frame, fps, TITLE)})` }}><Logo size={140} /></div>
+        </AbsoluteFill>
+      )}
+      <Caption main={copy.hook.title} start={TITLE + 4} x={160} y={560} width={1600} align="center" />
     </AbsoluteFill>
   );
 };

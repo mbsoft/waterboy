@@ -1,35 +1,44 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame } from "remotion";
 import { Background } from "../ui/Background";
-import { Bubble, Typing } from "../ui/Bubble";
-import { Caption, Kicker } from "../ui/Caption";
+import { Bubble, Draft, Typing } from "../ui/Bubble";
+import { Caption } from "../ui/Caption";
 import { Phone } from "../ui/Phone";
 import { copy } from "../copy";
-import { typed } from "../motion";
-import { cue, scenes } from "../timeline";
+import { typed, typedEnd } from "../motion";
+import { BAR, cue, scenes } from "../timeline";
 
-const Q = 8;
-const SEND = 48;
-const ANSWER = 96;
-cue(scenes.ask.from, SEND, "pop", 0.7);
-cue(scenes.ask.from, ANSWER, "pop");
-cue(scenes.ask.from, ANSWER + 30, "ding", 0.5);
+const T1 = 4;
+const S1 = typedEnd(copy.ask.q1, T1, 30, 40) + 2;
+const A1 = S1 + 40;
+const T2 = BAR * 2 + 4;
+const S2 = typedEnd(copy.ask.q2, T2, 30, 30) + 2;
+const A2 = S2 + 30;
+for (const [text, at, cps] of [[copy.ask.q1, T1, 40], [copy.ask.q2, T2, 30]] as const)
+  for (let i = 0; i < text.length; i += 2) cue(scenes.ask.from, at + Math.round((i / cps) * 30), "key", 0.25);
+cue(scenes.ask.from, S1, "pop", 0.6);
+cue(scenes.ask.from, A1, "ding");
+cue(scenes.ask.from, S2, "pop", 0.6);
+cue(scenes.ask.from, A2, "ding");
 
-/** A 1:1 thread: a waivers question, the typing dots, then an answer with numbers and its sources. */
+/** A 1:1 thread: the best RB on waivers, with numbers and sources; then the fallback pick. */
 export const AskAnything: React.FC = () => {
   const frame = useCurrentFrame();
-  const draft = frame < SEND ? typed(copy.ask.question, frame, Q, 30, 34) : "";
+  const draft = frame < S1 ? typed(copy.ask.q1, frame, T1, 30, 40) : frame >= T2 && frame < S2 ? typed(copy.ask.q2, frame, T2, 30, 30) : "";
   return (
     <AbsoluteFill>
       <Background />
       <Phone title="Waterboy" sub="iMessage">
-        <Bubble side="out" at={SEND} text={copy.ask.question} />
-        <Typing from={SEND + 10} to={ANSWER} />
-        <Bubble side="in" at={ANSWER} text={`${copy.ask.answer}\n\n${copy.ask.sources}`} />
-        {draft && <div style={{ position: "absolute", left: 36, right: 36, bottom: 32, fontSize: 18, color: "#1c1c1e" }}>{draft}▏</div>}
+        <Bubble side="out" at={S1} text={copy.ask.q1} />
+        <Typing from={S1 + 10} to={A1} />
+        <Bubble side="in" at={A1} text={copy.ask.a1} footer={copy.ask.sources} />
+        <Bubble side="out" at={S2} text={copy.ask.q2} />
+        <Typing from={S2 + 8} to={A2} />
+        <Bubble side="in" at={A2} text={copy.ask.a2} />
+        <Draft text={draft} />
       </Phone>
-      <Kicker text="Ask anything" start={4} />
-      <Caption text={copy.ask.caption} start={14} />
+      <Caption main={copy.ask.main1} sub={copy.ask.sub1} start={4} end={BAR * 2} />
+      <Caption main={copy.ask.main2} sub={copy.ask.sub2} start={BAR * 2 + 2} />
     </AbsoluteFill>
   );
 };
