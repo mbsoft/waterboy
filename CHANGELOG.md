@@ -7,6 +7,8 @@ publishes it as the GitHub Release notes.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-07
+
 ### Added
 - The agent knows about team renames: a `team_names` tool lists each team's current and former
   names and the name changes with when they were noticed ("what team names changed this week?").
