@@ -71,6 +71,8 @@ publishes it as the GitHub Release notes.
   to downgrade, restore `state.db` from before the upgrade.
 
 ### Fixed
+- Installing or starting the service no longer fails with "Bootstrap failed: 5" when macOS has it disabled:
+  `npm run install-service`, the app's setup and the Dashboard's Start enable it before loading it.
 - Live alerts no longer fire at kickoff. A player's value was his projection before his game and
   his points (0) once it started, so every kickoff read as a collapse ("J. Taylor down 20.3").
   Alerts now track each starter's projected final by game clock (points + the unplayed share of
