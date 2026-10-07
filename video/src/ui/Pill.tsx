@@ -5,7 +5,7 @@ import { C, DISPLAY } from "../theme";
 import { COMING_IN_04 } from "../timeline";
 
 /**
- * The "Coming in 0.4" tag: top right, for the whole of a scene that shows v0.4 features. 54 px type
+ * The "Coming in 0.4" tag: top right, across the scenes that show v0.4 features (6–8; mounted once in Demo.tsx). 54 px type
  * reads at about 11 px when the video plays 390 px wide. Off when COMING_IN_04 is false.
  */
 export const ComingIn04: React.FC = () => {

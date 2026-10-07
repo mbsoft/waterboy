@@ -5,7 +5,6 @@ import { Bubble } from "../ui/Bubble";
 import { Caption, Kicker } from "../ui/Caption";
 import { Phone } from "../ui/Phone";
 import { Callout } from "../ui/Callout";
-import { ComingIn04 } from "../ui/Pill";
 import { copy, LEAGUE } from "../copy";
 import { ease } from "../motion";
 import { C } from "../theme";
@@ -43,7 +42,6 @@ export const Roundup: React.FC = () => {
         { at: START + 10 + 5 * 9, side: "in", text: copy.roundup.awards[0]! },
         { at: START + 10 + 8 * 9, side: "in", text: copy.roundup.rename },
       ]} />
-      <ComingIn04 />
     </AbsoluteFill>
   );
 };

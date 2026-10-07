@@ -3,7 +3,6 @@ import { AbsoluteFill, Img, staticFile, useCurrentFrame, useVideoConfig } from "
 import { Background } from "../ui/Background";
 import { Caption } from "../ui/Caption";
 import { MacWindow } from "../ui/MacWindow";
-import { ComingIn04 } from "../ui/Pill";
 import { copy } from "../copy";
 import { settle } from "../motion";
 import { C } from "../theme";
@@ -62,7 +61,6 @@ export const ControlPanel: React.FC = () => {
         </div>
       </MacWindow>
       <Caption text={copy.panel.caption} start={10} x={1300} y={330} width={540} size={72} />
-      <ComingIn04 />
     </AbsoluteFill>
   );
 };
