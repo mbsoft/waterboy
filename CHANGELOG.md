@@ -20,7 +20,7 @@ publishes it as the GitHub Release notes.
 - **No burst of old messages after a restart.** Missed automations catch up only if they're less than 30 minutes late, and none run on the first start of a copied or new data folder.
 - **Copies and test runs can't send.** Sending is on only for the real install (real home folder, default data folder, not a copied store); otherwise Waterboy runs in dry-run mode and says so in its startup log.
 - **Waiver reports work again.** Since early October, any league transaction without player moves (for example an accepted trade) made the waiver report fail, so answers about free agents were based on partial data. Those transactions are now skipped, and a failed ESPN call is logged by name.
-- **Only one Waterboy runs on your data.** A second copy started on the same data folder now refuses to start with a clear message (test runs with `--dry-run` are still allowed), so two agents can never answer the same chat.
+- **Only one Waterboy runs on your data.** A second copy started on the same data folder now refuses to start with a clear message (test runs with `--dry-run` are still allowed), so two agents can never answer the same chat. If the background service is the one refused, the Dashboard says why and it starts by itself once the other copy stops; a leftover lock from before a crash or restart never blocks it.
 
 ## [0.4.0] - 2026-10-07
 
