@@ -162,3 +162,32 @@ test("5. one live agent per data folder: a second refuses; a crashed one's lock 
   if (first.ok) first.release();
   assert.equal(fs.existsSync(path.join(dataDir, LOCK_FILE)), false, "a stale holder's release doesn't remove someone else's lock");
 });
+
+test("5b. a lock whose pid was reused (after a crash or reboot) doesn't block the real service", async () => {
+  const { acquireLock, holderIsLive, processStartMs, bootTimeMs, LOCK_FILE } = await import("../src/instanceLock.ts");
+  const { spawn } = await import("node:child_process");
+  const t = Date.UTC(2026, 9, 9, 10);
+  const probe = (o: { alive?: boolean; boot?: number | null; start?: number | null }) => ({ isAlive: () => o.alive ?? true, bootTime: () => o.boot ?? null, startTime: () => o.start ?? null });
+  assert.equal(holderIsLive({ pid: 4242, startedAt: t }, probe({ start: t - 1000, boot: t - 86_400_000 })), true, "the agent that wrote it");
+  assert.equal(holderIsLive({ pid: 4242, startedAt: t }, probe({ start: t + 600_000 })), false, "pid reused by a later process");
+  assert.equal(holderIsLive({ pid: 4242, startedAt: t }, probe({ boot: t + 60_000 })), false, "written before the last boot");
+  assert.equal(holderIsLive({ pid: 4242, startedAt: t }, probe({ alive: false })), false, "process gone");
+
+  // With the real system: a live unrelated process that started after the lock was written doesn't hold it.
+  assert.ok((bootTimeMs() ?? 0) > 0 && (bootTimeMs() ?? Infinity) < Date.now(), "boot time readable");
+  const other = spawn("/bin/sleep", ["30"]);
+  try {
+    await new Promise((r) => setTimeout(r, 1100));
+    const started = processStartMs(other.pid!);
+    assert.ok(started !== null && Math.abs(started - Date.now()) < 10_000, "start time readable");
+    const dataDir = tmp();
+    fs.writeFileSync(path.join(dataDir, LOCK_FILE), JSON.stringify({ pid: other.pid, startedAt: started! - 3_600_000 }));
+    const mine = acquireLock(dataDir, process.pid);
+    assert.equal(mine.ok, true, "stale lock with a reused pid is taken over");
+    if (mine.ok) mine.release();
+    fs.writeFileSync(path.join(dataDir, LOCK_FILE), JSON.stringify({ pid: other.pid, startedAt: Date.now() }));
+    assert.equal(acquireLock(dataDir, process.pid).ok, false, "a live holder that wrote the lock still blocks");
+  } finally {
+    other.kill();
+  }
+});

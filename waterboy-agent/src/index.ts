@@ -10,7 +10,7 @@ import { CodexAgentRunner, chatgptAccount, verifyLockdown } from "./assistants/c
 import { AppleScriptSender, ConsoleSender } from "./messages/sender.ts";
 import { skipMissedTasks, startScheduler } from "./bot/scheduler.ts";
 import { checkRun } from "./runGuard.ts";
-import { acquireLock } from "./instanceLock.ts";
+import { acquireLock, holderIsLive, type LockInfo } from "./instanceLock.ts";
 import { groupNotices, makeConditions } from "./bot/conditions.ts";
 import { TEAM_SYNC_REQUEST_FILE, TeamSync } from "./bot/teamSync.ts";
 import { fetchLeague, ownerName, teamName } from "./fantasy/roundup.ts";
@@ -43,6 +43,27 @@ async function refuseIfTooNew(e: unknown, dataDir: string): Promise<never> {
   console.error("Waiting until the service is stopped or Waterboy is updated.");
   for (const sig of ["SIGTERM", "SIGINT"] as const) process.on(sig, () => process.exit(0));
   setInterval(() => {}, 1 << 30);
+  return new Promise<never>(() => {});
+}
+
+/**
+ * Another live agent holds agent.lock: don't start a second one (every reply would be sent twice). The reason
+ * goes to startup-error.json for the Dashboard. Under launchd (parent pid 1), exiting would get the service
+ * restarted every few seconds, silently; so it waits, and exits once the other agent is gone, so launchd
+ * restarts it and it starts normally.
+ */
+async function refuseSecondAgent(holder: LockInfo, dataDir: string): Promise<never> {
+  const message =
+    `Another Waterboy agent (pid ${holder.pid}, started ${new Date(holder.startedAt).toLocaleString()}) is already running for ${dataDir}. ` +
+    "Not starting a second one, which would send every reply twice. Stop the other one first, or run this one with --dry-run.";
+  console.error(message);
+  writeStartupError(dataDir, { kind: "alreadyRunning", message });
+  if (process.ppid !== 1) process.exit(1);
+  console.error("Waiting until the other agent stops.");
+  for (const sig of ["SIGTERM", "SIGINT"] as const) process.on(sig, () => process.exit(0));
+  setInterval(() => {
+    if (!holderIsLive(holder)) process.exit(0); // launchd restarts the service, which then takes the lock
+  }, 15_000);
   return new Promise<never>(() => {});
 }
 
@@ -89,14 +110,8 @@ log(`[main] ${runKind.mode}`);
 // One live agent per data folder: a second one would double every reply and post.
 if (!cfg.dryRun) {
   const lock = acquireLock(cfg.dataDir);
-  if (!lock.ok) {
-    console.error(
-      `Another Waterboy agent (pid ${lock.holder.pid}, started ${new Date(lock.holder.startedAt).toLocaleString()}) is already running for ${cfg.dataDir}. ` +
-        "Not starting a second one, which would send every reply twice. Stop the other one first, or run this one with --dry-run.",
-    );
-    process.exit(1);
-  }
-  process.on("exit", lock.release);
+  if (!lock.ok) await refuseSecondAgent(lock.holder, cfg.dataDir);
+  else process.on("exit", lock.release);
 }
 // Usage records older than 400 days (also checked at the first turn of each day)
 pruneTurns(state);
