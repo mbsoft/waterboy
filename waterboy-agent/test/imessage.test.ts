@@ -30,7 +30,9 @@ test("typing is kept alive while a turn runs", async () => {
   const f = fake();
   const t = new TypingIndicators(f, 20);
   await t.begin("A");
-  await new Promise((r) => setTimeout(r, 70));
+  // Wait for two refreshes rather than a fixed time: under a loaded full-suite run, timers fire late.
+  const deadline = Date.now() + 2000;
+  while (f.calls.filter((c) => c === "A on").length < 3 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 10));
   await t.end("A");
   const ons = f.calls.filter((c) => c === "A on").length;
   assert.ok(ons >= 3, `expected keep-alive refreshes, got ${f.calls.join(", ")}`);
