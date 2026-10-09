@@ -11,7 +11,7 @@ export const STARTUP_ERROR_FILE = "startup-error.json";
 
 export interface StartupError {
   at: number;
-  kind: "schemaTooNew";
+  kind: "schemaTooNew" | "alreadyRunning";
   message: string;
 }
 
