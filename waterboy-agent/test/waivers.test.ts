@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildWaiverReport } from "../src/fantasy/waivers.ts";
+import { buildWaiverReport, txPlayerIds } from "../src/fantasy/waivers.ts";
 
 const stat = (wk: number, src: number, split: number, pts: number) => ({ seasonId: 2026, scoringPeriodId: wk, statSourceId: src, statSplitTypeId: split, appliedTotal: pts });
 const fa = (id: number, name: string, pos: number, proj: number, extra: any = {}) => ({
@@ -79,4 +79,23 @@ test("waiver report: position focus answers one question instead of the full rep
   assert.match(r.text, /• Q\. One \(CIN\) 16 · S 17\.5 · 10% ↓2% · 30 pts so far/);
   assert.match(r.text, /Most added on Sleeper \(24h\): Q\. One 340k$/m); // other positions left out
   assert.doesNotMatch(r.text, /LEAGUE MOVES|R\. Ner/);
+});
+
+// Real shape (ESPN mTransactions2, week 4 of 2026, ids changed): an accepted trade carries no `items` and no
+// `status`, only a pointer to the trade it accepts. One of these crashed the whole report from Oct 3 (task #102).
+const tradeAccept: any = {
+  bidAmount: 0, executionType: "EXECUTE", id: "0b1e7c9a-0000-4000-8000-000000000001", isActingAsTeamOwner: true, isLeagueManager: false,
+  isPending: false, memberId: "{00000000-0000-0000-0000-000000000001}", proposedDate: Date.UTC(2026, 8, 24, 8), rating: 0,
+  relatedTransactionId: "0b1e7c9a-0000-4000-8000-000000000000", scoringPeriodId: 4, teamId: 1, type: "TRADE_ACCEPT",
+};
+
+test("waiver report: transactions without items (an accepted trade) are skipped, not fatal", () => {
+  const adds = { teamId: 1, type: "FREEAGENT", status: "EXECUTED", scoringPeriodId: 4, proposedDate: Date.UTC(2026, 8, 24, 9), items: [{ type: "ADD", playerId: 96 }, { type: "DROP", playerId: 97 }] };
+  assert.deepEqual(txPlayerIds([tradeAccept, adds]), [96, 97]);
+  const r = buildWaiverReport({
+    league, pool, proTeams: new Map([[10, "CIN"]]), week: 4, teamId: 1, now: Date.UTC(2026, 8, 24, 12),
+    txs: [tradeAccept, adds], names: new Map([[96, "F. Ree"], [97, "D. Rop"]]), sleeper: [],
+  });
+  assert.match(r.text, /• Alpha: \+F\. Ree, −D\. Rop/);
+  assert.equal(r.byPos.RB[0].name, "R. Ner");
 });

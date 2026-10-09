@@ -28,7 +28,22 @@ interface RawPoolPlayer {
   stats?: RawStat[];
 }
 export interface RawPoolEntry { id: number; status: string; onTeamId: number; player: RawPoolPlayer }
-interface RawTx { teamId: number; type: string; status: string; scoringPeriodId: number; proposedDate?: number; bidAmount?: number; items: { type: string; playerId: number }[] }
+/** ESPN league transactions. Some have no `items` (e.g. TRADE_ACCEPT, which only points at the trade it accepts). */
+interface RawTx { teamId: number; type: string; status?: string; scoringPeriodId: number; proposedDate?: number; bidAmount?: number; items?: { type: string; playerId: number }[] }
+
+/** The players added or dropped in these transactions (transactions without items are skipped). */
+export function txPlayerIds(txs: RawTx[]): number[] {
+  return [...new Set(txs.flatMap((x) => (x.items ?? []).filter((i) => i.type === "ADD" || i.type === "DROP").map((i) => i.playerId)))];
+}
+
+/** Which ESPN request (or step) failed, in the error, so the log says where the report broke. */
+async function step<T>(label: string, run: Promise<T>): Promise<T> {
+  try {
+    return await run;
+  } catch (e) {
+    throw new Error(`${label}: ${(e as Error).message}`);
+  }
+}
 
 // ---------- model ----------
 
@@ -162,8 +177,8 @@ export function buildWaiverReport(opts: {
     .filter((x) => x.proposedDate === undefined || x.proposedDate >= since)
     .sort((a, b) => (a.proposedDate ?? 0) - (b.proposedDate ?? 0));
   for (const x of executed) {
-    const added = x.items.filter((i) => i.type === "ADD").map((i) => `${names.get(i.playerId) ?? `#${i.playerId}`}${x.type === "WAIVER" ? " (W)" : ""}`);
-    const dropped = x.items.filter((i) => i.type === "DROP").map((i) => names.get(i.playerId) ?? `#${i.playerId}`);
+    const added = (x.items ?? []).filter((i) => i.type === "ADD").map((i) => `${names.get(i.playerId) ?? `#${i.playerId}`}${x.type === "WAIVER" ? " (W)" : ""}`);
+    const dropped = (x.items ?? []).filter((i) => i.type === "DROP").map((i) => names.get(i.playerId) ?? `#${i.playerId}`);
     if (!added.length && !dropped.length) continue;
     const m = byTeam.get(x.teamId) ?? { team: teamName(x.teamId), added: [], dropped: [], waiver: false, last: 0 };
     m.added.push(...added);
@@ -270,8 +285,8 @@ async function targetWeek(cfg: FantasyConfig): Promise<number> {
 }
 
 export async function waiverReport(cfg: FantasyConfig, opts: { team?: string; week?: number; position?: string } = {}): Promise<WaiverReport> {
-  const week = opts.week ?? (await targetWeek(cfg));
-  const { league, pro, nflWeek } = await fetchWeek(cfg, week);
+  const week = opts.week ?? (await step("ESPN current week", targetWeek(cfg)));
+  const { league, pro, nflWeek } = await step("ESPN league and week", fetchWeek(cfg, week));
   const base = `${FANTASY_BASE}/${league.seasonId}/segments/0/leagues/${cfg.espnLeagueId}`;
   const filter = {
     players: {
@@ -281,7 +296,8 @@ export async function waiverReport(cfg: FantasyConfig, opts: { team?: string; we
       filterRanksForScoringPeriodIds: { value: [nflWeek] },
     },
   };
-  const poolRes = await espnGet<{ players: RawPoolEntry[] }>(`${base}?view=kona_player_info&scoringPeriodId=${nflWeek}`, cfg, filter);
+  const poolRes = await step("ESPN free-agent pool", espnGet<{ players?: RawPoolEntry[] }>(`${base}?view=kona_player_info&scoringPeriodId=${nflWeek}`, cfg, filter));
+  if (!Array.isArray(poolRes.players)) throw new Error("ESPN free-agent pool: the response has no player list");
   const proTeams = new Map(pro.map((t) => [t.id, t.abbrev]));
 
   // Transactions from the week that just finished and the current one; the report keeps the last 7 days.
@@ -290,7 +306,7 @@ export async function waiverReport(cfg: FantasyConfig, opts: { team?: string; we
     const r = await espnGet<{ transactions?: RawTx[] }>(`${base}?view=mTransactions2&scoringPeriodId=${sp}`, cfg).catch(() => ({ transactions: [] }));
     txs.push(...(r.transactions ?? []).filter((x) => x.scoringPeriodId === sp));
   }
-  const ids = [...new Set(txs.flatMap((x) => x.items.filter((i) => i.type === "ADD" || i.type === "DROP").map((i) => i.playerId)))];
+  const ids = txPlayerIds(txs);
   const names = new Map<number, string>();
   if (ids.length) {
     const players = await espnGet<RawPoolPlayer[]>(`${FANTASY_BASE}/${league.seasonId}/players?view=players_wl`, cfg, {
@@ -309,7 +325,7 @@ export async function waiverReport(cfg: FantasyConfig, opts: { team?: string; we
         opts.position ? sleeperProjector(league.seasonId, nflWeek, scoring).then((a) => a ?? undefined) : undefined,
       ]);
   return buildWaiverReport({
-    league, pool: poolRes.players, proTeams, week: nflWeek, teamId: team?.id, txs, names, sleeper, focus: opts.position, alt,
+    league, pool: poolRes.players ?? [], proTeams, week: nflWeek, teamId: team?.id, txs, names, sleeper, focus: opts.position, alt,
   });
 }
 
