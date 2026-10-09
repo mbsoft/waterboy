@@ -1,6 +1,6 @@
 {
   "name": "waterboy-agent",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "Waterboy: a local iMessage <-> Claude assistant for macOS, built on the Claude Agent SDK",
   "license": "MIT",
