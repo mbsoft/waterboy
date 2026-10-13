@@ -42,7 +42,9 @@
   }
 
   function label(el) {
-    return (el.getAttribute("data-track-label") || el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80);
+    var img = el.querySelector && el.querySelector("img[alt]");
+    var text = el.getAttribute("data-track-label") || el.getAttribute("aria-label") || (el.textContent || "").trim() || (img ? img.getAttribute("alt") : "");
+    return text.replace(/\s+/g, " ").trim().slice(0, 80);
   }
 
   // Named click events, classified by where the link goes, so pages need no markup changes.
