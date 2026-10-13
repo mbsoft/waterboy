@@ -10,7 +10,7 @@
  * - Named events (for funnels): download_dmg, watch_demo, visit_site, view_code, featured_click.
  */
 (function () {
-  var KEY = "phc_REPLACE_WITH_PROJECT_API_KEY"; // public project key (phc_…), never a personal key (phx_…)
+  var KEY = "phc_qpUrD9JPQ6RPmLqi8YyV3Ueo5SDBr4nEtUUiRNadoTi2"; // public project key (phc_…), never a personal key (phx_…)
   var HOST = "https://us.i.posthog.com";        // EU cloud: https://eu.i.posthog.com
   var LIVE = /(^|\.)mbsoft\.(github\.io|com)$/;
 
