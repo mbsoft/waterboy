@@ -10,7 +10,7 @@ export const MEMORY_FILE = "MEMORY.md";
  * session's system prompt and reuses it on resume, so a session created under an older
  * policy is discarded rather than resumed.
  */
-export const POLICY_VERSION = { full: "full-14", group: "group-14", fantasy: "fantasy-6" } as const;
+export const POLICY_VERSION = { full: "full-15", group: "group-14", fantasy: "fantasy-7" } as const;
 export const MAX_MEMORY_CHARS = 8000;
 
 export const HELP = `Commands:

@@ -7,6 +7,10 @@ publishes it as the GitHub Release notes.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Waterboy knows whose team it is again.** Since fantasy teams moved to ESPN ids, the system prompt stopped saying which team a person manages, so Waterboy could ask "which team is yours?" in a 1:1 chat. The team is named again by its current name, and existing chats pick it up on their next message.
+
 ## [0.4.2] - 2026-10-09
 
 ### Highlights
