@@ -13,6 +13,7 @@ import { ConsoleSender, type ChatTarget } from "../src/messages/sender.ts";
 import type { AgentRequest, AgentRunner } from "../src/assistants/types.ts";
 import type { Config } from "../src/config.ts";
 import { addChat, addHandle, addMessage, makeFakeChatDb } from "./helpers.ts";
+import { mergeTeams, setTeamNames } from "../src/fantasy/teamNames.ts";
 
 test("attributedBody decode: short and long strings", () => {
   assert.equal(decodeAttributedBody(encodeAttributedBodyForTest("hello there")), "hello there");
@@ -311,6 +312,34 @@ test("chat access: a fantasy-only person gets the locked-down fantasy profile in
   bot.handleIncoming([msg({ text: "what's the weather?" })]);
   await bot.idle();
   assert.equal(agent.calls.at(-1)!.profile, "full");
+});
+
+test("chat access: a team mapped by ESPN id is named in the prompt by its current name", async () => {
+  const { bot, agent } = setup({
+    allowedChats: ["+16145551234", "+16145550000"],
+    contacts: { "+16145550000": "Suze" },
+    chatAccess: { "(614) 555-0000": "fantasy" },
+    fantasy: { espnLeagueId: "1", teams: { "+16145550000": 4 } },
+  });
+  const suze = { sender: "+16145550000", chatGuid: "iMessage;-;+16145550000", chatIdentifier: "+16145550000" };
+
+  // Before team names have synced, the id still reaches the prompt
+  setTeamNames(null);
+  bot.handleIncoming([msg({ ...suze, text: "who should I pick up at QB?" })]);
+  await bot.idle();
+  assert.match(agent.calls.at(-1)!.systemAppend, /texting 1:1 with Suze, who manages "ESPN team 4"/);
+
+  // Once synced, the current name is used
+  const team = (id: number, name: string) => ({ id, name, abbrev: name.slice(0, 3).toUpperCase(), owner: "" });
+  setTeamNames(mergeTeams(null, [team(4, "Hurts to Walker This Way"), team(6, "Mimi's Magic Mix")], Date.now()).state);
+  try {
+    bot.handleIncoming([msg({ ...suze, text: "who should I drop?" })]);
+    await bot.idle();
+    assert.match(agent.calls.at(-1)!.systemAppend, /texting 1:1 with Suze, who manages "Hurts to Walker This Way"/);
+    assert.equal(agent.calls.at(-1)!.fantasyMe, 4);
+  } finally {
+    setTeamNames(null);
+  }
 });
 
 test("bot: typing indicator runs during a turn and is cleared before the reply, not for commands", async () => {

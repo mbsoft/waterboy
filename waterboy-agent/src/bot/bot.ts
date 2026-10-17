@@ -117,6 +117,17 @@ export class Bot {
     return askers.length === 1 ? (this.fantasyTeamFor(askers[0]) ?? null) : null;
   }
 
+  /**
+   * The sender's fantasy team for the system prompt, by its current name. fantasy.teams holds ESPN
+   * team ids; the prompt needs a name, so an id resolves through the saved team names (or
+   * "ESPN team N" before they've synced).
+   */
+  private promptTeam(handle: string | null | undefined): string | undefined {
+    const team = this.fantasyTeamFor(handle);
+    if (team === undefined) return undefined;
+    return teamLabel(team) ?? `ESPN team ${team}`;
+  }
+
   /** "Tess" or, when their fantasy team is known, "Tess (Tess's Tailgaters)", with the team's current name. */
   private senderWithTeam(handle: string | null): string {
     const team = teamLabel(this.fantasyTeamFor(handle));
@@ -436,7 +447,7 @@ export class Bot {
 
   /** The prompt context for a chat (see prompts.ts). */
   private promptContext(q: ChatQueue): PromptContext {
-    return { agentName: this.cfg.agentName, fantasy: !!this.cfg.fantasy, isGroup: q.target.isGroup, label: q.label, team: this.fantasyTeamFor(q.target.handle) };
+    return { agentName: this.cfg.agentName, fantasy: !!this.cfg.fantasy, isGroup: q.target.isGroup, label: q.label, team: this.promptTeam(q.target.handle) };
   }
 
   /** Complete system prompt for group chats and fantasy-only 1:1 chats: fantasy football only. */
